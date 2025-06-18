@@ -150,13 +150,22 @@ export default function ScorecardPage() {
                   <TileView tile={tile} editMode={editMode} />
                   {editMode && (
                     <div className="flex gap-2 text-sm">
-                      <button onClick={() => duplicateTile(tile)} aria-label="Duplicate">
+                      <button
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={() => duplicateTile(tile)}
+                        aria-label="Duplicate"
+                      >
                         <DuplicateIcon className="w-5 h-5" />
                       </button>
-                      <button onClick={() => removeTile(tile.id)} aria-label="Remove">
+                      <button
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={() => removeTile(tile.id)}
+                        aria-label="Remove"
+                      >
                         <TrashIcon className="w-5 h-5 text-red-600" />
                       </button>
                       <button
+                        onPointerDown={e => e.stopPropagation()}
                         onClick={() =>
                           router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)
                         }
