@@ -2,7 +2,7 @@
 import { useScorecards, Scorecard, Tile } from '../scorecards/store';
 import type { ChangeEvent } from 'react';
 
-export default function ImportExport() {
+export default function ImportExport({ vertical = false }: { vertical?: boolean }) {
   const { scorecards, updateScorecard } = useScorecards();
 
   function exportJSON() {
@@ -53,13 +53,27 @@ export default function ImportExport() {
     reader.readAsText(file);
   }
 
+  const container = vertical ? 'flex flex-col space-y-2 mt-4' : 'space-x-2 mt-4';
+  const btn = vertical
+    ? 'flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700'
+    : 'underline';
+
   return (
-    <div className="space-x-2 mt-4">
-      <button className="underline" onClick={exportJSON}>Export JSON</button>
-      <button className="underline" onClick={exportCSV}>Export CSV</button>
-      <label className="underline cursor-pointer">
+    <div className={container}>
+      <button className={btn} onClick={exportJSON}>
+        Export JSON
+      </button>
+      <button className={btn} onClick={exportCSV}>
+        Export CSV
+      </button>
+      <label className={`${btn} cursor-pointer`}>
         Import
-        <input type="file" accept="application/json" className="hidden" onChange={importData} />
+        <input
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={importData}
+        />
       </label>
     </div>
   );
