@@ -1,7 +1,7 @@
 'use client';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useScorecards } from '../../store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function InputPage() {
   const params = useParams<{ id: string }>();
@@ -10,7 +10,14 @@ export default function InputPage() {
   const editId = search.get('edit');
   const { scorecards, updateScorecard } = useScorecards();
   const card = scorecards.find(c => c.id === params.id);
-  if (!card) return <p className="p-4">Scorecard not found</p>;
+
+  useEffect(() => {
+    if (!card) {
+      router.replace('/');
+    }
+  }, [card, router]);
+
+  if (!card) return null;
   const current = card;
   const [values, setValues] = useState<Record<string, string>>({});
   const [names, setNames] = useState<Record<string, string>>({});

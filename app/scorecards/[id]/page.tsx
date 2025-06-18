@@ -23,11 +23,22 @@ export default function ScorecardPage() {
   const params = useParams<{ id: string }>();
   const { scorecards, updateScorecard, removeScorecard } = useScorecards();
   const card = scorecards.find(c => c.id === params.id);
-  if (!card) return <p className="p-4">Scorecard not found</p>;
-  const current = card;
   const [editingName, setEditingName] = useState(false);
-  const [name, setName] = useState(current.name);
+  const [name, setName] = useState(card?.name || '');
   const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    if (!card) {
+      router.replace('/');
+    }
+  }, [card, router]);
+
+  useEffect(() => {
+    if (card) setName(card.name);
+  }, [card]);
+
+  if (!card) return null;
+  const current = card;
 
   useEffect(() => {
     const stored = localStorage.getItem('edit-mode');
