@@ -86,7 +86,6 @@ export default function ScorecardPage() {
           </button>
         )}
       </div>
-
       {editMode && (
         <button className="mt-4 bg-blue-600 text-white px-3 py-1" onClick={addTile}>
           Add Tile

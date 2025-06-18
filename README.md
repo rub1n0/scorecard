@@ -14,6 +14,7 @@ This repository includes a simple Next.js 14 application located in `kpi-dashboa
 - Trending indicators appear beside the KPI value
 - Last updated timestamps show only in edit mode
 - Collapsible sidebar for navigation
+=======
 - Input page to update values (with delta and trend updates)
 - Drag-and-drop tile rearrangement using `@dnd-kit`
 - LocalStorage persistence, light/dark mode, and data import/export (JSON/CSV)
