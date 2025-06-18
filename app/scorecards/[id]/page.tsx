@@ -1,6 +1,6 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
-import { useScorecards, Scorecard, Tile } from '../store';
+import { useScorecards, Tile } from '../store';
 import { useState } from 'react';
 import {
   DndContext,
@@ -26,6 +26,7 @@ export default function ScorecardPage() {
   const current = card;
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(current.name);
+  const [editMode, setEditMode] = useState(false);
 
   const sensors = [useSensor(PointerSensor)];
 
@@ -40,8 +41,7 @@ export default function ScorecardPage() {
   }
 
   function addTile() {
-    const tile: Tile = { id: nanoid(), title: 'New KPI', value: null, previousValue: null, timestamp: null };
-    updateScorecard({ ...current, tiles: [...current.tiles, tile] });
+    router.push(`/scorecards/${current.id}/add`);
   }
 
   function removeTile(id: string) {
@@ -59,7 +59,11 @@ export default function ScorecardPage() {
       <div className="flex items-center gap-2 mt-4">
         {editingName ? (
           <>
-            <input className="border p-1" value={name} onChange={e => setName(e.target.value)} />
+            <input
+              className="border p-1"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
             <button
               className="text-sm underline"
               onClick={() => {
@@ -71,23 +75,46 @@ export default function ScorecardPage() {
             </button>
           </>
         ) : (
-          <h1 className="text-2xl font-bold" onClick={() => setEditingName(true)}>{current.name}</h1>
+          <h1 className="text-2xl font-bold">{current.name}</h1>
+        )}
+        <button className="text-sm underline" onClick={() => setEditMode(m => !m)}>
+          {editMode ? 'Done' : 'Edit'}
+        </button>
+        {editMode && !editingName && (
+          <button className="text-sm underline" onClick={() => setEditingName(true)}>
+            Rename
+          </button>
         )}
       </div>
 
-      <button className="mt-4 bg-blue-600 text-white px-3 py-1" onClick={addTile}>Add Tile</button>
+      {editMode && (
+        <button className="mt-4 bg-blue-600 text-white px-3 py-1" onClick={addTile}>
+          Add Tile
+        </button>
+      )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={current.tiles.map(t => t.id)} strategy={verticalListSortingStrategy}>
           <div className="grid md:grid-cols-6 gap-4 mt-4">
             {current.tiles.map(tile => (
               <div key={tile.id} id={tile.id} className="space-y-2">
-                <TileView tile={tile} />
-                <div className="flex gap-2 text-sm">
-                  <button className="underline" onClick={() => duplicateTile(tile)}>Duplicate</button>
-                  <button className="underline text-red-600" onClick={() => removeTile(tile.id)}>Remove</button>
-                  <button className="underline" onClick={() => router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)}>Edit</button>
-                </div>
+                <TileView tile={tile} editMode={editMode} />
+                {editMode && (
+                  <div className="flex gap-2 text-sm">
+                    <button className="underline" onClick={() => duplicateTile(tile)}>
+                      Duplicate
+                    </button>
+                    <button className="underline text-red-600" onClick={() => removeTile(tile.id)}>
+                      Remove
+                    </button>
+                    <button
+                      className="underline"
+                      onClick={() => router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -8,6 +8,8 @@ export interface Tile {
   value: number | null;
   previousValue: number | null;
   timestamp: string | null;
+  history: number[];
+  showSparkline: boolean;
 }
 
 export interface Scorecard {
