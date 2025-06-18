@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import 'flowbite';
 import Link from 'next/link';
-import { ScorecardsProvider } from '../scorecards/store';
+import { useScorecards } from '../scorecards/store';
 import { BarsIcon, CloseIcon, HomeIcon, MoonIcon, SunIcon } from './icons';
 import ImportExport from './ImportExport';
 
@@ -14,8 +14,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
 
+  const { scorecards } = useScorecards();
+
   return (
-    <ScorecardsProvider>
       <div className="flex min-h-screen">
         <aside
           className={`fixed top-0 left-0 z-40 w-64 h-screen transition-transform bg-gray-50 dark:bg-gray-800 ${open ? 'translate-x-0' : '-translate-x-full'}`}
@@ -29,6 +30,28 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                 <HomeIcon className="w-5 h-5 mr-3" />
                 Home
               </Link>
+              <details>
+                <summary className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer">
+                  Scorecards
+                </summary>
+                <nav className="ml-4 flex flex-col mt-1">
+                  {scorecards.map(card => (
+                    <Link
+                      key={card.id}
+                      href={`/scorecards/${card.id}`}
+                      className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                      {card.name}
+                    </Link>
+                  ))}
+                  <Link
+                    href="/scorecards/new"
+                    className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Create
+                  </Link>
+                </nav>
+              </details>
               <ImportExport vertical />
             </nav>
             <button
@@ -64,6 +87,5 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
           <main>{children}</main>
         </div>
       </div>
-    </ScorecardsProvider>
   );
 }
