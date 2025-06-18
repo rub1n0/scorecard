@@ -6,16 +6,6 @@ import { nanoid } from 'nanoid';
 export default function ImportExport({ vertical = false }: { vertical?: boolean }) {
   const { scorecards, updateScorecard, createScorecard } = useScorecards();
 
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(scorecards, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'scorecards.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   function csvEscape(value: string | number | null) {
     const str = value ?? '';
     const escaped = String(str).replace(/"/g, '""');
@@ -115,31 +105,18 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
 
   return (
     <div className={container}>
-      <details>
-        <summary className={item}>Export</summary>
-        <div className="ml-4 flex flex-col">
-          <button className={item} onClick={exportJSON}>
-            JSON
-          </button>
-          <button className={item} onClick={exportCSV}>
-            CSV
-          </button>
-        </div>
-      </details>
-      <details>
-        <summary className={item}>Import</summary>
-          <div className="ml-4 flex flex-col">
-            <label className={`${item} cursor-pointer`}>
-              CSV
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onChange={importCSV}
-              />
-          </label>
-        </div>
-      </details>
+      <button className={item} onClick={exportCSV}>
+        Export
+      </button>
+      <label className={`${item} cursor-pointer`}>
+        Import
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={importCSV}
+        />
+      </label>
     </div>
   );
 }

@@ -68,7 +68,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
           </div>
         </aside>
         <div className={`flex-1 transition-all ${open ? 'ml-64' : ''}`}>
-          <header className="p-4 flex justify-between">
+          <header className="p-1 flex justify-between">
             <div className="flex items-center gap-2">
               <button
                 className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -81,7 +81,6 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                   <BarsIcon className="w-6 h-6" />
                 )}
               </button>
-              <h1 className="font-bold">KPI Scorecard</h1>
             </div>
           </header>
           <main>{children}</main>
