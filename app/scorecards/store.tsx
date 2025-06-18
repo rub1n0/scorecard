@@ -10,6 +10,7 @@ export interface Tile {
   timestamp: string | null;
   history: number[];
   showSparkline: boolean;
+  showArea: boolean;
 }
 
 export interface Scorecard {

@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import { useScorecards } from './scorecards/store';
 import { useState } from 'react';
-import ImportExport from './components/ImportExport';
 
 export default function HomePage() {
   const { scorecards, updateScorecard } = useScorecards();
@@ -56,7 +55,6 @@ export default function HomePage() {
       <Link href="/scorecards/new" className="mt-4 inline-block text-blue-500 underline">
         Create Scorecard
       </Link>
-      <ImportExport />
     </main>
   );
 }

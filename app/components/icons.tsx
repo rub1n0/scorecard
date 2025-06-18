@@ -30,3 +30,21 @@ export const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
   </svg>
 );
+
+export const DuplicateIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25V20.625c0 .621-.504 1.125-1.125 1.125h-9.75A1.125 1.125 0 014.75 20.625V7.875c0-.621.504-1.125 1.125-1.125h1.875m8 10.5h3.375c.621 0 1.125-.504 1.125-1.125V11.25A8.999 8.999 0 0012.75 3.375H9.75" />
+  </svg>
+);
+
+export const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487 19.5 7.125M18.75 3.75 8.284 14.216a3 3 0 00-.764 1.32L7.2 17l1.464-.32a3 3 0 001.32-.764L18.75 6.75M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5" />
+  </svg>
+);
+
+export const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9l.346 9m4.154 0L14.596 9M4.772 5.791l1.068 13.882A1.875 1.875 0 007.716 21.75h8.568a1.875 1.875 0 001.876-2.077L19.228 5.79M4.772 5.791A48.108 48.108 0 0112 5.25c2.511 0 4.964.182 7.228.541M15.75 5.394V4.478A2.25 2.25 0 0013.66 2.277 48.36 48.36 0 0012 2.25c-.554 0-1.108.009-1.66.027A2.25 2.25 0 008.25 4.478v.916" />
+  </svg>
+);

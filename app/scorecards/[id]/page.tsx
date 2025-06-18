@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import TileView from '../../components/Tile';
 import { nanoid } from 'nanoid';
+import { DuplicateIcon, EditIcon, TrashIcon } from '../../components/icons';
 
 export default function ScorecardPage() {
   const router = useRouter();
@@ -64,7 +65,6 @@ export default function ScorecardPage() {
 
   return (
     <main className="p-4">
-      <button className="text-blue-500 underline" onClick={() => router.push('/')}>Back</button>
       <div className="flex items-center gap-2 mt-4">
         {editingName ? (
           <>
@@ -109,17 +109,17 @@ export default function ScorecardPage() {
                 <TileView tile={tile} editMode={editMode} />
                 {editMode && (
                   <div className="flex gap-2 text-sm">
-                    <button className="underline" onClick={() => duplicateTile(tile)}>
-                      Duplicate
+                    <button onClick={() => duplicateTile(tile)} aria-label="Duplicate">
+                      <DuplicateIcon className="w-5 h-5" />
                     </button>
-                    <button className="underline text-red-600" onClick={() => removeTile(tile.id)}>
-                      Remove
+                    <button onClick={() => removeTile(tile.id)} aria-label="Remove">
+                      <TrashIcon className="w-5 h-5 text-red-600" />
                     </button>
                     <button
-                      className="underline"
                       onClick={() => router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)}
+                      aria-label="Edit"
                     >
-                      Edit
+                      <EditIcon className="w-5 h-5" />
                     </button>
                   </div>
                 )}

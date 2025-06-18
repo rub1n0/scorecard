@@ -7,6 +7,7 @@ export default function TileView({ tile, editMode }: { tile: Tile; editMode?: bo
 
   const history = tile.history || [];
   let path = '';
+  let area = '';
   if (tile.showSparkline && history.length > 1) {
     const max = Math.max(...history);
     const min = Math.min(...history);
@@ -18,6 +19,7 @@ export default function TileView({ tile, editMode }: { tile: Tile; editMode?: bo
         return `${i === 0 ? 'M' : 'L'}${x},${y}`;
       })
       .join(' ');
+    area = `${path} L100,20 L0,20 Z`;
   }
   return (
     <div className="border p-4 rounded bg-gray-50 dark:bg-gray-800">
@@ -32,6 +34,7 @@ export default function TileView({ tile, editMode }: { tile: Tile; editMode?: bo
       </div>
       {tile.showSparkline && history.length > 1 && (
         <svg viewBox="0 0 100 20" className="w-full h-5 mt-1">
+          {tile.showArea && <path d={area} fill="currentColor" opacity="0.2" />} 
           <path d={path} fill="none" stroke="currentColor" strokeWidth="1" />
         </svg>
       )}
