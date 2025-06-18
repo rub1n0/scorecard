@@ -1,7 +1,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useScorecards, Tile } from '../store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DndContext,
   useSensor,
@@ -27,6 +27,15 @@ export default function ScorecardPage() {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(current.name);
   const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('edit-mode');
+    if (stored === 'true') setEditMode(true);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('edit-mode', editMode ? 'true' : 'false');
+  }, [editMode]);
 
   const sensors = [useSensor(PointerSensor)];
 
