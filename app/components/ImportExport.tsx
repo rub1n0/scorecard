@@ -95,7 +95,8 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
       lines.forEach(line => {
         const cleaned = line.trim();
         if (!cleaned) return;
-        const parts = cleaned.slice(1, -1).split(/","/).map(p => p.replace(/""/g, '"'));
+        // const parts = cleaned.slice(1, -1).split(/","/).map(p => p.replace(/""/g, '"'));
+        const parts = cleaned.split(",").map(p => p.replace(/""/g, '"'));
         const [cardName, title, valueStr, prevStr, ts, units = '', side = 'right'] = parts;
         const numVal = parseFloat(valueStr);
         const numPrev = parseFloat(prevStr);
