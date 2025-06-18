@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import 'flowbite';
 import { ScorecardsProvider } from '../scorecards/store';
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {

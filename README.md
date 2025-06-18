@@ -3,7 +3,7 @@ Scorecard
 
 ## KPI Dashboard
 
-This repository includes a simple Next.js 14 application located in `kpi-dashboard/`. The app is written in TypeScript and styled with Tailwind CSS. It provides a personal KPI scorecard dashboard with the ability to manage multiple scorecards, update KPI values, and import/export data.
+This repository includes a simple Next.js 14 application located in `kpi-dashboard/`. The app is written in TypeScript and styled with Tailwind CSS and [Flowbite](https://flowbite.com/). It provides a personal KPI scorecard dashboard with the ability to manage multiple scorecards, update KPI values, and import/export data. The global font is set to [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) for a distinctive look.
 
 ### Features
 - Create, rename, and remove scorecards
