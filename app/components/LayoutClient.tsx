@@ -20,8 +20,8 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         <aside
           className={`fixed top-0 left-0 z-40 w-64 h-screen transition-transform bg-gray-50 dark:bg-gray-800 ${open ? 'translate-x-0' : '-translate-x-full'}`}
         >
-          <div className="h-full px-3 py-4 overflow-y-auto">
-            <nav className="space-y-2">
+          <div className="h-full px-3 py-4 overflow-y-auto flex flex-col">
+            <nav className="space-y-2 flex-1">
               <Link
                 href="/"
                 className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -29,19 +29,19 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                 <HomeIcon className="w-5 h-5 mr-3" />
                 Home
               </Link>
-              <button
-                className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
-                onClick={() => setDark(d => !d)}
-              >
-                {dark ? (
-                  <SunIcon className="w-5 h-5 mr-3" />
-                ) : (
-                  <MoonIcon className="w-5 h-5 mr-3" />
-                )}
-                {dark ? 'Light' : 'Dark'} Mode
-              </button>
               <ImportExport vertical />
             </nav>
+            <button
+              className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 mt-2"
+              onClick={() => setDark(d => !d)}
+            >
+              {dark ? (
+                <SunIcon className="w-5 h-5 mr-3" />
+              ) : (
+                <MoonIcon className="w-5 h-5 mr-3" />
+              )}
+              {dark ? 'Light' : 'Dark'} Mode
+            </button>
           </div>
         </aside>
         <div className={`flex-1 transition-all ${open ? 'ml-64' : ''}`}>

@@ -14,6 +14,7 @@ export default function AddTilePage() {
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
   const [spark, setSpark] = useState(false);
+  const [area, setArea] = useState(false);
 
   function save() {
     const num = parseFloat(value);
@@ -26,6 +27,7 @@ export default function AddTilePage() {
       timestamp: val !== null ? new Date().toISOString() : null,
       history: val !== null ? [val] : [],
       showSparkline: spark,
+      showArea: area,
     };
     updateScorecard({ ...current, tiles: [...current.tiles, tile] });
     router.push(`/scorecards/${current.id}`);
@@ -52,13 +54,21 @@ export default function AddTilePage() {
           value={value}
           onChange={e => setValue(e.target.value)}
         />
-        <label className="flex items-center gap-2 mb-4">
+        <label className="flex items-center gap-2 mb-2">
           <input
             type="checkbox"
             checked={spark}
             onChange={e => setSpark(e.target.checked)}
           />
           Enable sparkline
+        </label>
+        <label className="flex items-center gap-2 mb-4">
+          <input
+            type="checkbox"
+            checked={area}
+            onChange={e => setArea(e.target.checked)}
+          />
+          Sparkline area
         </label>
         <div className="flex justify-end gap-2">
           <button className="underline" onClick={close}>

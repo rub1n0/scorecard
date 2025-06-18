@@ -15,6 +15,7 @@ export default function InputPage() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [names, setNames] = useState<Record<string, string>>({});
   const [sparks, setSparks] = useState<Record<string, boolean>>({});
+  const [areas, setAreas] = useState<Record<string, boolean>>({});
 
   function handleSubmit() {
     const newTiles = current.tiles.map(tile => {
@@ -23,6 +24,7 @@ export default function InputPage() {
       let newTile = { ...tile };
       if (name !== undefined) newTile.title = name;
       if (sparks[tile.id] !== undefined) newTile.showSparkline = sparks[tile.id];
+      if (areas[tile.id] !== undefined) newTile.showArea = areas[tile.id];
       if (input !== undefined) {
         const num = parseFloat(input);
         if (!isNaN(num)) {
@@ -69,6 +71,14 @@ export default function InputPage() {
                 onChange={e => setSparks(v => ({ ...v, [tile.id]: e.target.checked }))}
               />
               Sparkline
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                defaultChecked={tile.showArea}
+                onChange={e => setAreas(v => ({ ...v, [tile.id]: e.target.checked }))}
+              />
+              Area
             </label>
           </div>
         ))}
