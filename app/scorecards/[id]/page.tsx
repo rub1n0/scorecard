@@ -21,7 +21,7 @@ import { DuplicateIcon, EditIcon, TrashIcon, CheckIcon } from '../../components/
 export default function ScorecardPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const { scorecards, updateScorecard } = useScorecards();
+  const { scorecards, updateScorecard, removeScorecard } = useScorecards();
   const card = scorecards.find(c => c.id === params.id);
   if (!card) return <p className="p-4">Scorecard not found</p>;
   const current = card;
@@ -63,6 +63,13 @@ export default function ScorecardPage() {
     updateScorecard({ ...current, tiles: [...current.tiles, copy] });
   }
 
+  function deleteCard() {
+    if (confirm('Delete this scorecard?')) {
+      removeScorecard(current.id);
+      router.push('/');
+    }
+  }
+
   return (
     <main className="p-4">
       <div className="flex items-center gap-2 mt-4">
@@ -98,13 +105,22 @@ export default function ScorecardPage() {
           )}
         </button>
         {editMode && !editingName && (
-          <button
-            className="text-sm"
-            onClick={() => setEditingName(true)}
-            aria-label="Rename"
-          >
-            <EditIcon className="w-5 h-5" />
-          </button>
+          <>
+            <button
+              className="text-sm"
+              onClick={() => setEditingName(true)}
+              aria-label="Rename"
+            >
+              <EditIcon className="w-5 h-5" />
+            </button>
+            <button
+              className="text-sm"
+              onClick={deleteCard}
+              aria-label="Delete"
+            >
+              <TrashIcon className="w-5 h-5 text-red-600" />
+            </button>
+          </>
         )}
       </div>
       {editMode && (
