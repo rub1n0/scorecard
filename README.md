@@ -14,9 +14,9 @@ This repository includes a simple Next.js 14 application located in `kpi-dashboa
 - Trending indicators appear beside the KPI value
 - Last updated timestamps show only in edit mode
 - Collapsible sidebar for navigation
-=======
 - Input page to update values (with delta and trend updates)
 - Drag-and-drop tile rearrangement using `@dnd-kit`
+- Delete scorecards from the edit screen using a trash icon
 - LocalStorage persistence, light/dark mode, and data import/export (JSON/CSV)
 
 To run the project locally you would normally install dependencies and start the dev server:
@@ -28,3 +28,37 @@ npm run dev
 ```
 
 However this container environment does not have internet access, so `npm install` cannot be executed here.
+
+### Import Templates
+
+JSON files should contain an array of scorecards in the same format that the application exports:
+
+```json
+[
+  {
+    "id": "<existing-id>",
+    "name": "My Scorecard",
+    "tiles": [
+      {
+        "id": "<tile-id>",
+        "title": "Revenue",
+        "value": 100,
+        "previousValue": 90,
+        "timestamp": "2024-01-01T00:00:00Z",
+        "history": [100],
+        "showSparkline": false,
+        "showArea": false,
+        "units": "$",
+        "unitSide": "left"
+      }
+    ]
+  }
+]
+```
+
+CSV imports expect one row per tile:
+
+```csv
+"Scorecard","Title","Value","Previous","Timestamp","Units","Side"
+"My Scorecard","Revenue","100","90","2024-01-01T00:00:00Z","$","left"
+```
