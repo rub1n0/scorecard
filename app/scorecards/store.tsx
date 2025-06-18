@@ -11,6 +11,8 @@ export interface Tile {
   history: number[];
   showSparkline: boolean;
   showArea: boolean;
+  units?: string;
+  unitSide?: 'left' | 'right';
 }
 
 export interface Scorecard {
