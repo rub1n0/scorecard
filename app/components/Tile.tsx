@@ -21,16 +21,20 @@ export default function TileView({ tile, editMode }: { tile: Tile; editMode?: bo
       .join(' ');
     area = `${path} L100,20 L0,20 Z`;
   }
+  const value =
+    tile.value !== null && tile.precision !== undefined
+      ? tile.value.toFixed(tile.precision)
+      : tile.value ?? '-';
   return (
     <div className="border p-4 rounded bg-gray-50 dark:bg-gray-800">
       <h3 className="font-semibold mb-2">{tile.title}</h3>
       <div className="flex items-baseline gap-2">
         {tile.unitSide === 'left' && tile.units && <span>{tile.units}</span>}
-        <p className="text-4xl font-bold">{tile.value ?? '-'}</p>
+        <p className="text-4xl font-bold">{value}</p>
         {tile.unitSide !== 'left' && tile.units && <span>{tile.units}</span>}
         {delta !== null && (
           <span className={positive ? 'text-green-500' : 'text-red-500'}>
-            {positive ? '▲' : '▼'} {delta.toFixed(2)}
+            {positive ? '▲' : '▼'} {delta.toFixed(tile.trendPrecision ?? 2)}
           </span>
         )}
       </div>

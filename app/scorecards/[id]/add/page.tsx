@@ -24,6 +24,8 @@ export default function AddTilePage() {
   const [area, setArea] = useState(false);
   const [units, setUnits] = useState('');
   const [unitSide, setUnitSide] = useState<'left' | 'right'>('right');
+  const [precision, setPrecision] = useState('0');
+  const [trendPrecision, setTrendPrecision] = useState('2');
 
   function save() {
     const num = parseFloat(value);
@@ -39,6 +41,8 @@ export default function AddTilePage() {
       showArea: area,
       units: units || undefined,
       unitSide,
+      precision: parseInt(precision) || 0,
+      trendPrecision: parseInt(trendPrecision) || 0,
     };
     updateScorecard({ ...current, tiles: [...current.tiles, tile] });
     router.push(`/scorecards/${current.id}`);
@@ -98,6 +102,20 @@ export default function AddTilePage() {
             <option value="right">Right</option>
           </select>
         </label>
+        <input
+          className="border p-2 w-full mb-2"
+          placeholder="Value precision"
+          type="number"
+          value={precision}
+          onChange={e => setPrecision(e.target.value)}
+        />
+        <input
+          className="border p-2 w-full mb-4"
+          placeholder="Trend precision"
+          type="number"
+          value={trendPrecision}
+          onChange={e => setTrendPrecision(e.target.value)}
+        />
         <div className="flex justify-end gap-2">
           <button className="underline" onClick={close}>
             Cancel

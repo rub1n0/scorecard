@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import TileView from '../../components/Tile';
+import SortableItem from '../../components/SortableItem';
 import { nanoid } from 'nanoid';
 import { DuplicateIcon, EditIcon, TrashIcon, CheckIcon } from '../../components/icons';
 
@@ -144,25 +145,29 @@ export default function ScorecardPage() {
           <SortableContext items={current.tiles.map(t => t.id)} strategy={verticalListSortingStrategy}>
           <div className="grid md:grid-cols-6 gap-4 mt-4">
             {current.tiles.map(tile => (
-              <div key={tile.id} id={tile.id} className="space-y-2">
-                <TileView tile={tile} editMode={editMode} />
-                {editMode && (
-                  <div className="flex gap-2 text-sm">
-                    <button onClick={() => duplicateTile(tile)} aria-label="Duplicate">
-                      <DuplicateIcon className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => removeTile(tile.id)} aria-label="Remove">
-                      <TrashIcon className="w-5 h-5 text-red-600" />
-                    </button>
-                    <button
-                      onClick={() => router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)}
-                      aria-label="Edit"
-                    >
-                      <EditIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
+              <SortableItem key={tile.id} id={tile.id}>
+                <div className="space-y-2">
+                  <TileView tile={tile} editMode={editMode} />
+                  {editMode && (
+                    <div className="flex gap-2 text-sm">
+                      <button onClick={() => duplicateTile(tile)} aria-label="Duplicate">
+                        <DuplicateIcon className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => removeTile(tile.id)} aria-label="Remove">
+                        <TrashIcon className="w-5 h-5 text-red-600" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)
+                        }
+                        aria-label="Edit"
+                      >
+                        <EditIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </SortableItem>
             ))}
           </div>
         </SortableContext>

@@ -25,6 +25,8 @@ export default function InputPage() {
   const [areas, setAreas] = useState<Record<string, boolean>>({});
   const [units, setUnits] = useState<Record<string, string>>({});
   const [sides, setSides] = useState<Record<string, 'left' | 'right'>>({});
+  const [precisions, setPrecisions] = useState<Record<string, string>>({});
+  const [trendPrecisions, setTrendPrecisions] = useState<Record<string, string>>({});
 
   function handleSubmit() {
     const newTiles = current.tiles.map(tile => {
@@ -36,6 +38,10 @@ export default function InputPage() {
       if (areas[tile.id] !== undefined) newTile.showArea = areas[tile.id];
       if (units[tile.id] !== undefined) newTile.units = units[tile.id] || undefined;
       if (sides[tile.id] !== undefined) newTile.unitSide = sides[tile.id];
+      if (precisions[tile.id] !== undefined)
+        newTile.precision = parseInt(precisions[tile.id]) || 0;
+      if (trendPrecisions[tile.id] !== undefined)
+        newTile.trendPrecision = parseInt(trendPrecisions[tile.id]) || 0;
       if (input !== undefined) {
         const num = parseFloat(input);
         if (!isNaN(num)) {
@@ -110,6 +116,22 @@ export default function InputPage() {
                 <option value="right">Right</option>
               </select>
             </label>
+            <input
+              className="border p-2 w-full"
+              type="number"
+              placeholder="Value precision"
+              defaultValue={tile.precision ?? 0}
+              onChange={e => setPrecisions(v => ({ ...v, [tile.id]: e.target.value }))}
+            />
+            <input
+              className="border p-2 w-full"
+              type="number"
+              placeholder="Trend precision"
+              defaultValue={tile.trendPrecision ?? 0}
+              onChange={e =>
+                setTrendPrecisions(v => ({ ...v, [tile.id]: e.target.value }))
+              }
+            />
           </div>
         ))}
       </div>

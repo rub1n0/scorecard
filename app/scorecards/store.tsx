@@ -13,6 +13,8 @@ export interface Tile {
   showArea: boolean;
   units?: string;
   unitSide?: 'left' | 'right';
+  precision?: number;
+  trendPrecision?: number;
 }
 
 export interface Scorecard {
