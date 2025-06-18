@@ -17,12 +17,13 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
     <ScorecardsProvider>
       <div className="flex min-h-screen">
         <aside
-          className={`fixed top-0 left-0 z-40 w-64 h-screen transition-transform bg-gray-50 dark:bg-gray-800 ${open ? '' : '-translate-x-full'} md:translate-x-0`}
+          className={`fixed top-0 left-0 z-40 w-64 h-screen transition-transform bg-gray-50 dark:bg-gray-800 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
         >
           <div className="h-full px-3 py-4 overflow-y-auto">
             <button
               className="md:hidden mb-4 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
               onClick={() => setOpen(false)}
+              aria-label="Close sidebar"
             >
               <CloseIcon className="w-6 h-6" />
             </button>
@@ -54,6 +55,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               <button
                 className="md:hidden p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
                 onClick={() => setOpen(o => !o)}
+                aria-label="Open sidebar"
               >
                 <BarsIcon className="w-6 h-6" />
               </button>
