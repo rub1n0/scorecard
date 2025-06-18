@@ -8,6 +8,8 @@ This repository includes a simple Next.js 14 application located in `kpi-dashboa
 ### Features
 - Create, rename, and remove scorecards
 - Add, edit, duplicate, and remove KPI tiles
+- Dedicated edit mode with Flowbite modal for adding tiles
+- Scorecard names can be renamed from the home page
 - Input page to update values (with delta and trend updates)
 - Drag-and-drop tile rearrangement using `@dnd-kit`
 - LocalStorage persistence, light/dark mode, and data import/export (JSON/CSV)
