@@ -79,7 +79,7 @@ export default function ScorecardPage() {
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={current.tiles.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          <div className="grid md:grid-cols-3 gap-4 mt-4">
+          <div className="grid md:grid-cols-6 gap-4 mt-4">
             {current.tiles.map(tile => (
               <div key={tile.id} id={tile.id} className="space-y-2">
                 <TileView tile={tile} />
