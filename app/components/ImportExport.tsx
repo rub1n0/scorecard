@@ -58,28 +58,6 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
     URL.revokeObjectURL(url);
   }
 
-  function importJSON(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const json = JSON.parse(reader.result as string) as Scorecard[];
-        json.forEach(card => {
-          const existing = scorecards.find(c => c.id === card.id);
-          if (existing) {
-            updateScorecard(card);
-          } else {
-            const base = createScorecard(card.name);
-            updateScorecard({ ...base, tiles: card.tiles });
-          }
-        });
-      } catch (err) {
-        alert('Invalid JSON');
-      }
-    };
-    reader.readAsText(file);
-  }
 
   function importCSV(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -150,24 +128,15 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
       </details>
       <details>
         <summary className={item}>Import</summary>
-        <div className="ml-4 flex flex-col">
-          <label className={`${item} cursor-pointer`}>
-            JSON
-            <input
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={importJSON}
-            />
-          </label>
-          <label className={`${item} cursor-pointer`}>
-            CSV
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={importCSV}
-            />
+          <div className="ml-4 flex flex-col">
+            <label className={`${item} cursor-pointer`}>
+              CSV
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={importCSV}
+              />
           </label>
         </div>
       </details>
