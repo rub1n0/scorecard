@@ -1,7 +1,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useScorecards, Tile } from '../../store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
 
 export default function AddTilePage() {
@@ -9,7 +9,14 @@ export default function AddTilePage() {
   const router = useRouter();
   const { scorecards, updateScorecard } = useScorecards();
   const card = scorecards.find(c => c.id === params.id);
-  if (!card) return <p className="p-4">Scorecard not found</p>;
+
+  useEffect(() => {
+    if (!card) {
+      router.replace('/');
+    }
+  }, [card, router]);
+
+  if (!card) return null;
   const current = card;
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');

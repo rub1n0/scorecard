@@ -23,6 +23,17 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
   }
 
   function exportCSV() {
+    const header = [
+      'Scorecard',
+      'Title',
+      'Value',
+      'Previous',
+      'Timestamp',
+      'Units',
+      'Side',
+    ]
+      .map(csvEscape)
+      .join(',');
     const rows = scorecards.flatMap((card: Scorecard) =>
       card.tiles.map((tile: Tile) =>
         [
@@ -38,7 +49,7 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
           .join(',')
       )
     );
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const blob = new Blob([ [header, ...rows].join('\n') ], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -54,7 +65,15 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
     reader.onload = () => {
       try {
         const json = JSON.parse(reader.result as string) as Scorecard[];
-        json.forEach(updateScorecard);
+        json.forEach(card => {
+          const existing = scorecards.find(c => c.id === card.id);
+          if (existing) {
+            updateScorecard(card);
+          } else {
+            const base = createScorecard(card.name);
+            updateScorecard({ ...base, tiles: card.tiles });
+          }
+        });
       } catch (err) {
         alert('Invalid JSON');
       }
@@ -69,6 +88,9 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
     reader.onload = () => {
       const text = reader.result as string;
       const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines[0] && lines[0].startsWith('"Scorecard"')) {
+        lines.shift();
+      }
       const groups: Record<string, Tile[]> = {};
       lines.forEach(line => {
         const cleaned = line.trim();
@@ -95,8 +117,13 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
         groups[cardName].push(tile);
       });
       Object.entries(groups).forEach(([name, tiles]) => {
-        const base = createScorecard(name);
-        updateScorecard({ ...base, tiles });
+        const existing = scorecards.find(c => c.name === name);
+        if (existing) {
+          updateScorecard({ ...existing, tiles: [...existing.tiles, ...tiles] });
+        } else {
+          const base = createScorecard(name);
+          updateScorecard({ ...base, tiles });
+        }
       });
     };
     reader.readAsText(file);
