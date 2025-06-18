@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useScorecards } from './scorecards/store';
 import { useState } from 'react';
+import { EditIcon, PlusIcon } from './components/icons';
 
 export default function HomePage() {
   const { scorecards, updateScorecard } = useScorecards();
@@ -39,21 +40,26 @@ export default function HomePage() {
                   {card.name}
                 </Link>
                 <button
-                  className="ml-2 underline text-sm"
+                  className="ml-2 text-sm"
                   onClick={() => {
                     setEditingId(card.id);
                     setName(card.name);
                   }}
+                  aria-label="Rename"
                 >
-                  Rename
+                  <EditIcon className="w-4 h-4" />
                 </button>
               </>
             )}
           </li>
         ))}
       </ul>
-      <Link href="/scorecards/new" className="mt-4 inline-block text-blue-500 underline">
-        Create Scorecard
+      <Link
+        href="/scorecards/new"
+        className="mt-4 inline-block text-blue-500"
+        aria-label="Create Scorecard"
+      >
+        <PlusIcon className="w-6 h-6" />
       </Link>
     </main>
   );

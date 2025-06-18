@@ -48,3 +48,16 @@ export const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9l.346 9m4.154 0L14.596 9M4.772 5.791l1.068 13.882A1.875 1.875 0 007.716 21.75h8.568a1.875 1.875 0 001.876-2.077L19.228 5.79M4.772 5.791A48.108 48.108 0 0112 5.25c2.511 0 4.964.182 7.228.541M15.75 5.394V4.478A2.25 2.25 0 0013.66 2.277 48.36 48.36 0 0012 2.25c-.554 0-1.108.009-1.66.027A2.25 2.25 0 008.25 4.478v.916" />
   </svg>
 );
+
+export const PlusIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+);
+
+export const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+  </svg>
+);
+

@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import TileView from '../../components/Tile';
 import { nanoid } from 'nanoid';
-import { DuplicateIcon, EditIcon, TrashIcon } from '../../components/icons';
+import { DuplicateIcon, EditIcon, TrashIcon, CheckIcon } from '../../components/icons';
 
 export default function ScorecardPage() {
   const router = useRouter();
@@ -86,12 +86,24 @@ export default function ScorecardPage() {
         ) : (
           <h1 className="text-2xl font-bold">{current.name}</h1>
         )}
-        <button className="text-sm underline" onClick={() => setEditMode(m => !m)}>
-          {editMode ? 'Done' : 'Edit'}
+        <button
+          className="text-sm"
+          onClick={() => setEditMode(m => !m)}
+          aria-label={editMode ? 'Done' : 'Edit'}
+        >
+          {editMode ? (
+            <CheckIcon className="w-5 h-5" />
+          ) : (
+            <EditIcon className="w-5 h-5" />
+          )}
         </button>
         {editMode && !editingName && (
-          <button className="text-sm underline" onClick={() => setEditingName(true)}>
-            Rename
+          <button
+            className="text-sm"
+            onClick={() => setEditingName(true)}
+            aria-label="Rename"
+          >
+            <EditIcon className="w-5 h-5" />
           </button>
         )}
       </div>

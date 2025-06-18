@@ -15,6 +15,8 @@ export default function AddTilePage() {
   const [value, setValue] = useState('');
   const [spark, setSpark] = useState(false);
   const [area, setArea] = useState(false);
+  const [units, setUnits] = useState('');
+  const [unitSide, setUnitSide] = useState<'left' | 'right'>('right');
 
   function save() {
     const num = parseFloat(value);
@@ -28,6 +30,8 @@ export default function AddTilePage() {
       history: val !== null ? [val] : [],
       showSparkline: spark,
       showArea: area,
+      units: units || undefined,
+      unitSide,
     };
     updateScorecard({ ...current, tiles: [...current.tiles, tile] });
     router.push(`/scorecards/${current.id}`);
@@ -69,6 +73,23 @@ export default function AddTilePage() {
             onChange={e => setArea(e.target.checked)}
           />
           Sparkline area
+        </label>
+        <input
+          className="border p-2 w-full mb-2"
+          placeholder="Units"
+          value={units}
+          onChange={e => setUnits(e.target.value)}
+        />
+        <label className="flex items-center gap-2 mb-4">
+          <span>Unit position</span>
+          <select
+            className="border p-1"
+            value={unitSide}
+            onChange={e => setUnitSide(e.target.value as 'left' | 'right')}
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
         </label>
         <div className="flex justify-end gap-2">
           <button className="underline" onClick={close}>

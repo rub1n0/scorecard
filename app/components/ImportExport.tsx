@@ -25,7 +25,15 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
   function exportCSV() {
     const rows = scorecards.flatMap((card: Scorecard) =>
       card.tiles.map((tile: Tile) =>
-        [card.name, tile.title, tile.value, tile.previousValue, tile.timestamp]
+        [
+          card.name,
+          tile.title,
+          tile.value,
+          tile.previousValue,
+          tile.timestamp,
+          tile.units ?? '',
+          tile.unitSide ?? 'right',
+        ]
           .map(csvEscape)
           .join(',')
       )
@@ -66,7 +74,7 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
         const cleaned = line.trim();
         if (!cleaned) return;
         const parts = cleaned.slice(1, -1).split(/","/).map(p => p.replace(/""/g, '"'));
-        const [cardName, title, valueStr, prevStr, ts] = parts;
+        const [cardName, title, valueStr, prevStr, ts, units = '', side = 'right'] = parts;
         const numVal = parseFloat(valueStr);
         const numPrev = parseFloat(prevStr);
         const value = isNaN(numVal) ? null : numVal;
@@ -80,6 +88,8 @@ export default function ImportExport({ vertical = false }: { vertical?: boolean 
           history: value !== null ? [value] : [],
           showSparkline: false,
           showArea: false,
+          units: units || undefined,
+          unitSide: side as 'left' | 'right',
         };
         if (!groups[cardName]) groups[cardName] = [];
         groups[cardName].push(tile);
