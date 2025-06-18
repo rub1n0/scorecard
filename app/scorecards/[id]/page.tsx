@@ -98,7 +98,7 @@ export default function ScorecardPage() {
           <div className="grid md:grid-cols-6 gap-4 mt-4">
             {current.tiles.map(tile => (
               <div key={tile.id} id={tile.id} className="space-y-2">
-                <TileView tile={tile} />
+                <TileView tile={tile} editMode={editMode} />
                 {editMode && (
                   <div className="flex gap-2 text-sm">
                     <button className="underline" onClick={() => duplicateTile(tile)}>

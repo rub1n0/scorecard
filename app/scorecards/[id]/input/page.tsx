@@ -14,6 +14,7 @@ export default function InputPage() {
   const current = card;
   const [values, setValues] = useState<Record<string, string>>({});
   const [names, setNames] = useState<Record<string, string>>({});
+  const [sparks, setSparks] = useState<Record<string, boolean>>({});
 
   function handleSubmit() {
     const newTiles = current.tiles.map(tile => {
@@ -21,6 +22,7 @@ export default function InputPage() {
       const name = names[tile.id];
       let newTile = { ...tile };
       if (name !== undefined) newTile.title = name;
+      if (sparks[tile.id] !== undefined) newTile.showSparkline = sparks[tile.id];
       if (input !== undefined) {
         const num = parseFloat(input);
         if (!isNaN(num)) {
@@ -28,7 +30,8 @@ export default function InputPage() {
             ...newTile,
             previousValue: tile.value,
             value: num,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            history: [...(tile.history || []), num]
           };
         }
       }
@@ -59,6 +62,14 @@ export default function InputPage() {
               defaultValue={editId === tile.id ? tile.value ?? '' : ''}
               onChange={e => setValues(v => ({ ...v, [tile.id]: e.target.value }))}
             />
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                defaultChecked={tile.showSparkline}
+                onChange={e => setSparks(v => ({ ...v, [tile.id]: e.target.checked }))}
+              />
+              Sparkline
+            </label>
           </div>
         ))}
       </div>
