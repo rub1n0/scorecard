@@ -22,12 +22,14 @@ export interface Tile {
 export interface Scorecard {
   id: string;
   name: string;
+  /** number of columns to display on desktop */
+  columns: number;
   tiles: Tile[];
 }
 
 interface Context {
   scorecards: Scorecard[];
-  createScorecard(name: string): Scorecard;
+  createScorecard(name: string, columns?: number): Scorecard;
   updateScorecard(card: Scorecard): void;
   removeScorecard(id: string): void;
 }
@@ -42,7 +44,11 @@ export function ScorecardsProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      setScorecards(JSON.parse(raw));
+      const parsed: Scorecard[] = JSON.parse(raw);
+      parsed.forEach(card => {
+        if (card.columns === undefined) card.columns = 6;
+      });
+      setScorecards(parsed);
     }
   }, []);
 
@@ -50,8 +56,8 @@ export function ScorecardsProvider({ children }: { children: React.ReactNode }) 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(scorecards));
   }, [scorecards]);
 
-  function createScorecard(name: string): Scorecard {
-    const card: Scorecard = { id: nanoid(), name, tiles: [] };
+  function createScorecard(name: string, columns: number = 6): Scorecard {
+    const card: Scorecard = { id: nanoid(), name, columns, tiles: [] };
     setScorecards(prev => [...prev, card]);
     return card;
   }
