@@ -27,6 +27,7 @@ export default function InputPage() {
   const [sides, setSides] = useState<Record<string, 'left' | 'right'>>({});
   const [precisions, setPrecisions] = useState<Record<string, string>>({});
   const [trendPrecisions, setTrendPrecisions] = useState<Record<string, string>>({});
+  const [trendDirections, setTrendDirections] = useState<Record<string, 'up' | 'down'>>({});
 
   function handleSubmit() {
     const newTiles = current.tiles.map(tile => {
@@ -42,6 +43,8 @@ export default function InputPage() {
         newTile.precision = parseInt(precisions[tile.id]) || 0;
       if (trendPrecisions[tile.id] !== undefined)
         newTile.trendPrecision = parseInt(trendPrecisions[tile.id]) || 0;
+      if (trendDirections[tile.id] !== undefined)
+        newTile.trendDirection = trendDirections[tile.id];
       if (input !== undefined) {
         const num = parseFloat(input);
         if (!isNaN(num)) {
@@ -135,6 +138,22 @@ export default function InputPage() {
                   setTrendPrecisions(v => ({ ...v, [tile.id]: e.target.value }))
                 }
               />
+            </label>
+            <label className="block mb-4">
+              <span className="block">Desirable trend</span>
+              <select
+                className="border p-1"
+                defaultValue={tile.trendDirection || 'up'}
+                onChange={e =>
+                  setTrendDirections(v => ({
+                    ...v,
+                    [tile.id]: e.target.value as 'up' | 'down'
+                  }))
+                }
+              >
+                <option value="up">Increase</option>
+                <option value="down">Decrease</option>
+              </select>
             </label>
           </div>
         ))}

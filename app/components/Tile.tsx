@@ -3,7 +3,15 @@ import { Tile } from '../scorecards/store';
 
 export default function TileView({ tile, editMode }: { tile: Tile; editMode?: boolean }) {
   const delta = tile.previousValue !== null && tile.value !== null ? tile.value - tile.previousValue : null;
-  const positive = delta !== null && delta >= 0;
+  const desired = tile.trendDirection || 'up';
+  let color = '';
+  if (delta !== null) {
+    if (delta > 0) {
+      color = desired === 'up' ? 'text-green-500' : 'text-red-500';
+    } else if (delta < 0) {
+      color = desired === 'down' ? 'text-green-500' : 'text-red-500';
+    }
+  }
 
   const history = tile.history || [];
   let path = '';
@@ -33,8 +41,8 @@ export default function TileView({ tile, editMode }: { tile: Tile; editMode?: bo
         <p className="text-4xl font-bold">{value}</p>
         {tile.unitSide !== 'left' && tile.units && <span>{tile.units}</span>}
         {delta !== null && (
-          <span className={positive ? 'text-green-500' : 'text-red-500'}>
-            {positive ? '▲' : '▼'} {delta.toFixed(tile.trendPrecision ?? 2)}
+          <span className={color}>
+            {delta >= 0 ? '▲' : '▼'} {delta.toFixed(tile.trendPrecision ?? 2)}
           </span>
         )}
       </div>

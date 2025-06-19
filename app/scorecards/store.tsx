@@ -15,6 +15,8 @@ export interface Tile {
   unitSide?: 'left' | 'right';
   precision?: number;
   trendPrecision?: number;
+  /** which trend direction is considered desirable */
+  trendDirection?: 'up' | 'down';
 }
 
 export interface Scorecard {
