@@ -109,17 +109,15 @@ export default function ScorecardPage() {
         ) : (
           <h1 className="text-2xl font-bold">{current.name}</h1>
         )}
-        <button
-          className="text-sm"
-          onClick={() => setEditMode(m => !m)}
-          aria-label={editMode ? 'Done' : 'Edit'}
-        >
-          {editMode ? (
-            <CheckIcon className="text-xl" />
-          ) : (
+        {!editMode && (
+          <button
+            className="text-sm"
+            onClick={() => setEditMode(true)}
+            aria-label="Edit"
+          >
             <EditIcon className="text-xl" />
-          )}
-        </button>
+          </button>
+        )}
         {editMode && !editingName && (
           <>
             <button
@@ -143,6 +141,13 @@ export default function ScorecardPage() {
         <div className="mt-4 flex items-center gap-4">
           <button className="bg-blue-600 text-white px-3 py-1" onClick={addTile}>
             Add Tile
+          </button>
+          <button
+            className="text-sm"
+            onClick={() => setEditMode(false)}
+            aria-label="Done"
+          >
+            <CheckIcon className="text-xl" />
           </button>
           <label className="flex items-center gap-1">
             <span>Columns:</span>
