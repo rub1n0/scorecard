@@ -26,6 +26,7 @@ export default function AddTilePage() {
   const [unitSide, setUnitSide] = useState<'left' | 'right'>('right');
   const [precision, setPrecision] = useState('0');
   const [trendPrecision, setTrendPrecision] = useState('0');
+  const [trendDirection, setTrendDirection] = useState<'up' | 'down'>('up');
 
   function save() {
     const num = parseFloat(value);
@@ -43,6 +44,7 @@ export default function AddTilePage() {
       unitSide,
       precision: parseInt(precision) || 0,
       trendPrecision: parseInt(trendPrecision) || 0,
+      trendDirection,
     };
     updateScorecard({ ...current, tiles: [...current.tiles, tile] });
     router.push(`/scorecards/${current.id}`);
@@ -119,6 +121,17 @@ export default function AddTilePage() {
             value={trendPrecision}
             onChange={e => setTrendPrecision(e.target.value)}
           />
+        </label>
+        <label className="block mb-4">
+          <span className="block">Desirable trend</span>
+          <select
+            className="border p-1"
+            value={trendDirection}
+            onChange={e => setTrendDirection(e.target.value as 'up' | 'down')}
+          >
+            <option value="up">Increase</option>
+            <option value="down">Decrease</option>
+          </select>
         </label>
         <div className="flex justify-end gap-2">
           <button className="underline" onClick={close}>
