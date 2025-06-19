@@ -26,6 +26,7 @@ export default function ScorecardPage() {
   const card = scorecards.find(c => c.id === params.id);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(card?.name || '');
+  const [columns, setColumns] = useState(card?.columns ?? 6);
   const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
@@ -35,7 +36,10 @@ export default function ScorecardPage() {
   }, [card, router]);
 
   useEffect(() => {
-    if (card) setName(card.name);
+    if (card) {
+      setName(card.name);
+      setColumns(card.columns ?? 6);
+    }
   }, [card]);
 
   if (!card) return null;
@@ -136,49 +140,80 @@ export default function ScorecardPage() {
         )}
       </div>
       {editMode && (
-        <button className="mt-4 bg-blue-600 text-white px-3 py-1" onClick={addTile}>
-          Add Tile
-        </button>
+        <div className="mt-4 flex items-center gap-4">
+          <button className="bg-blue-600 text-white px-3 py-1" onClick={addTile}>
+            Add Tile
+          </button>
+          <label className="flex items-center gap-1">
+            <span>Columns:</span>
+            <select
+              className="border p-1"
+              value={columns}
+              onChange={e => {
+                const cols = parseInt(e.target.value);
+                setColumns(cols);
+                updateScorecard({ ...current, columns: cols });
+              }}
+            >
+              {[1,2,3,4,5,6].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={current.tiles.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          <div className="grid md:grid-cols-6 gap-4 mt-4">
-            {current.tiles.map(tile => (
-              <SortableItem key={tile.id} id={tile.id}>
-                <div className="space-y-2">
-                  <TileView tile={tile} editMode={editMode} />
-                  {editMode && (
-                    <div className="flex gap-2 text-sm">
-                      <button
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={() => duplicateTile(tile)}
-                        aria-label="Duplicate"
-                      >
-                        <DuplicateIcon className="text-xl" />
-                      </button>
-                      <button
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={() => removeTile(tile.id)}
-                        aria-label="Remove"
-                      >
-                        <TrashIcon className="text-xl text-red-600" />
-                      </button>
-                      <button
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={() =>
-                          router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)
-                        }
-                        aria-label="Edit"
-                      >
-                        <EditIcon className="text-xl" />
-                      </button>
+          {(() => {
+            const colMap: Record<number, string> = {
+              1: 'md:grid-cols-1',
+              2: 'md:grid-cols-2',
+              3: 'md:grid-cols-3',
+              4: 'md:grid-cols-4',
+              5: 'md:grid-cols-5',
+              6: 'md:grid-cols-6',
+            };
+            const colClass = colMap[current.columns ?? 6] || 'md:grid-cols-6';
+            return (
+              <div className={`grid gap-4 mt-4 ${colClass}`}>
+                {current.tiles.map(tile => (
+                  <SortableItem key={tile.id} id={tile.id}>
+                    <div className="space-y-2">
+                      <TileView tile={tile} editMode={editMode} />
+                      {editMode && (
+                        <div className="flex gap-2 text-sm">
+                          <button
+                            onPointerDown={e => e.stopPropagation()}
+                            onClick={() => duplicateTile(tile)}
+                            aria-label="Duplicate"
+                          >
+                            <DuplicateIcon className="text-xl" />
+                          </button>
+                          <button
+                            onPointerDown={e => e.stopPropagation()}
+                            onClick={() => removeTile(tile.id)}
+                            aria-label="Remove"
+                          >
+                            <TrashIcon className="text-xl text-red-600" />
+                          </button>
+                          <button
+                            onPointerDown={e => e.stopPropagation()}
+                            onClick={() =>
+                              router.push(`/scorecards/${current.id}/input?edit=${tile.id}`)
+                            }
+                            aria-label="Edit"
+                          >
+                            <EditIcon className="text-xl" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </SortableItem>
-            ))}
-          </div>
+                  </SortableItem>
+                ))}
+              </div>
+            );
+          })()}
         </SortableContext>
       </DndContext>
     </main>

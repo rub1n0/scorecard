@@ -18,6 +18,7 @@ This repository contains a simple Next.js 14 application. The app is written in 
 - Drag-and-drop tile rearrangement using `@dnd-kit`
 - Delete scorecards from the edit screen using a trash icon
 - LocalStorage persistence, light/dark mode, data export, and CSV import
+- Choose how many columns appear in each scorecard
 
 To run the project locally you would normally install dependencies and start the dev server:
 
