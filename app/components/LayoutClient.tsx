@@ -27,7 +27,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                 href="/"
                 className="flex items-center w-full p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
               >
-                <HomeIcon className="w-5 h-5 mr-3" />
+                <HomeIcon className="mr-3 text-xl" />
                 Home
               </Link>
               <details>
@@ -59,9 +59,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               onClick={() => setDark(d => !d)}
             >
               {dark ? (
-                <SunIcon className="w-5 h-5 mr-3" />
+                <SunIcon className="mr-3 text-xl" />
               ) : (
-                <MoonIcon className="w-5 h-5 mr-3" />
+                <MoonIcon className="mr-3 text-xl" />
               )}
               {dark ? 'Light' : 'Dark'} Mode
             </button>
@@ -76,9 +76,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                 aria-label={open ? 'Close sidebar' : 'Open sidebar'}
               >
                 {open ? (
-                  <CloseIcon className="w-6 h-6" />
+                  <CloseIcon className="text-2xl" />
                 ) : (
-                  <BarsIcon className="w-6 h-6" />
+                  <BarsIcon className="text-2xl" />
                 )}
               </button>
             </div>

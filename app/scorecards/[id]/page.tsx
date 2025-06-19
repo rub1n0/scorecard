@@ -111,9 +111,9 @@ export default function ScorecardPage() {
           aria-label={editMode ? 'Done' : 'Edit'}
         >
           {editMode ? (
-            <CheckIcon className="w-5 h-5" />
+            <CheckIcon className="text-xl" />
           ) : (
-            <EditIcon className="w-5 h-5" />
+            <EditIcon className="text-xl" />
           )}
         </button>
         {editMode && !editingName && (
@@ -123,14 +123,14 @@ export default function ScorecardPage() {
               onClick={() => setEditingName(true)}
               aria-label="Rename"
             >
-              <EditIcon className="w-5 h-5" />
+              <EditIcon className="text-xl" />
             </button>
             <button
               className="text-sm"
               onClick={deleteCard}
               aria-label="Delete"
             >
-              <TrashIcon className="w-5 h-5 text-red-600" />
+              <TrashIcon className="text-xl text-red-600" />
             </button>
           </>
         )}
@@ -155,14 +155,14 @@ export default function ScorecardPage() {
                         onClick={() => duplicateTile(tile)}
                         aria-label="Duplicate"
                       >
-                        <DuplicateIcon className="w-5 h-5" />
+                        <DuplicateIcon className="text-xl" />
                       </button>
                       <button
                         onPointerDown={e => e.stopPropagation()}
                         onClick={() => removeTile(tile.id)}
                         aria-label="Remove"
                       >
-                        <TrashIcon className="w-5 h-5 text-red-600" />
+                        <TrashIcon className="text-xl text-red-600" />
                       </button>
                       <button
                         onPointerDown={e => e.stopPropagation()}
@@ -171,7 +171,7 @@ export default function ScorecardPage() {
                         }
                         aria-label="Edit"
                       >
-                        <EditIcon className="w-5 h-5" />
+                        <EditIcon className="text-xl" />
                       </button>
                     </div>
                   )}
