@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useScorecards } from './scorecards/store';
 import { useState } from 'react';
-import { EditIcon, PlusIcon } from './components/icons';
+import { EditIcon } from './components/icons';
 
 export default function HomePage() {
   const { scorecards, updateScorecard } = useScorecards();
@@ -47,20 +47,13 @@ export default function HomePage() {
                   }}
                   aria-label="Rename"
                 >
-                  <EditIcon className="w-4 h-4" />
+                  <EditIcon className="text-lg" />
                 </button>
               </>
             )}
           </li>
         ))}
       </ul>
-      <Link
-        href="/scorecards/new"
-        className="mt-4 inline-block text-blue-500"
-        aria-label="Create Scorecard"
-      >
-        <PlusIcon className="w-6 h-6" />
-      </Link>
     </main>
   );
 }

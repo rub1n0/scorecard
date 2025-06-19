@@ -116,22 +116,26 @@ export default function InputPage() {
                 <option value="right">Right</option>
               </select>
             </label>
-            <input
-              className="border p-2 w-full"
-              type="number"
-              placeholder="Value precision"
-              defaultValue={tile.precision ?? 0}
-              onChange={e => setPrecisions(v => ({ ...v, [tile.id]: e.target.value }))}
-            />
-            <input
-              className="border p-2 w-full"
-              type="number"
-              placeholder="Trend precision"
-              defaultValue={tile.trendPrecision ?? 0}
-              onChange={e =>
-                setTrendPrecisions(v => ({ ...v, [tile.id]: e.target.value }))
-              }
-            />
+            <label className="block mb-2">
+              <span className="block">Value precision</span>
+              <input
+                className="border p-2 w-full"
+                type="number"
+                defaultValue={tile.precision ?? 0}
+                onChange={e => setPrecisions(v => ({ ...v, [tile.id]: e.target.value }))}
+              />
+            </label>
+            <label className="block mb-4">
+              <span className="block">Trend precision</span>
+              <input
+                className="border p-2 w-full"
+                type="number"
+                defaultValue={tile.trendPrecision ?? 0}
+                onChange={e =>
+                  setTrendPrecisions(v => ({ ...v, [tile.id]: e.target.value }))
+                }
+              />
+            </label>
           </div>
         ))}
       </div>
