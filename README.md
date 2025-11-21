@@ -1,36 +1,604 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# KPI Scorecard
 
-## Getting Started
+A modern, self-hosted KPI (Key Performance Indicator) dashboard application built with Next.js. Track metrics, visualize data, manage assignments, and collaborate on performance tracking with an industrial-themed UI.
 
-First, run the development server:
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Next.js](https://img.shields.io/badge/Next.js-16.0-black)
+![React](https://img.shields.io/badge/React-19.2-blue)
 
+---
+
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Deployment](#deployment)
+- [Usage Guide](#usage-guide)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+
+---
+
+## ✨ Features
+
+### Core Functionality
+- 📊 **Multiple Scorecards** - Create and manage unlimited scorecards
+- 📈 **KPI Tracking** - Track metrics with values, trends, and targets
+- 🎨 **Rich Visualizations** - Pie charts, bar charts, and line graphs
+- 📁 **Section Management** - Organize KPIs into custom sections with colors
+- 📤 **CSV Import** - Bulk import KPIs from CSV files
+- 🔄 **Real-time Updates** - Automatic UI updates when data changes
+
+### Collaboration Features
+- 👥 **User Assignments** - Assign KPIs to team members
+- 🔗 **Secure Update Links** - Token-based links for external updates
+- 📮 **Assignment Manager** - View and manage all assignments in one place
+- 🔐 **No Login Required** - Token-based access for assigned users
+
+### User Experience
+- 🎨 **Industrial Dark Theme** - Modern, professional interface
+- 📱 **Responsive Design** - Works on desktop, tablet, and mobile
+- ⚡ **Fast Performance** - Optimized with Next.js and Turbopack
+- 💾 **File-based Storage** - No database setup required (uses LowDB)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Node.js** 20.x or later (LTS recommended)
+- **npm** 10.x or later
+
+### One-Command Setup
+
+**Ubuntu/Linux:**
 ```bash
+bash setup-ubuntu.sh
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Windows:**
+```powershell
+.\setup-windows.ps1
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Access the application at: **http://localhost:3000**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> For detailed setup instructions, see [SETUP.md](./SETUP.md)
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 📦 Installation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Manual Installation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Clone the repository:**
+```bash
+git clone https://github.com/yourusername/kpi-scorecard.git
+cd kpi-scorecard
+```
 
-## Deploy on Vercel
+2. **Install dependencies:**
+```bash
+npm install
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Create data directory:**
+```bash
+mkdir data
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Run development server:**
+```bash
+npm run dev
+```
+
+5. **Build for production:**
+```bash
+npm run build
+npm start
+```
+
+---
+
+## 🌐 Deployment
+
+### Development Server
+Best for local development and testing:
+```bash
+npm run dev
+```
+- Hot reload enabled
+- Runs on `http://localhost:3000`
+- Source maps enabled
+
+### Production Build
+Optimized for performance:
+```bash
+npm run build
+npm start
+```
+- Optimized bundle size
+- Production mode
+- Better performance
+
+### Deployment Options
+
+#### 1. Ubuntu/Linux Server (Systemd Service)
+
+The setup script can create a systemd service for automatic startup:
+
+```bash
+bash setup-ubuntu.sh
+# Select "Yes" when asked about systemd service
+```
+
+Manual service management:
+```bash
+sudo systemctl start kpi-scorecard    # Start
+sudo systemctl stop kpi-scorecard     # Stop
+sudo systemctl restart kpi-scorecard  # Restart
+sudo systemctl status kpi-scorecard   # Check status
+```
+
+#### 2. Windows Server (Windows Service)
+
+The setup script can create a Windows service using NSSM:
+
+```powershell
+.\setup-windows.ps1
+# Select "Yes" when asked about Windows service
+```
+
+Service management:
+```powershell
+nssm start KPIScorecard     # Start
+nssm stop KPIScorecard      # Stop
+nssm restart KPIScorecard   # Restart
+```
+
+#### 3. Docker (Optional)
+
+Create a `Dockerfile`:
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+Build and run:
+```bash
+docker build -t kpi-scorecard .
+docker run -p 3000:3000 -v $(pwd)/data:/app/data kpi-scorecard
+```
+
+#### 4. Reverse Proxy (Nginx)
+
+For production deployments with HTTPS:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Add SSL with Let's Encrypt:
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+#### 5. Cloud Platforms
+
+**Vercel:**
+```bash
+npm i -g vercel
+vercel
+```
+
+**Netlify:**
+```bash
+npm i -g netlify-cli
+netlify deploy
+```
+
+**Heroku:**
+```bash
+heroku create kpi-scorecard
+git push heroku main
+```
+
+---
+
+## 📖 Usage Guide
+
+### Creating Your First Scorecard
+
+1. **Access the Application**
+   - Navigate to `http://localhost:3000`
+   - You'll see the dashboard with no scorecards
+
+2. **Create a Scorecard**
+   - Click **"Create New Scorecard"**
+   - Enter a name (e.g., "Q4 2024 Metrics")
+   - Add an optional description
+   - Click **"Create"**
+
+### Managing KPIs
+
+#### Adding a Single KPI
+
+1. Open your scorecard
+2. Click **"Manage Scorecard"** → **"Add Metric"**
+3. Fill in the KPI details:
+   - **Name**: Metric name (e.g., "Monthly Revenue")
+   - **Subtitle**: Additional context (optional)
+   - **Value**: Current value
+   - **Target**: Goal value (optional)
+   - **Trend**: Percentage change
+   - **Chart Type**: Pie, Bar, or Line
+   - **Assignee**: Email of person responsible (optional)
+4. Click **"Save"**
+
+#### Importing Multiple KPIs via CSV
+
+1. Click **"Manage Scorecard"** → **"Import CSV"**
+2. Download the example CSV template
+3. Fill in your data:
+   ```csv
+   Name,Value,Target,Trend %,Notes,Category,Data Points,Chart Type,Section
+   Revenue,100000,120000,15,Q4 target,Sales,Jan:80000;Feb:90000;Mar:100000,line,Financial
+   ```
+4. Upload your CSV file
+5. Click **"Import"**
+
+> See [CSV_IMPORT_GUIDE.md](./CSV_IMPORT_GUIDE.md) for detailed CSV format documentation
+
+### Organizing with Sections
+
+1. Click **"Manage Scorecard"** → **"Manage Sections"**
+2. Click **"Add Section"**
+3. Configure:
+   - **Name**: Section name
+   - **Color**: Choose from palette
+   - **Opacity**: Adjust transparency
+4. Drag KPIs to assign them to sections
+5. Reorder KPIs within sections
+
+### Assignment Management
+
+#### Assigning KPIs to Users
+
+**Individual Assignment:**
+1. Edit a KPI
+2. Enter assignee email
+3. Save - a unique update link is generated
+
+**Bulk Assignment View:**
+1. Click **"Manage Scorecard"** → **"Manage Assignments"**
+2. View all KPIs grouped by assignee
+3. Click **"Copy Link"** to get the user's bulk update URL
+4. Share the link with the assignee
+
+#### Assignee Update Workflow
+
+1. Assignee receives update link (e.g., `http://app.com/update/user/token123`)
+2. Opens link (no login required)
+3. Sees all assigned KPIs
+4. Updates values, trends, and notes
+5. Changes save automatically
+6. Scorecard owner sees real-time updates
+
+### Editing and Managing Data
+
+- **Edit KPI**: Click the edit icon on any KPI tile
+- **Delete KPI**: Click the delete icon (confirmation required)
+- **Edit Section**: Click edit in Section Management
+- **Reorder Sections**: Drag to reorder in Section Management
+- **Delete Section**: Removes section but keeps KPIs (moved to General)
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+# Server Configuration
+PORT=3000
+HOST=0.0.0.0
+
+# Data Storage
+DATA_DIR=./data
+
+# Application Settings
+NODE_ENV=production
+```
+
+### Network Access
+
+**Allow External Access (Ubuntu):**
+```bash
+sudo ufw allow 3000/tcp
+sudo ufw reload
+```
+
+**Allow External Access (Windows):**
+```powershell
+New-NetFirewallRule -DisplayName "KPI Scorecard" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+```
+
+### Performance Tuning
+
+**Increase Node.js Memory (for large datasets):**
+```bash
+export NODE_OPTIONS="--max-old-space-size=4096"
+npm run build
+```
+
+**Enable PM2 for Process Management (Linux):**
+```bash
+npm install -g pm2
+pm2 start npm --name "kpi-scorecard" -- start
+pm2 save
+pm2 startup
+```
+
+---
+
+## 🏗️ Architecture
+
+### Technology Stack
+
+- **Framework**: Next.js 16.0 (React 19.2)
+- **Styling**: Tailwind CSS 4.1
+- **Charts**: ApexCharts
+- **Icons**: Lucide React
+- **Database**: LowDB (file-based JSON)
+- **Language**: TypeScript
+
+### Project Structure
+
+```
+kpi-scorecard/
+├── src/
+│   ├── app/                      # Next.js app directory
+│   │   ├── api/                  # API routes
+│   │   │   └── scorecards/       # Scorecard CRUD endpoints
+│   │   ├── scorecard/[id]/       # Individual scorecard page
+│   │   ├── update/[token]/       # Single KPI update page
+│   │   └── update/user/[token]/  # Bulk assignee update page
+│   ├── components/               # React components
+│   │   ├── AssignmentManager.tsx # Assignment management modal
+│   │   ├── CSVImport.tsx         # CSV import component
+│   │   ├── Dashboard.tsx         # Main dashboard
+│   │   ├── KPIForm.tsx           # KPI creation/edit form
+│   │   ├── KPITile.tsx           # KPI display card
+│   │   ├── KPIUpdateForm.tsx     # External update form
+│   │   ├── ScorecardCard.tsx     # Scorecard list item
+│   │   ├── ScorecardForm.tsx     # Scorecard creation form
+│   │   ├── ScorecardView.tsx     # Scorecard detail view
+│   │   └── SectionManagementModal.tsx # Section manager
+│   ├── context/
+│   │   └── ScorecardContext.tsx  # Global state management
+│   ├── types/
+│   │   └── index.ts              # TypeScript interfaces
+│   └── utils/
+│       ├── csvParser.ts          # CSV import logic
+│       └── tokenUtils.ts         # Token generation/validation
+├── data/                         # Database storage (JSON files)
+├── public/                       # Static assets
+├── setup-ubuntu.sh               # Ubuntu installation script
+├── setup-windows.ps1             # Windows installation script
+├── SETUP.md                      # Detailed setup guide
+└── package.json                  # Dependencies
+```
+
+### Data Models
+
+**Scorecard:**
+```typescript
+{
+  id: string;
+  name: string;
+  description?: string;
+  kpis: KPI[];
+  sections?: Section[];
+  assignees?: Record<string, string>; // email -> token
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+**KPI:**
+```typescript
+{
+  id: string;
+  name: string;
+  subtitle?: string;
+  value: string;
+  target?: string;
+  trendValue?: string;
+  notes?: string;
+  date: string;
+  category?: string;
+  chartType?: 'pie' | 'bar' | 'line';
+  dataPoints?: DataPoint[];
+  sectionId?: string;
+  order?: number;
+  assignee?: string;
+  updateToken?: string;
+  lastUpdatedBy?: string;
+}
+```
+
+---
+
+## 🔌 API Reference
+
+### Scorecards
+
+**List all scorecards:**
+```http
+GET /api/scorecards
+```
+
+**Get single scorecard:**
+```http
+GET /api/scorecards/:id
+```
+
+**Create scorecard:**
+```http
+POST /api/scorecards
+Content-Type: application/json
+
+{
+  "name": "Q4 2024",
+  "description": "Fourth quarter metrics"
+}
+```
+
+**Update scorecard:**
+```http
+PUT /api/scorecards/:id
+Content-Type: application/json
+
+{
+  "kpis": [...],
+  "sections": [...]
+}
+```
+
+**Delete scorecard:**
+```http
+DELETE /api/scorecards/:id
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Port Already in Use:**
+```bash
+# Find and kill process on port 3000
+lsof -ti:3000 | xargs kill -9  # Linux/Mac
+netstat -ano | findstr :3000   # Windows
+```
+
+**Data Not Persisting:**
+- Ensure `data/` directory exists
+- Check file permissions
+- Verify disk space
+
+**Slow Performance:**
+- Build for production: `npm run build`
+- Increase Node.js memory: `NODE_OPTIONS="--max-old-space-size=4096"`
+- Clear `.next/` cache: `rm -rf .next`
+
+**Assignment Links Not Working:**
+- Verify token generation in database
+- Check network/firewall settings
+- Ensure assignee email is set correctly
+
+### Debug Mode
+
+Enable verbose logging:
+```bash
+DEBUG=* npm run dev
+```
+
+### Getting Help
+
+1. Check [SETUP.md](./SETUP.md) for detailed setup instructions
+2. Review [Troubleshooting section](#troubleshooting)
+3. Check existing GitHub issues
+4. Create a new issue with:
+   - Node.js version (`node --version`)
+   - npm version (`npm --version`)
+   - Operating system
+   - Error logs
+   - Steps to reproduce
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our contributing guidelines:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+### Development Setup
+
+```bash
+git clone https://github.com/yourusername/kpi-scorecard.git
+cd kpi-scorecard
+npm install
+npm run dev
+```
+
+### Code Style
+
+- Use TypeScript for all new code
+- Follow existing code formatting
+- Add comments for complex logic
+- Update documentation for new features
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- Charts by [ApexCharts](https://apexcharts.com/)
+- Icons by [Lucide](https://lucide.dev/)
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
+
+---
+
+## 📞 Support
+
+For questions or support:
+- 📧 Email: support@example.com
+- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/kpi-scorecard/discussions)
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/kpi-scorecard/issues)
+
+---
+
+**Built with ❤️ using Next.js**
