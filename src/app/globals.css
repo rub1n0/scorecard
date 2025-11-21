@@ -1,0 +1,350 @@
+@import "tailwindcss";
+
+@theme {
+  --color-border: #27272a;
+  /* zinc-800 */
+
+  /* Industrial Zinc Palette */
+  --color-industrial-50: #fafafa;
+  --color-industrial-100: #f4f4f5;
+  --color-industrial-200: #e4e4e7;
+  --color-industrial-300: #d4d4d8;
+  --color-industrial-400: #a1a1aa;
+  --color-industrial-500: #71717a;
+  --color-industrial-600: #52525b;
+  --color-industrial-700: #3f3f46;
+  --color-industrial-800: #27272a;
+  --color-industrial-900: #18181b;
+  --color-industrial-950: #09090b;
+
+  /* Accent - Precision Blue (Subtle) */
+  --color-accent-500: #3b82f6;
+  --color-accent-600: #2563eb;
+
+  /* Charcoal Blue Palette */
+  --color-charcoal-blue-50: #eef4f7;
+  --color-charcoal-blue-100: #dceaef;
+  --color-charcoal-blue-200: #b9d4df;
+  --color-charcoal-blue-300: #96bfcf;
+  --color-charcoal-blue-400: #73a9bf;
+  --color-charcoal-blue-500: #5094af;
+  --color-charcoal-blue-600: #40768c;
+  --color-charcoal-blue-700: #305969;
+  --color-charcoal-blue-800: #203b46;
+  --color-charcoal-blue-900: #101e23;
+  --color-charcoal-blue-950: #0b1518;
+
+  /* Verdigris Palette */
+  --color-verdigris-50: #ebfaf8;
+  --color-verdigris-100: #d7f4f1;
+  --color-verdigris-200: #aeeae3;
+  --color-verdigris-300: #86dfd5;
+  --color-verdigris-400: #5ed4c6;
+  --color-verdigris-500: #36c9b8;
+  --color-verdigris-600: #2ba193;
+  --color-verdigris-700: #20796f;
+  --color-verdigris-800: #15514a;
+  --color-verdigris-900: #0b2825;
+  --color-verdigris-950: #071c1a;
+
+  /* Tuscan Sun Palette */
+  --color-tuscan-sun-50: #fcf6e9;
+  --color-tuscan-sun-100: #f8eed3;
+  --color-tuscan-sun-200: #f2dca6;
+  --color-tuscan-sun-300: #ebcb7a;
+  --color-tuscan-sun-400: #e4ba4e;
+  --color-tuscan-sun-500: #dea821;
+  --color-tuscan-sun-600: #b1871b;
+  --color-tuscan-sun-700: #856514;
+  --color-tuscan-sun-800: #59430d;
+  --color-tuscan-sun-900: #2c2207;
+  --color-tuscan-sun-950: #1f1805;
+
+  /* Sandy Brown Palette */
+  --color-sandy-brown-50: #fdf1e7;
+  --color-sandy-brown-100: #fce3cf;
+  --color-sandy-brown-200: #f8c8a0;
+  --color-sandy-brown-300: #f5ac70;
+  --color-sandy-brown-400: #f29040;
+  --color-sandy-brown-500: #ee7411;
+  --color-sandy-brown-600: #bf5d0d;
+  --color-sandy-brown-700: #8f460a;
+  --color-sandy-brown-800: #5f2f07;
+  --color-sandy-brown-900: #301703;
+  --color-sandy-brown-950: #211002;
+
+  /* Burnt Peach Palette */
+  --color-burnt-peach-50: #fcece9;
+  --color-burnt-peach-100: #f9dad2;
+  --color-burnt-peach-200: #f3b5a5;
+  --color-burnt-peach-300: #ed9078;
+  --color-burnt-peach-400: #e76a4b;
+  --color-burnt-peach-500: #e0451f;
+  --color-burnt-peach-600: #b43718;
+  --color-burnt-peach-700: #872a12;
+  --color-burnt-peach-800: #5a1c0c;
+  --color-burnt-peach-900: #2d0e06;
+  --color-burnt-peach-950: #1f0a04;
+
+  --animate-fade-in: fadeIn 0.2s ease-out both;
+  --animate-zoom-in-95: zoomIn95 0.2s ease-out both;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes zoomIn95 {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-industrial-950 text-industrial-100 antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer components {
+
+  /* Industrial Card - Solid, clean lines, no glassmorphism */
+  .glass-card {
+    @apply bg-industrial-900 border border-industrial-800 rounded-md shadow-sm;
+  }
+
+  .glass-hover {
+    @apply transition-all duration-200 hover:border-industrial-600 hover:shadow-md;
+  }
+
+  /* Buttons - Minimalist, Industrial */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-wide;
+  }
+
+  /* Primary - High contrast, solid */
+  .btn-primary {
+    @apply bg-industrial-100 text-industrial-950 hover:bg-white border border-transparent shadow-sm hover:shadow;
+  }
+
+  /* Secondary - Outlined, subtle */
+  .btn-secondary {
+    @apply bg-transparent text-industrial-400 hover:text-industrial-100 border border-industrial-800 hover:border-industrial-600;
+  }
+
+  /* Danger - Subtle red outline */
+  .btn-danger {
+    @apply bg-transparent text-red-500 hover:text-red-400 border border-red-900/30 hover:border-red-500/50;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-md text-industrial-400 hover:text-industrial-100 hover:bg-industrial-800 border border-transparent hover:border-industrial-700;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs uppercase tracking-wider;
+  }
+
+  /* Form Elements - Sharp, dark, precise */
+  .input,
+  .select,
+  .textarea {
+    @apply w-full px-4 py-2.5 bg-industrial-950 border border-industrial-800 rounded-md text-industrial-100 placeholder-industrial-600 focus:outline-none focus:ring-1 focus:ring-industrial-500 focus:border-industrial-500 transition-all;
+  }
+
+  .textarea {
+    @apply min-h-[100px] resize-y;
+  }
+
+  .form-label {
+    @apply block text-xs font-semibold text-industrial-400 uppercase tracking-wider mb-2;
+  }
+
+  /* Modal - Industrial Panel */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in;
+  }
+
+  .modal {
+    @apply bg-industrial-900 border border-industrial-700 rounded-lg shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-zoom-in-95;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between mb-6 pb-4 border-b border-industrial-800;
+  }
+
+  .modal-header h2 {
+    @apply text-xl font-bold text-industrial-100 tracking-tight;
+  }
+
+  /* Text Utilities */
+  .text-muted {
+    @apply text-industrial-500;
+  }
+
+  .gradient-text {
+    @apply text-industrial-100;
+    /* Removed gradient for flat industrial look */
+  }
+
+  /* Form Layouts */
+  .form-group {
+    @apply mb-6;
+  }
+
+  .form-row {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4 mb-6;
+  }
+
+  .form-actions {
+    @apply flex items-center gap-3 justify-end pt-6 mt-6 border-t border-industrial-800;
+  }
+
+  .data-points-header {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  .data-points-list {
+    @apply space-y-3;
+  }
+
+  .data-point-item {
+    @apply flex gap-2 items-center;
+  }
+
+  .chart-help-text {
+    @apply bg-industrial-950 border border-industrial-800 rounded-md p-4 mb-6;
+  }
+
+  .chart-help-text p {
+    @apply m-0 text-xs text-industrial-400 leading-relaxed font-mono;
+  }
+
+  /* CSV Import Styles */
+  .csv-import-modal {
+    @apply max-w-4xl;
+  }
+
+  .csv-import-content {
+    @apply space-y-8;
+  }
+
+  .examples-section {
+    @apply bg-industrial-950 rounded-lg p-6 border border-industrial-800;
+  }
+
+  .examples-section h3 {
+    @apply text-sm font-semibold text-industrial-200 mb-2 uppercase tracking-wide;
+  }
+
+  .template-description {
+    @apply text-industrial-500 mb-4 text-sm;
+  }
+
+  .btn-download-main {
+    @apply w-full justify-center mb-4;
+  }
+
+  .individual-templates summary {
+    @apply cursor-pointer text-industrial-400 hover:text-industrial-200 transition-colors font-medium mb-3 select-none text-sm;
+  }
+
+  .example-buttons {
+    @apply grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2;
+  }
+
+  .upload-section h3 {
+    @apply text-sm font-semibold text-industrial-200 mb-4 uppercase tracking-wide;
+  }
+
+  .upload-area {
+    @apply border-2 border-dashed border-industrial-700 rounded-lg p-12 text-center transition-all duration-300 cursor-pointer bg-industrial-950 hover:bg-industrial-900 hover:border-industrial-500;
+  }
+
+  .upload-area.drag-active {
+    @apply border-industrial-400 bg-industrial-800;
+  }
+
+  .upload-text {
+    @apply text-lg text-industrial-300 mt-4 mb-2 font-medium;
+  }
+
+  .upload-link {
+    @apply text-industrial-100 hover:text-white underline decoration-dotted underline-offset-4;
+  }
+
+  .upload-hint {
+    @apply text-sm text-industrial-600;
+  }
+
+  .file-info {
+    @apply flex items-center gap-3 p-4 bg-industrial-800 border border-industrial-700 rounded-md text-industrial-200 animate-fade-in;
+  }
+
+  .import-errors {
+    @apply flex gap-3 p-4 bg-red-900/20 border border-red-900/40 rounded-md text-red-300 animate-fade-in;
+  }
+
+  .preview-section {
+    @apply border-t border-industrial-800 pt-6;
+  }
+
+  .preview-header {
+    @apply flex items-center gap-2 mb-4 text-emerald-500;
+  }
+
+  .preview-header h3 {
+    @apply text-sm font-semibold text-industrial-200 uppercase tracking-wide;
+  }
+
+  .preview-list {
+    @apply space-y-3 max-h-[300px] overflow-y-auto pr-2;
+  }
+
+  .preview-item {
+    @apply bg-industrial-950 rounded-md p-4 border border-industrial-800;
+  }
+
+  .preview-item-header {
+    @apply flex items-center justify-between mb-2;
+  }
+
+  .preview-item-header strong {
+    @apply text-industrial-200 font-mono text-sm;
+  }
+
+  .preview-badge {
+    @apply px-2 py-0.5 rounded text-xs font-medium bg-industrial-800 text-industrial-300 border border-industrial-700;
+  }
+
+  .preview-item-details {
+    @apply flex flex-wrap gap-x-6 gap-y-2 text-xs text-industrial-500 font-mono;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-clamp: 2;
+  }
+}
