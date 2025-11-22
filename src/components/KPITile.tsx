@@ -5,8 +5,10 @@ import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { KPI } from '@/types';
 import { Edit2, Trash2, TrendingUp, TrendingDown, MoreHorizontal, Link as LinkIcon, Check } from 'lucide-react';
+import ChartErrorBoundary from './ChartErrorBoundary';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
+
 
 interface KPITileProps {
     kpi: KPI;
@@ -91,57 +93,85 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         </div>
                     </div>
 
+
                     {/* Sparkline - pegged to bottom */}
-                    {kpi.dataPoints && kpi.dataPoints.length > 0 && (
-                        <div className="-mx-2 mt-2">
-                            <Chart
-                                options={{
-                                    chart: {
-                                        type: 'line',
-                                        sparkline: { enabled: true },
-                                        animations: {
-                                            enabled: true,
-                                            speed: 800,
-                                        },
-                                    },
-                                    stroke: {
-                                        curve: 'smooth',
-                                        width: kpi.chartSettings?.strokeWidth ?? 2,
-                                        colors: kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : undefined,
-                                    },
-                                    colors: kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : [isPositive ? '#10b981' : '#ef4444'],
-                                    tooltip: {
-                                        enabled: true,
-                                        theme: 'dark',
-                                        x: { show: false },
-                                        fixed: { enabled: false },
-                                        style: {
-                                            fontSize: '12px',
-                                            fontFamily: 'monospace',
-                                        },
-                                    },
-                                    fill: {
-                                        opacity: kpi.chartSettings?.strokeOpacity ? kpi.chartSettings.strokeOpacity * 0.25 : 0.2,
-                                        type: 'solid',
-                                    },
-                                }}
-                                series={[
-                                    {
-                                        name: kpi.name,
-                                        data: kpi.dataPoints.map(dp => dp.value),
-                                    },
-                                ]}
-                                type="area"
-                                height={60}
-                            />
-                        </div>
-                    )}
+                    {kpi.dataPoints && kpi.dataPoints.length > 0 && (() => {
+                        // Validate sparkline data points
+                        const validSparklineData = kpi.dataPoints
+                            .map(dp => {
+                                const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
+                                return !isNaN(val) && isFinite(val) ? val : null;
+                            })
+                            .filter((val): val is number => val !== null);
+
+                        // Only render if we have valid data
+                        if (validSparklineData.length === 0) {
+                            return null;
+                        }
+
+                        return (
+                            <div className="-mx-2 mt-2">
+                                <ChartErrorBoundary>
+                                    <Chart
+                                        options={{
+                                            chart: {
+                                                type: 'line',
+                                                sparkline: { enabled: true },
+                                                animations: {
+                                                    enabled: true,
+                                                    speed: 800,
+                                                },
+                                            },
+                                            stroke: {
+                                                curve: 'smooth',
+                                                width: kpi.chartSettings?.strokeWidth ?? 2,
+                                                colors: kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : undefined,
+                                            },
+                                            colors: kpi.chartSettings?.strokeColor
+                                                ? [kpi.chartSettings.strokeColor]
+                                                : ['#457B9D'],
+                                            tooltip: {
+                                                enabled: true,
+                                                theme: 'dark',
+                                                x: { show: false },
+                                                fixed: { enabled: false },
+                                                style: {
+                                                    fontSize: '12px',
+                                                    fontFamily: 'monospace',
+                                                },
+                                            },
+                                        }}
+                                        series={[
+                                            {
+                                                name: kpi.name,
+                                                data: validSparklineData,
+                                            },
+                                        ]}
+                                        type="area"
+                                        height={60}
+                                    />
+                                </ChartErrorBoundary>
+                            </div>
+                        );
+                    })()}
                 </div>
             );
         }
 
         if (kpi.visualizationType === 'chart' && kpi.dataPoints && kpi.dataPoints.length > 0) {
             const chartType = kpi.chartType || 'line';
+
+            // Validate and sanitize data points - filter out invalid values
+            const validDataPoints = kpi.dataPoints.filter(dp => {
+                // Ensure value is a valid finite number
+                const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
+                return !isNaN(val) && isFinite(val) && dp.date;
+            });
+
+            // If no valid data points remain, show error message
+            if (validDataPoints.length === 0) {
+                return <div className="py-12 text-center text-red-500 text-xs font-mono uppercase tracking-wider">Invalid Chart Data</div>;
+            }
 
             const strokeOptions: any = {
                 curve: 'smooth',
@@ -197,7 +227,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 },
                 xaxis: {
                     categories: (chartType === 'line' || chartType === 'area')
-                        ? kpi.dataPoints.map(dp => {
+                        ? validDataPoints.map(dp => {
                             try {
                                 const parsedDate = new Date(dp.date);
                                 // Check if date is valid
@@ -209,7 +239,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                 return dp.date;
                             }
                         })
-                        : kpi.dataPoints.map(dp => dp.date),
+                        : validDataPoints.map(dp => dp.date),
                     labels: {
                         style: {
                             colors: '#71717a',
@@ -249,17 +279,17 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 },
                 colors: (chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar')
                     ? ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'] // Always use palette for these types by default
-                    : (kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f']),
+                    : (kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : ['#457B9D']),
                 fill: fillOptions,
             };
 
             // Specific options for different chart types
             if (chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar') {
-                chartOptions.labels = kpi.dataPoints.map(dp => dp.date);
+                chartOptions.labels = validDataPoints.map(dp => dp.date);
 
                 // Use custom colors if available
-                const customColors = kpi.dataPoints.map(dp => dp.color).filter(Boolean);
-                if (customColors.length === kpi.dataPoints.length) {
+                const customColors = validDataPoints.map(dp => dp.color).filter(Boolean);
+                if (customColors.length === validDataPoints.length) {
                     chartOptions.colors = customColors;
                 }
 
@@ -353,8 +383,8 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
             if (chartType === 'bar') {
                 // Use custom colors if available for bars
-                const customColors = kpi.dataPoints.map(dp => dp.color).filter(Boolean);
-                if (customColors.length === kpi.dataPoints.length) {
+                const customColors = validDataPoints.map(dp => dp.color).filter(Boolean);
+                if (customColors.length === validDataPoints.length) {
                     chartOptions.colors = customColors;
                     chartOptions.plotOptions = {
                         bar: {
@@ -386,10 +416,10 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
             if (chartType === 'radar') {
                 chartOptions.xaxis = {
-                    categories: kpi.dataPoints.map(dp => dp.date),
+                    categories: validDataPoints.map(dp => dp.date),
                     labels: {
                         style: {
-                            colors: Array(kpi.dataPoints.length).fill('#a1a1aa'),
+                            colors: Array(validDataPoints.length).fill('#a1a1aa'),
                             fontSize: '10px',
                             fontFamily: 'monospace',
                         },
@@ -410,21 +440,29 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
             return (
                 <div className="kpi-chart-display -ml-2">
-                    <Chart
-                        options={chartOptions}
-                        series={
-                            chartType === 'pie' || chartType === 'donut'
-                                ? kpi.dataPoints.map(dp => dp.value)
-                                : [
-                                    {
-                                        name: kpi.name,
-                                        data: kpi.dataPoints.map(dp => dp.value),
-                                    },
-                                ]
-                        }
-                        type={chartType === 'column' ? 'bar' : chartType as any}
-                        height={chartHeight}
-                    />
+                    <ChartErrorBoundary>
+                        <Chart
+                            options={chartOptions}
+                            series={
+                                chartType === 'pie' || chartType === 'donut'
+                                    ? validDataPoints.map(dp => {
+                                        const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
+                                        return val;
+                                    })
+                                    : [
+                                        {
+                                            name: kpi.name,
+                                            data: validDataPoints.map(dp => {
+                                                const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
+                                                return val;
+                                            }),
+                                        },
+                                    ]
+                            }
+                            type={chartType === 'column' ? 'bar' : chartType as any}
+                            height={chartHeight}
+                        />
+                    </ChartErrorBoundary>
                 </div>
             );
         }

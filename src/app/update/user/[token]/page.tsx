@@ -10,13 +10,18 @@ import { LayoutDashboard, AlertTriangle, CheckCircle2 } from 'lucide-react';
 export default function AssigneeUpdatePage() {
     const params = useParams();
     const token = params.token as string;
-    const { getKPIsByAssigneeToken, updateKPIByToken } = useScorecards();
+    const { getKPIsByAssigneeToken, updateKPIByToken, loading: contextLoading } = useScorecards();
 
     const [data, setData] = useState<{ scorecard: Scorecard; kpis: KPI[] } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
+        // Wait for scorecards to finish loading from the context
+        if (contextLoading) {
+            return;
+        }
+
         if (token) {
             const result = getKPIsByAssigneeToken(token);
             if (result) {
@@ -26,7 +31,7 @@ export default function AssigneeUpdatePage() {
             }
             setLoading(false);
         }
-    }, [token, getKPIsByAssigneeToken]);
+    }, [token, getKPIsByAssigneeToken, contextLoading]);
 
     if (loading) {
         return (

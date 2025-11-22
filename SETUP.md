@@ -1,13 +1,12 @@
 # KPI Scorecard - Setup Guide
 
-This guide provides instructions for setting up the KPI Scorecard application on Ubuntu Server and Windows 11 systems from scratch, including all prerequisites.
+This guide provides instructions for setting up the KPI Scorecard application on Ubuntu Server from scratch, including all prerequisites.
 
 ---
 
 ## 📋 Table of Contents
 
 - [Ubuntu Server Setup](#ubuntu-server-setup)
-- [Windows 11 Setup](#windows-11-setup)
 - [Manual Setup](#manual-setup)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
@@ -26,7 +25,7 @@ git clone <your-repo-url> kpi-scorecard
 cd kpi-scorecard
 
 # 2. Run the setup script (DO NOT use sudo)
-bash setup-ubuntu.sh
+bash scripts/setup.sh
 ```
 
 **What the script does:**
@@ -73,70 +72,6 @@ sudo journalctl -u kpi-scorecard -f
 
 ---
 
-## 🪟 Windows 11 Setup
-
-### Automated Setup (Recommended)
-
-The automated setup script will install all dependencies using Chocolatey.
-
-```powershell
-# 1. Open PowerShell as Administrator
-#    Right-click PowerShell → "Run as Administrator"
-
-# 2. Navigate to the project directory
-cd C:\path\to\kpi-scorecard
-
-# 3. Allow script execution (one-time setup)
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# 4. Run the setup script
-.\setup-windows.ps1
-```
-
-**What the script does:**
-- Installs Chocolatey (Windows package manager)
-- Installs Git
-- Installs Node.js LTS
-- Installs all project dependencies
-- Creates the data directory
-- Optionally builds for production
-- Optionally creates a Windows service using NSSM
-
-### Post-Setup Commands
-
-**Development Mode:**
-```powershell
-npm run dev
-# Access at: http://localhost:3000
-```
-
-**Production Mode:**
-```powershell
-npm run build
-npm start
-# Access at: http://localhost:3000
-```
-
-**Using Windows Service:**
-```powershell
-# Start the service
-nssm start KPIScorecard
-
-# Stop the service
-nssm stop KPIScorecard
-
-# Restart the service
-nssm restart KPIScorecard
-
-# Check status
-nssm status KPIScorecard
-
-# Or use the Services GUI
-services.msc
-```
-
----
-
 ## 🔧 Manual Setup
 
 If you prefer to set up manually or the automated scripts don't work:
@@ -159,11 +94,6 @@ source ~/.bashrc
 nvm install --lts
 nvm use --lts
 ```
-
-**Windows:**
-- Download from: https://nodejs.org/
-- Install the LTS version
-- Verify: `node --version` and `npm --version`
 
 **2. Clone the Repository**
 
@@ -225,12 +155,6 @@ sudo ufw allow 3000/tcp
 sudo ufw reload
 ```
 
-**Windows:**
-```powershell
-# Run as Administrator
-New-NetFirewallRule -DisplayName "KPI Scorecard" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
-```
-
 ### Reverse Proxy (Production)
 
 For production deployments, consider using a reverse proxy:
@@ -264,10 +188,6 @@ server {
 ```bash
 # Ubuntu - Find and kill the process
 sudo lsof -ti:3000 | xargs kill -9
-
-# Windows - Find and kill the process
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
 ```
 
 **Issue: "npm: command not found" after installation**
@@ -278,9 +198,6 @@ taskkill /PID <PID> /F
 source ~/.bashrc
 # or
 source ~/.nvm/nvm.sh
-
-# Windows - Restart PowerShell
-# Close and reopen PowerShell as Administrator
 ```
 
 **Issue: Permission errors on Ubuntu**
@@ -292,14 +209,6 @@ mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-```
-
-**Issue: Windows script execution policy error**
-
-**Solution:**
-```powershell
-# Run as Administrator
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 **Issue: Build fails with memory error**
@@ -329,14 +238,14 @@ If you encounter issues not covered here:
 - **CPU**: 1 core
 - **RAM**: 512 MB
 - **Disk**: 500 MB free space
-- **OS**: Ubuntu 20.04+ or Windows 11
+- **OS**: Ubuntu 20.04+
 
 ### Recommended Requirements
 
 - **CPU**: 2+ cores
 - **RAM**: 2 GB
 - **Disk**: 2 GB free space
-- **OS**: Ubuntu 22.04+ or Windows 11
+- **OS**: Ubuntu 22.04+
 
 ---
 
@@ -344,13 +253,7 @@ If you encounter issues not covered here:
 
 **Ubuntu:**
 ```bash
-bash setup-ubuntu.sh
-npm run dev
-```
-
-**Windows:**
-```powershell
-.\setup-windows.ps1
+bash scripts/setup.sh
 npm run dev
 ```
 
@@ -367,4 +270,4 @@ Access the application at: **http://localhost:3000**
 
 ---
 
-**Last Updated:** 2025-11-21
+**Last Updated:** 2025-11-22

@@ -164,7 +164,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                         className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
                                     >
                                         <User size={14} />
-                                        Manage Assignments
+                                        Assignments
                                     </button>
                                     <button
                                         onClick={() => {
@@ -174,7 +174,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                         className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
                                     >
                                         <Layout size={14} />
-                                        Manage Sections
+                                        Sections
                                     </button>
                                     <button
                                         onClick={() => {

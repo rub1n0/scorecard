@@ -19,7 +19,7 @@ const AVAILABLE_COLORS = [
 ];
 
 export default function SectionManagementModal({ scorecard, onClose }: SectionManagementModalProps) {
-    const { addSection, updateSection, deleteSection, assignKPIToSection, reorderKPIsInSection } = useScorecards();
+    const { addSection, updateSection, deleteSection, assignKPIToSection, reorderKPIsInSection, reorderSections } = useScorecards();
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
     const [isCreatingSection, setIsCreatingSection] = useState(false);
     const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -99,6 +99,22 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
         );
     };
 
+    const handleMoveSection = async (sectionId: string, direction: 'up' | 'down') => {
+        const currentIndex = sections.findIndex(s => s.id === sectionId);
+        if (currentIndex === -1) return;
+
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (newIndex < 0 || newIndex >= sections.length) return;
+
+        const reorderedSections = [...sections];
+        [reorderedSections[currentIndex], reorderedSections[newIndex]] = [reorderedSections[newIndex], reorderedSections[currentIndex]];
+
+        await reorderSections(
+            scorecard.id,
+            reorderedSections.map(s => s.id)
+        );
+    };
+
     const getColorVariable = (colorName: string) => {
         return AVAILABLE_COLORS.find(c => c.name === colorName)?.value || '#36c9b8';
     };
@@ -152,7 +168,7 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                             </div>
 
                             {/* Defined Sections */}
-                            {sections.map((section) => (
+                            {sections.map((section, index) => (
                                 <div
                                     key={section.id}
                                     className={`p-4 rounded-md border transition-all ${selectedSectionId === section.id
@@ -213,12 +229,34 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                                             className="w-full cursor-pointer"
                                         >
                                             <div className="flex items-center gap-3">
+                                                <div className="flex flex-col gap-1 mr-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMoveSection(section.id, 'up');
+                                                        }}
+                                                        disabled={index === 0}
+                                                        className="btn-icon p-0.5 disabled:opacity-30 hover:bg-industrial-700 rounded"
+                                                    >
+                                                        <ChevronUp size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMoveSection(section.id, 'down');
+                                                        }}
+                                                        disabled={index === sections.length - 1}
+                                                        className="btn-icon p-0.5 disabled:opacity-30 hover:bg-industrial-700 rounded"
+                                                    >
+                                                        <ChevronDown size={12} />
+                                                    </button>
+                                                </div>
                                                 <div
-                                                    className="w-8 h-8 rounded"
+                                                    className="w-8 h-8 rounded flex-shrink-0"
                                                     style={{ backgroundColor: getColorVariable(section.color) }}
                                                 />
-                                                <div className="flex-1">
-                                                    <div className="text-sm font-semibold text-industrial-200">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-semibold text-industrial-200 truncate">
                                                         {section.name}
                                                     </div>
                                                     <div className="text-xs text-industrial-500">

@@ -21,8 +21,10 @@ interface ScorecardContextType {
     deleteSection: (scorecardId: string, sectionId: string) => Promise<void>;
     assignKPIToSection: (scorecardId: string, kpiId: string, sectionId: string | null, order?: number) => Promise<void>;
     reorderKPIsInSection: (scorecardId: string, sectionId: string | null, kpiIds: string[]) => Promise<void>;
+    reorderSections: (scorecardId: string, sectionIds: string[]) => Promise<void>;
     // Collaborative updates
     assignKPIToUser: (scorecardId: string, kpiId: string, email: string) => Promise<void>;
+    bulkAssignKPIs: (scorecardId: string, kpiIds: string[], email: string) => Promise<void>;
     updateKPIByToken: (token: string, updates: Partial<KPI>, updatedBy?: string) => Promise<void>;
     getKPIByToken: (token: string) => { scorecard: Scorecard; kpi: KPI } | null;
     getKPIsByAssigneeToken: (token: string) => { scorecard: Scorecard; kpis: KPI[] } | null;
@@ -259,10 +261,33 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         await updateScorecard(scorecardId, { kpis: updatedKPIs });
     };
 
+    const reorderSections = async (
+        scorecardId: string,
+        sectionIds: string[]
+    ) => {
+        const scorecard = getScorecard(scorecardId);
+        if (!scorecard) return;
+
+        const updatedSections = (scorecard.sections || []).map(section => {
+            const newOrder = sectionIds.indexOf(section.id);
+            return { ...section, order: newOrder >= 0 ? newOrder : section.order };
+        });
+
+        await updateScorecard(scorecardId, { sections: updatedSections });
+    };
+
     // Collaborative update methods
     const assignKPIToUser = async (
         scorecardId: string,
         kpiId: string,
+        email: string
+    ) => {
+        await bulkAssignKPIs(scorecardId, [kpiId], email);
+    };
+
+    const bulkAssignKPIs = async (
+        scorecardId: string,
+        kpiIds: string[],
         email: string
     ) => {
         const { generateUpdateToken } = await import('@/utils/tokenUtils');
@@ -279,7 +304,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         }
 
         const updatedKPIs = scorecard.kpis.map(kpi =>
-            kpi.id === kpiId
+            kpiIds.includes(kpi.id)
                 ? { ...kpi, assignee: email, updateToken: generateUpdateToken() }
                 : kpi
         );
@@ -373,7 +398,9 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 deleteSection,
                 assignKPIToSection,
                 reorderKPIsInSection,
+                reorderSections,
                 assignKPIToUser,
+                bulkAssignKPIs,
                 updateKPIByToken,
                 getKPIByToken,
                 getKPIsByAssigneeToken,

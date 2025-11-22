@@ -11,7 +11,11 @@ const defaultData: Data = { scorecards: [] };
 
 // Create a singleton instance helper
 // We use JSONFilePreset which is the recommended way in lowdb v7+ for Node
+let dbInstance: Awaited<ReturnType<typeof JSONFilePreset<Data>>> | null = null;
+
 export const getDb = async () => {
-    const db = await JSONFilePreset<Data>('db.json', defaultData);
-    return db;
+    if (!dbInstance) {
+        dbInstance = await JSONFilePreset<Data>('db.json', defaultData);
+    }
+    return dbInstance;
 };

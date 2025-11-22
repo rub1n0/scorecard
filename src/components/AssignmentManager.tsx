@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Scorecard, KPI } from '@/types';
 import { useScorecards } from '@/context/ScorecardContext';
-import { X, Copy, Check, User, Link as LinkIcon, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, Search, UserPlus, Link as LinkIcon, Check, Trash2 } from 'lucide-react';
 
 interface AssignmentManagerProps {
     scorecard: Scorecard;
@@ -11,11 +11,15 @@ interface AssignmentManagerProps {
 }
 
 export default function AssignmentManager({ scorecard, onClose }: AssignmentManagerProps) {
-    const { generateAssigneeToken } = useScorecards();
+    const { scorecards, updateKPI, assignKPIToUser, bulkAssignKPIs, generateAssigneeToken } = useScorecards();
+    const [selectedKPIs, setSelectedKPIs] = useState<Set<string>>(new Set());
+    const [assigneeEmail, setAssigneeEmail] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
-    const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
+    const [isAssigning, setIsAssigning] = useState(false);
 
-    const groupedKPIs = useMemo(() => {
+    // Group KPIs by assignee
+    const { assignedGroups, unassignedKPIs } = useMemo(() => {
         const groups = new Map<string, KPI[]>();
         const unassigned: KPI[] = [];
 
@@ -28,8 +32,71 @@ export default function AssignmentManager({ scorecard, onClose }: AssignmentMana
             }
         });
 
-        return { groups, unassigned };
+        return { assignedGroups: groups, unassignedKPIs: unassigned };
     }, [scorecard.kpis]);
+
+    // Filter unassigned KPIs by search query
+    const filteredUnassigned = useMemo(() => {
+        if (!searchQuery) return unassignedKPIs;
+        const query = searchQuery.toLowerCase();
+        return unassignedKPIs.filter(kpi =>
+            kpi.name.toLowerCase().includes(query) ||
+            kpi.subtitle?.toLowerCase().includes(query)
+        );
+    }, [unassignedKPIs, searchQuery]);
+
+    const handleToggleKPI = (kpiId: string) => {
+        const newSelected = new Set(selectedKPIs);
+        if (newSelected.has(kpiId)) {
+            newSelected.delete(kpiId);
+        } else {
+            newSelected.add(kpiId);
+        }
+        setSelectedKPIs(newSelected);
+    };
+
+    const handleSelectAll = () => {
+        if (selectedKPIs.size === filteredUnassigned.length) {
+            setSelectedKPIs(new Set());
+        } else {
+            setSelectedKPIs(new Set(filteredUnassigned.map(kpi => kpi.id)));
+        }
+    };
+
+    const handleAssign = async () => {
+        if (selectedKPIs.size === 0 || !assigneeEmail.trim()) return;
+
+        setIsAssigning(true);
+
+        // Capture the current selection before async operations
+        const kpisToAssign = Array.from(selectedKPIs);
+        const emailTo = assigneeEmail.trim();
+
+        try {
+            // Use bulk assignment to prevent race conditions
+            await bulkAssignKPIs(scorecard.id, kpisToAssign, emailTo);
+
+            // Clear selection and email
+            setSelectedKPIs(new Set());
+            setAssigneeEmail('');
+        } catch (error) {
+            console.error('[AssignmentManager] Failed to assign KPIs:', error);
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+
+    const handleUnassign = async (kpiId: string) => {
+        try {
+            // Use updateKPI to clear assignee and updateToken
+            await updateKPI(scorecard.id, kpiId, {
+                assignee: undefined,
+                updateToken: undefined
+            });
+        } catch (error) {
+            console.error('Failed to unassign KPI:', error);
+        }
+    };
 
     const handleCopyLink = async (email: string) => {
         try {
@@ -43,30 +110,15 @@ export default function AssignmentManager({ scorecard, onClose }: AssignmentMana
         }
     };
 
-    const toggleExpand = (email: string) => {
-        const newExpanded = new Set(expandedEmails);
-        if (newExpanded.has(email)) {
-            newExpanded.delete(email);
-        } else {
-            newExpanded.add(email);
-        }
-        setExpandedEmails(newExpanded);
-    };
-
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal max-w-3xl" onClick={e => e.stopPropagation()}>
+            <div className="modal max-w-4xl" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-industrial-800 rounded-md border border-industrial-700">
-                            <User size={20} className="text-industrial-100" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-industrial-100">Assignment Manager</h2>
-                            <p className="text-xs text-industrial-400 font-mono uppercase tracking-wider">
-                                {groupedKPIs.groups.size} Assignees • {scorecard.kpis.length} Total Metrics
-                            </p>
-                        </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-industrial-100">Assignment Manager</h2>
+                        <p className="text-xs text-industrial-400 font-mono uppercase tracking-wider mt-1">
+                            {assignedGroups.size} Assignees • {scorecard.kpis.length} Total Metrics
+                        </p>
                     </div>
                     <button onClick={onClose} className="btn btn-icon btn-secondary">
                         <X size={20} />
@@ -74,34 +126,176 @@ export default function AssignmentManager({ scorecard, onClose }: AssignmentMana
                 </div>
 
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                    {/* Assigned Users List */}
-                    {groupedKPIs.groups.size > 0 ? (
-                        <div className="space-y-4">
-                            {Array.from(groupedKPIs.groups.entries()).map(([email, kpis]) => (
-                                <div key={email} className="border border-industrial-800 rounded-lg bg-industrial-900/30 overflow-hidden">
-                                    <div
-                                        className="p-4 flex items-center justify-between hover:bg-industrial-800/50 transition-colors cursor-pointer"
-                                        onClick={() => toggleExpand(email)}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <button className="text-industrial-400">
-                                                {expandedEmails.has(email) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                                            </button>
+                    {/* Unassigned Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-industrial-300 uppercase tracking-wider">
+                                Unassigned Metrics ({unassignedKPIs.length})
+                            </h3>
+                            {unassignedKPIs.length > 0 && (
+                                <button
+                                    onClick={handleSelectAll}
+                                    className="text-xs text-industrial-400 hover:text-industrial-200 transition-colors"
+                                >
+                                    {selectedKPIs.size === filteredUnassigned.length && filteredUnassigned.length > 0
+                                        ? 'Deselect All'
+                                        : 'Select All'}
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Search */}
+                        {unassignedKPIs.length > 5 && (
+                            <div className="relative">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-industrial-500" />
+                                <input
+                                    type="text"
+                                    className="input pl-10 w-full"
+                                    placeholder="Search metrics..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        {/* Unassigned KPI List Grouped by Section */}
+                        {filteredUnassigned.length > 0 ? (
+                            <div className="space-y-6 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+                                {(() => {
+                                    // Group filtered KPIs by section
+                                    const sectionsMap = new Map<string | null, KPI[]>();
+
+                                    // Initialize with defined sections in order
+                                    (scorecard.sections || []).forEach(section => {
+                                        sectionsMap.set(section.id, []);
+                                    });
+                                    // Add unassigned group
+                                    sectionsMap.set(null, []);
+
+                                    // Populate groups
+                                    filteredUnassigned.forEach(kpi => {
+                                        const sectionId = kpi.sectionId || null;
+                                        if (sectionsMap.has(sectionId)) {
+                                            sectionsMap.get(sectionId)?.push(kpi);
+                                        } else {
+                                            // Fallback for deleted sections
+                                            sectionsMap.get(null)?.push(kpi);
+                                        }
+                                    });
+
+                                    return Array.from(sectionsMap.entries()).map(([sectionId, kpis]) => {
+                                        if (kpis.length === 0) return null;
+
+                                        const section = scorecard.sections?.find(s => s.id === sectionId);
+                                        const sectionName = section ? section.name : 'General / Unassigned';
+                                        const allSelected = kpis.every(k => selectedKPIs.has(k.id));
+
+                                        const handleToggleSection = () => {
+                                            const newSelected = new Set(selectedKPIs);
+                                            if (allSelected) {
+                                                kpis.forEach(k => newSelected.delete(k.id));
+                                            } else {
+                                                kpis.forEach(k => newSelected.add(k.id));
+                                            }
+                                            setSelectedKPIs(newSelected);
+                                        };
+
+                                        return (
+                                            <div key={sectionId || 'unassigned'} className="space-y-2">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <h4 className="text-xs font-bold text-industrial-400 uppercase tracking-wider">
+                                                        {sectionName}
+                                                    </h4>
+                                                    <button
+                                                        onClick={handleToggleSection}
+                                                        className="text-xs text-industrial-500 hover:text-industrial-300 transition-colors"
+                                                    >
+                                                        {allSelected ? 'Deselect Section' : 'Select Section'}
+                                                    </button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {kpis.map(kpi => (
+                                                        <label
+                                                            key={kpi.id}
+                                                            className="flex items-start gap-3 p-3 bg-industrial-900/30 border border-industrial-800 rounded hover:bg-industrial-800/50 cursor-pointer transition-colors"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                className="mt-0.5 form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                                                                checked={selectedKPIs.has(kpi.id)}
+                                                                onChange={() => handleToggleKPI(kpi.id)}
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium text-industrial-100">{kpi.name}</div>
+                                                                {kpi.subtitle && (
+                                                                    <div className="text-xs text-industrial-500 mt-0.5">{kpi.subtitle}</div>
+                                                                )}
+                                                            </div>
+                                                            <span className="font-mono text-sm text-industrial-400">{kpi.value}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-industrial-500 text-sm">
+                                {searchQuery ? 'No metrics match your search' : 'All metrics are assigned'}
+                            </div>
+                        )}
+
+                        {/* Bulk Assignment Controls */}
+                        {selectedKPIs.size > 0 && (
+                            <div className="flex gap-3 pt-4 border-t border-industrial-800">
+                                <div className="flex-1">
+                                    <input
+                                        type="email"
+                                        className="input w-full"
+                                        placeholder="Enter email address..."
+                                        value={assigneeEmail}
+                                        onChange={(e) => setAssigneeEmail(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && assigneeEmail.trim()) {
+                                                e.preventDefault();
+                                                handleAssign();
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleAssign}
+                                    disabled={!assigneeEmail.trim() || isAssigning}
+                                    className="btn btn-primary flex items-center gap-2 whitespace-nowrap"
+                                >
+                                    <UserPlus size={16} />
+                                    Assign {selectedKPIs.size} Metric{selectedKPIs.size !== 1 ? 's' : ''}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Assigned Section */}
+                    {assignedGroups.size > 0 && (
+                        <div className="space-y-4 pt-6 border-t-2 border-industrial-800">
+                            <h3 className="text-sm font-semibold text-industrial-300 uppercase tracking-wider">
+                                Assigned Metrics
+                            </h3>
+
+                            <div className="space-y-3">
+                                {Array.from(assignedGroups.entries()).map(([email, kpis]) => (
+                                    <div key={email} className="border border-industrial-800 rounded-lg bg-industrial-900/30 overflow-hidden">
+                                        <div className="p-4 flex items-center justify-between bg-industrial-900/50">
                                             <div>
-                                                <h3 className="text-industrial-100 font-medium">{email}</h3>
+                                                <h4 className="text-industrial-100 font-medium">{email}</h4>
                                                 <p className="text-xs text-industrial-500 font-mono mt-0.5">
-                                                    {kpis.length} Metric{kpis.length !== 1 ? 's' : ''} Assigned
+                                                    {kpis.length} Metric{kpis.length !== 1 ? 's' : ''}
                                                 </p>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
                                             <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCopyLink(email);
-                                                }}
+                                                onClick={() => handleCopyLink(email)}
                                                 className="btn btn-sm btn-secondary flex items-center gap-2"
-                                                title="Copy Master Update Link"
                                             >
                                                 {copiedEmail === email ? (
                                                     <>
@@ -116,42 +310,28 @@ export default function AssignmentManager({ scorecard, onClose }: AssignmentMana
                                                 )}
                                             </button>
                                         </div>
-                                    </div>
-
-                                    {/* Expanded KPI List */}
-                                    {expandedEmails.has(email) && (
-                                        <div className="border-t border-industrial-800 bg-industrial-950/30 p-4">
-                                            <ul className="space-y-2">
-                                                {kpis.map(kpi => (
-                                                    <li key={kpi.id} className="flex items-center justify-between text-sm text-industrial-300 pl-8">
-                                                        <span>{kpi.name}</span>
-                                                        <span className="font-mono text-industrial-500">{kpi.value}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                        <div className="divide-y divide-industrial-800/50">
+                                            {kpis.map(kpi => (
+                                                <div key={kpi.id} className="flex items-center justify-between p-3 hover:bg-industrial-800/30 transition-colors">
+                                                    <div className="flex-1">
+                                                        <div className="text-sm text-industrial-200">{kpi.name}</div>
+                                                        {kpi.subtitle && (
+                                                            <div className="text-xs text-industrial-500 mt-0.5">{kpi.subtitle}</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="font-mono text-sm text-industrial-400">{kpi.value}</span>
+                                                        <button
+                                                            onClick={() => handleUnassign(kpi.id)}
+                                                            className="text-industrial-500 hover:text-red-400 transition-colors"
+                                                            title="Unassign"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-12 border-2 border-dashed border-industrial-800 rounded-lg">
-                            <User size={32} className="mx-auto text-industrial-600 mb-3" />
-                            <p className="text-industrial-400">No active assignments found.</p>
-                            <p className="text-sm text-industrial-500 mt-1">Assign KPIs to users in the KPI editor to see them here.</p>
-                        </div>
-                    )}
-
-                    {/* Unassigned Summary */}
-                    {groupedKPIs.unassigned.length > 0 && (
-                        <div className="mt-8 pt-6 border-t border-industrial-800">
-                            <h3 className="text-sm font-semibold text-industrial-400 uppercase tracking-wider mb-4">
-                                Unassigned Metrics ({groupedKPIs.unassigned.length})
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {groupedKPIs.unassigned.map(kpi => (
-                                    <div key={kpi.id} className="p-3 bg-industrial-900/50 border border-industrial-800 rounded text-sm text-industrial-300">
-                                        {kpi.name}
                                     </div>
                                 ))}
                             </div>

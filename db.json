@@ -1,8 +1,8 @@
 {
   "scorecards": [
     {
-      "id": "d321fe11-1cf9-4f18-99df-9e613b4def61",
-      "name": "SecOps KPIs",
+      "id": "e898bb94-ed63-4504-b338-50ff83d5cd2b",
+      "name": "SecOps Scorecard",
       "description": "",
       "kpis": [
         {
@@ -13,68 +13,18 @@
           "trendValue": -262,
           "dataPoints": [
             {
-              "date": "4/12/2023",
-              "value": 15462,
+              "date": "9/13/2023",
+              "value": 14194,
               "color": "#5094af"
             },
             {
-              "date": "4/28/2023",
-              "value": 14741,
+              "date": "9/6/2023",
+              "value": 14456,
               "color": "#36c9b8"
             },
             {
-              "date": "5/10/2023",
-              "value": 14742,
-              "color": "#dea821"
-            },
-            {
-              "date": "5/24/2023",
-              "value": 14580,
-              "color": "#ee7411"
-            },
-            {
-              "date": "5/26/2023",
-              "value": 13642,
-              "color": "#e0451f"
-            },
-            {
-              "date": "5/30/2023",
-              "value": 13642,
-              "color": "#5094af"
-            },
-            {
-              "date": "6/5/2023",
-              "value": 13492,
-              "color": "#36c9b8"
-            },
-            {
-              "date": "6/7/2023",
-              "value": 14535,
-              "color": "#dea821"
-            },
-            {
-              "date": "6/21/2023",
-              "value": 14730,
-              "color": "#ee7411"
-            },
-            {
-              "date": "7/12/2023",
-              "value": 14098,
-              "color": "#e0451f"
-            },
-            {
-              "date": "7/26/2023",
-              "value": 14708,
-              "color": "#5094af"
-            },
-            {
-              "date": "8/3/2023",
-              "value": 14505,
-              "color": "#36c9b8"
-            },
-            {
-              "date": "8/10/2023",
-              "value": 14693,
+              "date": "8/23/2023",
+              "value": 10634,
               "color": "#dea821"
             },
             {
@@ -83,1629 +33,1329 @@
               "color": "#ee7411"
             },
             {
-              "date": "8/23/2023",
-              "value": 10634,
+              "date": "8/10/2023",
+              "value": 14693,
               "color": "#e0451f"
             },
             {
-              "date": "9/6/2023",
-              "value": 14456,
+              "date": "8/3/2023",
+              "value": 14505,
               "color": "#5094af"
             },
             {
-              "date": "9/13/2023",
-              "value": 14194,
+              "date": "7/26/2023",
+              "value": 14708,
+              "color": "#36c9b8"
+            },
+            {
+              "date": "7/12/2023",
+              "value": 14098,
+              "color": "#dea821"
+            },
+            {
+              "date": "6/21/2023",
+              "value": 14730,
+              "color": "#ee7411"
+            },
+            {
+              "date": "6/7/2023",
+              "value": 14535,
+              "color": "#e0451f"
+            },
+            {
+              "date": "6/5/2023",
+              "value": 13492,
+              "color": "#5094af"
+            },
+            {
+              "date": "5/30/2023",
+              "value": 13642,
+              "color": "#36c9b8"
+            },
+            {
+              "date": "5/26/2023",
+              "value": 13642,
+              "color": "#dea821"
+            },
+            {
+              "date": "5/24/2023",
+              "value": 14580,
+              "color": "#ee7411"
+            },
+            {
+              "date": "5/10/2023",
+              "value": 14742,
+              "color": "#e0451f"
+            },
+            {
+              "date": "4/28/2023",
+              "value": 14741,
+              "color": "#5094af"
+            },
+            {
+              "date": "4/12/2023",
+              "value": 15462,
               "color": "#36c9b8"
             }
           ],
-          "id": "70f9db5d-6981-4a04-95ad-613abc46eaea",
-          "section": "Operations",
+          "id": "3126b6ca-449f-4ed4-8327-4ef8de5211ff",
           "chartSettings": {
             "strokeWidth": 2,
-            "strokeColor": "#3b82f6",
+            "strokeColor": "#457B9D",
             "strokeOpacity": 1,
             "showLegend": true,
             "showGridLines": true,
             "showDataLabels": true
           },
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe",
-          "subtitle": "The number of vulnerabilities.",
-          "notes": "This KPI is going nuts!!!",
-          "assignee": "anthony@rubino.us",
-          "updateToken": "XrQKt3jweVmYGcXQATo27jLO9w9x-G7s"
+          "reverseTrend": false
         },
         {
           "name": "KPI011",
           "value": 0,
-          "date": "2023-12-06",
+          "date": "12/6/2023",
           "visualizationType": "number",
           "trendValue": 0,
           "dataPoints": [
             {
               "date": "4/12/2023",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "4/28/2023",
-              "value": 67,
-              "color": "#36c9b8"
+              "value": 67
             },
             {
               "date": "5/10/2023",
-              "value": 34,
-              "color": "#dea821"
+              "value": 34
             },
             {
               "date": "5/17/2023",
-              "value": 18,
-              "color": "#ee7411"
+              "value": 18
             },
             {
               "date": "5/24/2023",
-              "value": 17.98,
-              "color": "#e0451f"
+              "value": 17.98
             },
             {
               "date": "6/7/2023",
-              "value": 1.9,
-              "color": "#5094af"
+              "value": 1.9
             },
             {
               "date": "6/21/2023",
-              "value": 1.9,
-              "color": "#36c9b8"
+              "value": 1.9
             },
             {
               "date": "7/12/2023",
-              "value": 1.9,
-              "color": "#dea821"
+              "value": 1.9
             },
             {
               "date": "7/26/2023",
-              "value": 0,
-              "color": "#ee7411"
+              "value": 0
             },
             {
               "date": "8/3/2023",
-              "value": 0,
-              "color": "#e0451f"
+              "value": 0
             },
             {
               "date": "8/10/2023",
-              "value": 0,
-              "color": "#5094af"
+              "value": 0
             },
             {
               "date": "8/16/2023",
-              "value": 0,
-              "color": "#36c9b8"
+              "value": 0
             },
             {
               "date": "8/23/2023",
-              "value": 0,
-              "color": "#dea821"
+              "value": 0
             },
             {
               "date": "8/30/2023",
-              "value": 0,
-              "color": "#ee7411"
+              "value": 0
             },
             {
               "date": "9/6/2023",
-              "value": 0,
-              "color": "#e0451f"
+              "value": 0
             },
             {
               "date": "9/13/2023",
-              "value": 0,
-              "color": "#5094af"
+              "value": 0
             },
             {
               "date": "9/21/2023",
-              "value": 0,
-              "color": "#36c9b8"
+              "value": 0
             },
             {
               "date": "10/5/2023",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "10/12/2023",
-              "value": 75,
-              "color": "#ee7411"
+              "value": 75
             },
             {
               "date": "10/19/2023",
-              "value": 60,
-              "color": "#e0451f"
+              "value": 60
             },
             {
               "date": "10/25/2023",
-              "value": 45,
-              "color": "#5094af"
+              "value": 45
             },
             {
               "date": "11/6/2023",
-              "value": 32,
-              "color": "#36c9b8"
+              "value": 32
             },
             {
               "date": "11/15/2023",
-              "value": 0,
-              "color": "#dea821"
+              "value": 0
             },
             {
               "date": "11/22/2023",
-              "value": 0,
-              "color": "#ee7411"
+              "value": 0
             },
             {
               "date": "11/29/2023",
-              "value": 0,
-              "color": "#e0451f"
+              "value": 0
             },
             {
               "date": "12/6/2023",
-              "value": 0,
-              "color": "#5094af"
+              "value": 0
             }
           ],
-          "id": "8851dfea-e900-4372-bf02-697ee10dc559",
-          "section": "Operations",
-          "chartSettings": {
-            "strokeWidth": 2,
-            "strokeColor": "#3b82f6",
-            "strokeOpacity": 1,
-            "showLegend": true,
-            "showGridLines": true,
-            "showDataLabels": true
-          },
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe",
-          "assignee": "anthony@rubino.us",
-          "updateToken": "xwJf1pn2AxrVrIUNrRGJLeuoZ2vosW_y"
+          "id": "1b58b9e7-7c46-4412-a1f5-5784d110a8fc"
         },
         {
           "name": "KPI015",
           "value": 100,
-          "date": "2025-11-12",
-          "visualizationType": "chart",
+          "date": "11/12/2025",
+          "visualizationType": "number",
+          "trendValue": 0,
           "dataPoints": [
             {
               "date": "4/12/2023",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "4/28/2023",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "9/21/2023",
-              "value": 95,
-              "color": "#dea821"
+              "value": 95
             },
             {
               "date": "10/5/2023",
-              "value": 95,
-              "color": "#ee7411"
+              "value": 95
             },
             {
               "date": "10/12/2023",
-              "value": 95,
-              "color": "#e0451f"
+              "value": 95
             },
             {
               "date": "10/19/2023",
-              "value": 95,
-              "color": "#5094af"
+              "value": 95
             },
             {
               "date": "10/25/2023",
-              "value": 95,
-              "color": "#36c9b8"
+              "value": 95
             },
             {
               "date": "11/6/2023",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "11/15/2023",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "11/22/2023",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "11/29/2023",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "12/6/2023",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "12/14/2023",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "12/18/2023",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "1/2/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "1/8/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "1/17/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "1/24/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "1/31/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "2/7/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "2/14/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "2/21/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "2/28/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "3/6/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "3/13/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "3/20/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "3/27/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "4/3/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "4/10/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "4/17/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "4/24/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "5/1/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "5/8/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "5/15/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "5/29/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "6/5/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "6/12/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "6/18/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "6/26/2024",
-              "value": 88,
-              "color": "#ee7411"
+              "value": 88
             },
             {
               "date": "7/3/2024",
-              "value": 88,
-              "color": "#e0451f"
+              "value": 88
             },
             {
               "date": "7/10/2024",
-              "value": 88,
-              "color": "#5094af"
+              "value": 88
             },
             {
               "date": "7/24/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "7/31/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "8/7/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "8/21/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "8/29/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "9/4/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "9/11/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "9/18/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "9/25/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "10/2/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "10/9/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "10/16/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "10/23/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "10/30/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "11/6/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "11/13/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "11/20/2024",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "11/27/2024",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "12/4/2024",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "12/11/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "12/18/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "1/6/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "1/15/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "1/22/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "1/29/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "2/5/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "2/12/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "2/26/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "3/5/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "3/12/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "3/19/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "3/26/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "4/2/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "4/8/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "4/16/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "4/23/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "4/30/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "5/7/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "5/14/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "5/21/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "5/28/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "6/4/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "6/11/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "6/18/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "7/2/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "7/9/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "7/16/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "7/23/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "7/30/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "8/6/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "8/13/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "8/20/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "8/27/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "9/3/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "9/10/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "9/17/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "9/24/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "10/1/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "10/8/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "10/15/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "10/22/2025",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "10/29/2025",
-              "value": 100,
-              "color": "#dea821"
+              "value": 100
             },
             {
               "date": "11/5/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "11/12/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             }
           ],
-          "id": "2f8e6269-1879-4659-b485-820771de86c0",
-          "chartType": "area",
-          "chartSettings": {
-            "strokeWidth": 2,
-            "strokeColor": "#3b82f6",
-            "strokeOpacity": 1,
-            "showLegend": false,
-            "showGridLines": false,
-            "showDataLabels": false
-          },
-          "section": "Operations",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "7d194fb9-b750-4a09-81d2-9647f6e49b1a"
         },
         {
           "name": "KPI020",
           "value": 0,
-          "date": "2025-11-12",
+          "date": "11/12/2025",
           "visualizationType": "number",
           "trendValue": -5,
           "dataPoints": [
             {
               "date": "4/12/2023",
-              "value": 29,
-              "color": "#5094af"
+              "value": 29
             },
             {
               "date": "4/28/2023",
-              "value": 29,
-              "color": "#36c9b8"
+              "value": 29
             },
             {
               "date": "5/10/2023",
-              "value": 29,
-              "color": "#dea821"
+              "value": 29
             },
             {
               "date": "5/17/2023",
-              "value": 29,
-              "color": "#ee7411"
+              "value": 29
             },
             {
               "date": "5/24/2023",
-              "value": 27,
-              "color": "#e0451f"
+              "value": 27
             },
             {
               "date": "7/12/2023",
-              "value": 25,
-              "color": "#5094af"
+              "value": 25
             },
             {
               "date": "7/26/2023",
-              "value": 25,
-              "color": "#36c9b8"
+              "value": 25
             },
             {
               "date": "8/3/2023",
-              "value": 25,
-              "color": "#dea821"
+              "value": 25
             },
             {
               "date": "8/10/2023",
-              "value": 25,
-              "color": "#ee7411"
+              "value": 25
             },
             {
               "date": "8/16/2023",
-              "value": 24,
-              "color": "#e0451f"
+              "value": 24
             },
             {
               "date": "8/23/2023",
-              "value": 25,
-              "color": "#5094af"
+              "value": 25
             },
             {
               "date": "9/6/2023",
-              "value": 27,
-              "color": "#36c9b8"
+              "value": 27
             },
             {
               "date": "9/13/2023",
-              "value": 26,
-              "color": "#dea821"
+              "value": 26
             },
             {
               "date": "10/23/2024",
-              "value": 20,
-              "color": "#ee7411"
+              "value": 20
             },
             {
               "date": "10/30/2024",
-              "value": 20,
-              "color": "#e0451f"
+              "value": 20
             },
             {
               "date": "11/6/2024",
-              "value": 18,
-              "color": "#5094af"
+              "value": 18
             },
             {
               "date": "11/13/2024",
-              "value": 16,
-              "color": "#36c9b8"
+              "value": 16
             },
             {
               "date": "11/20/2024",
-              "value": 15,
-              "color": "#dea821"
+              "value": 15
             },
             {
               "date": "11/27/2024",
-              "value": 14,
-              "color": "#ee7411"
+              "value": 14
             },
             {
               "date": "12/4/2024",
-              "value": 13,
-              "color": "#e0451f"
+              "value": 13
             },
             {
               "date": "12/11/2024",
-              "value": 12,
-              "color": "#5094af"
+              "value": 12
             },
             {
               "date": "12/18/2024",
-              "value": 12,
-              "color": "#36c9b8"
+              "value": 12
             },
             {
               "date": "1/6/2025",
-              "value": 12,
-              "color": "#dea821"
+              "value": 12
             },
             {
               "date": "1/15/2025",
-              "value": 100,
-              "color": "#ee7411"
+              "value": 100
             },
             {
               "date": "1/22/2025",
-              "value": 100,
-              "color": "#e0451f"
+              "value": 100
             },
             {
               "date": "1/29/2025",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "2/5/2025",
-              "value": 12,
-              "color": "#36c9b8"
+              "value": 12
             },
             {
               "date": "2/12/2025",
-              "value": 12,
-              "color": "#dea821"
+              "value": 12
             },
             {
               "date": "2/26/2025",
-              "value": 12,
-              "color": "#ee7411"
+              "value": 12
             },
             {
               "date": "3/5/2025",
-              "value": 12,
-              "color": "#e0451f"
+              "value": 12
             },
             {
               "date": "3/12/2025",
-              "value": 12,
-              "color": "#5094af"
+              "value": 12
             },
             {
               "date": "3/19/2025",
-              "value": 12,
-              "color": "#36c9b8"
+              "value": 12
             },
             {
               "date": "3/26/2025",
-              "value": 12,
-              "color": "#dea821"
+              "value": 12
             },
             {
               "date": "4/2/2025",
-              "value": 12,
-              "color": "#ee7411"
+              "value": 12
             },
             {
               "date": "4/8/2025",
-              "value": 12,
-              "color": "#e0451f"
+              "value": 12
             },
             {
               "date": "4/16/2025",
-              "value": 12,
-              "color": "#5094af"
+              "value": 12
             },
             {
               "date": "4/23/2025",
-              "value": 12,
-              "color": "#36c9b8"
+              "value": 12
             },
             {
               "date": "4/30/2025",
-              "value": 12,
-              "color": "#dea821"
+              "value": 12
             },
             {
               "date": "5/7/2025",
-              "value": 12,
-              "color": "#ee7411"
+              "value": 12
             },
             {
               "date": "5/14/2025",
-              "value": 12,
-              "color": "#e0451f"
+              "value": 12
             },
             {
               "date": "5/21/2025",
-              "value": 25,
-              "color": "#5094af"
+              "value": 25
             },
             {
               "date": "5/28/2025",
-              "value": 25,
-              "color": "#36c9b8"
+              "value": 25
             },
             {
               "date": "6/4/2025",
-              "value": 25,
-              "color": "#dea821"
+              "value": 25
             },
             {
               "date": "6/11/2025",
-              "value": 25,
-              "color": "#ee7411"
+              "value": 25
             },
             {
               "date": "7/9/2025",
-              "value": 25,
-              "color": "#e0451f"
+              "value": 25
             },
             {
               "date": "7/16/2025",
-              "value": 25,
-              "color": "#5094af"
+              "value": 25
             },
             {
               "date": "7/23/2025",
-              "value": 25,
-              "color": "#36c9b8"
+              "value": 25
             },
             {
               "date": "7/30/2025",
-              "value": 25,
-              "color": "#dea821"
+              "value": 25
             },
             {
               "date": "8/6/2025",
-              "value": 25,
-              "color": "#ee7411"
+              "value": 25
             },
             {
               "date": "8/13/2025",
-              "value": 24,
-              "color": "#e0451f"
+              "value": 24
             },
             {
               "date": "8/20/2025",
-              "value": 24,
-              "color": "#5094af"
+              "value": 24
             },
             {
               "date": "8/27/2025",
-              "value": 24,
-              "color": "#36c9b8"
+              "value": 24
             },
             {
               "date": "9/3/2025",
-              "value": 24,
-              "color": "#dea821"
+              "value": 24
             },
             {
               "date": "9/10/2025",
-              "value": 6,
-              "color": "#ee7411"
+              "value": 6
             },
             {
               "date": "9/17/2025",
-              "value": 5,
-              "color": "#e0451f"
+              "value": 5
             },
             {
               "date": "9/24/2025",
-              "value": 5,
-              "color": "#5094af"
+              "value": 5
             },
             {
               "date": "10/1/2025",
-              "value": 5,
-              "color": "#36c9b8"
+              "value": 5
             },
             {
               "date": "10/8/2025",
-              "value": 5,
-              "color": "#dea821"
+              "value": 5
             },
             {
               "date": "10/15/2025",
-              "value": 5,
-              "color": "#ee7411"
+              "value": 5
             },
             {
               "date": "10/22/2025",
-              "value": 5,
-              "color": "#e0451f"
+              "value": 5
             },
             {
               "date": "11/12/2025",
-              "value": 0,
-              "color": "#5094af"
+              "value": 0
             }
           ],
-          "id": "4f12ddae-bbaf-44b3-a994-c058ee864de1",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0",
-          "subtitle": "KPI Subtitle text",
-          "chartSettings": {
-            "strokeWidth": 2,
-            "strokeColor": "#3b82f6",
-            "strokeOpacity": 1,
-            "showLegend": true,
-            "showGridLines": true,
-            "showDataLabels": true
-          }
+          "id": "650e6e65-1cda-496d-b07b-7369d849257c"
         },
         {
           "name": "KPI021",
           "value": 0,
-          "date": "2025-11-12",
+          "date": "11/12/2025",
           "visualizationType": "number",
           "trendValue": -1,
           "dataPoints": [
             {
               "date": "4/12/2023",
-              "value": 37,
-              "color": "#5094af"
+              "value": 37
             },
             {
               "date": "4/28/2023",
-              "value": 37,
-              "color": "#36c9b8"
+              "value": 37
             },
             {
               "date": "5/10/2023",
-              "value": 34,
-              "color": "#dea821"
+              "value": 34
             },
             {
               "date": "5/17/2023",
-              "value": 34,
-              "color": "#ee7411"
+              "value": 34
             },
             {
               "date": "5/24/2023",
-              "value": 34,
-              "color": "#e0451f"
+              "value": 34
             },
             {
               "date": "7/12/2023",
-              "value": 31,
-              "color": "#5094af"
+              "value": 31
             },
             {
               "date": "7/26/2023",
-              "value": 31,
-              "color": "#36c9b8"
+              "value": 31
             },
             {
               "date": "8/3/2023",
-              "value": 31.5,
-              "color": "#dea821"
+              "value": 31.5
             },
             {
               "date": "8/10/2023",
-              "value": 31.6,
-              "color": "#ee7411"
+              "value": 31.6
             },
             {
               "date": "8/16/2023",
-              "value": 31.646,
-              "color": "#e0451f"
+              "value": 31.646
             },
             {
               "date": "8/23/2023",
-              "value": 31.646,
-              "color": "#5094af"
+              "value": 31.646
             },
             {
               "date": "9/6/2023",
-              "value": 31.646,
-              "color": "#36c9b8"
+              "value": 31.646
             },
             {
               "date": "9/13/2023",
-              "value": 26,
-              "color": "#dea821"
+              "value": 26
             },
             {
               "date": "9/21/2023",
-              "value": 26,
-              "color": "#ee7411"
+              "value": 26
             },
             {
               "date": "10/5/2023",
-              "value": 26,
-              "color": "#e0451f"
+              "value": 26
             },
             {
               "date": "10/12/2023",
-              "value": 26,
-              "color": "#5094af"
+              "value": 26
             },
             {
               "date": "10/19/2023",
-              "value": 36.25,
-              "color": "#36c9b8"
+              "value": 36.25
             },
             {
               "date": "10/25/2023",
-              "value": 36.25,
-              "color": "#dea821"
+              "value": 36.25
             },
             {
               "date": "11/6/2023",
-              "value": 36.25,
-              "color": "#ee7411"
+              "value": 36.25
             },
             {
               "date": "11/15/2023",
-              "value": 36.25,
-              "color": "#e0451f"
+              "value": 36.25
             },
             {
               "date": "11/22/2023",
-              "value": 36.7,
-              "color": "#5094af"
+              "value": 36.7
             },
             {
               "date": "11/29/2023",
-              "value": 36.7,
-              "color": "#36c9b8"
+              "value": 36.7
             },
             {
               "date": "12/6/2023",
-              "value": 36.7,
-              "color": "#dea821"
+              "value": 36.7
             },
             {
               "date": "12/14/2023",
-              "value": 39.2,
-              "color": "#ee7411"
+              "value": 39.2
             },
             {
               "date": "12/18/2023",
-              "value": 34.1,
-              "color": "#e0451f"
+              "value": 34.1
             },
             {
               "date": "1/2/2024",
-              "value": 32.9,
-              "color": "#5094af"
+              "value": 32.9
             },
             {
               "date": "1/8/2024",
-              "value": 34.1,
-              "color": "#36c9b8"
+              "value": 34.1
             },
             {
               "date": "1/17/2024",
-              "value": 36.7,
-              "color": "#dea821"
+              "value": 36.7
             },
             {
               "date": "1/24/2024",
-              "value": 32.9,
-              "color": "#ee7411"
+              "value": 32.9
             },
             {
               "date": "1/31/2024",
-              "value": 32.9,
-              "color": "#e0451f"
+              "value": 32.9
             },
             {
               "date": "2/7/2024",
-              "value": 32.9,
-              "color": "#5094af"
+              "value": 32.9
             },
             {
               "date": "2/14/2024",
-              "value": 32.9,
-              "color": "#36c9b8"
+              "value": 32.9
             },
             {
               "date": "2/21/2024",
-              "value": 34.1,
-              "color": "#dea821"
+              "value": 34.1
             },
             {
               "date": "2/28/2024",
-              "value": 34.1,
-              "color": "#ee7411"
+              "value": 34.1
             },
             {
               "date": "3/6/2024",
-              "value": 34.1,
-              "color": "#e0451f"
+              "value": 34.1
             },
             {
               "date": "3/13/2024",
-              "value": 30.3,
-              "color": "#5094af"
+              "value": 30.3
             },
             {
               "date": "4/10/2024",
-              "value": 30.37,
-              "color": "#36c9b8"
+              "value": 30.37
             },
             {
               "date": "4/17/2024",
-              "value": 10,
-              "color": "#dea821"
+              "value": 10
             },
             {
               "date": "4/24/2024",
-              "value": 30.37,
-              "color": "#ee7411"
+              "value": 30.37
             },
             {
               "date": "5/1/2024",
-              "value": 31.6,
-              "color": "#e0451f"
+              "value": 31.6
             },
             {
               "date": "5/8/2024",
-              "value": 31.6,
-              "color": "#5094af"
+              "value": 31.6
             },
             {
               "date": "5/15/2024",
-              "value": 31.6,
-              "color": "#36c9b8"
+              "value": 31.6
             },
             {
               "date": "5/22/2024",
-              "value": 30.3,
-              "color": "#dea821"
+              "value": 30.3
             },
             {
               "date": "5/29/2024",
-              "value": 25.3,
-              "color": "#ee7411"
+              "value": 25.3
             },
             {
               "date": "6/5/2024",
-              "value": 26.6,
-              "color": "#e0451f"
+              "value": 26.6
             },
             {
               "date": "6/12/2024",
-              "value": 19,
-              "color": "#5094af"
+              "value": 19
             },
             {
               "date": "6/18/2024",
-              "value": 17.7,
-              "color": "#36c9b8"
+              "value": 17.7
             },
             {
               "date": "6/26/2024",
-              "value": 11.4,
-              "color": "#dea821"
+              "value": 11.4
             },
             {
               "date": "7/3/2024",
-              "value": 18.9,
-              "color": "#ee7411"
+              "value": 18.9
             },
             {
               "date": "7/10/2024",
-              "value": 18.9,
-              "color": "#e0451f"
+              "value": 18.9
             },
             {
               "date": "7/31/2024",
-              "value": 19,
-              "color": "#5094af"
+              "value": 19
             },
             {
               "date": "8/7/2024",
-              "value": 24,
-              "color": "#36c9b8"
+              "value": 24
             },
             {
               "date": "8/14/2024",
-              "value": 10.1,
-              "color": "#dea821"
+              "value": 10.1
             },
             {
               "date": "8/21/2024",
-              "value": 15.2,
-              "color": "#ee7411"
+              "value": 15.2
             },
             {
               "date": "8/29/2024",
-              "value": 12.6,
-              "color": "#e0451f"
+              "value": 12.6
             },
             {
               "date": "9/4/2024",
-              "value": 12.6,
-              "color": "#5094af"
+              "value": 12.6
             },
             {
               "date": "9/11/2024",
-              "value": 100,
-              "color": "#36c9b8"
+              "value": 100
             },
             {
               "date": "9/18/2024",
-              "value": 17,
-              "color": "#dea821"
+              "value": 17
             },
             {
               "date": "9/25/2024",
-              "value": 24,
-              "color": "#ee7411"
+              "value": 24
             },
             {
               "date": "10/2/2024",
-              "value": 50,
-              "color": "#e0451f"
+              "value": 50
             },
             {
               "date": "10/9/2024",
-              "value": 100,
-              "color": "#5094af"
+              "value": 100
             },
             {
               "date": "10/16/2024",
-              "value": 50,
-              "color": "#36c9b8"
+              "value": 50
             },
             {
               "date": "10/23/2024",
-              "value": 50,
-              "color": "#dea821"
+              "value": 50
             },
             {
               "date": "10/30/2024",
-              "value": 50,
-              "color": "#ee7411"
+              "value": 50
             },
             {
               "date": "11/6/2024",
-              "value": 50,
-              "color": "#e0451f"
+              "value": 50
             },
             {
               "date": "11/13/2024",
-              "value": 50,
-              "color": "#5094af"
+              "value": 50
             },
             {
               "date": "11/20/2024",
-              "value": 50,
-              "color": "#36c9b8"
+              "value": 50
             },
             {
               "date": "11/27/2024",
-              "value": 50,
-              "color": "#dea821"
+              "value": 50
             },
             {
               "date": "12/4/2024",
-              "value": 50,
-              "color": "#ee7411"
+              "value": 50
             },
             {
               "date": "12/11/2024",
-              "value": 50,
-              "color": "#e0451f"
+              "value": 50
             },
             {
               "date": "12/18/2024",
-              "value": 50,
-              "color": "#5094af"
+              "value": 50
             },
             {
               "date": "1/6/2025",
-              "value": 50,
-              "color": "#36c9b8"
+              "value": 50
             },
             {
               "date": "1/15/2025",
-              "value": 12,
-              "color": "#dea821"
+              "value": 12
             },
             {
               "date": "1/22/2025",
-              "value": 12,
-              "color": "#ee7411"
+              "value": 12
             },
             {
               "date": "1/29/2025",
-              "value": 12,
-              "color": "#e0451f"
+              "value": 12
             },
             {
               "date": "2/5/2025",
-              "value": 50,
-              "color": "#5094af"
+              "value": 50
             },
             {
               "date": "2/12/2025",
-              "value": 50,
-              "color": "#36c9b8"
+              "value": 50
             },
             {
               "date": "2/26/2025",
-              "value": 50,
-              "color": "#dea821"
+              "value": 50
             },
             {
               "date": "3/5/2025",
-              "value": 50,
-              "color": "#ee7411"
+              "value": 50
             },
             {
               "date": "3/12/2025",
-              "value": 50,
-              "color": "#e0451f"
+              "value": 50
             },
             {
               "date": "3/19/2025",
-              "value": 50,
-              "color": "#5094af"
+              "value": 50
             },
             {
               "date": "3/26/2025",
-              "value": 50,
-              "color": "#36c9b8"
+              "value": 50
             },
             {
               "date": "4/2/2025",
-              "value": 50,
-              "color": "#dea821"
+              "value": 50
             },
             {
               "date": "4/8/2025",
-              "value": 50,
-              "color": "#ee7411"
+              "value": 50
             },
             {
               "date": "4/16/2025",
-              "value": 50,
-              "color": "#e0451f"
+              "value": 50
             },
             {
               "date": "4/23/2025",
-              "value": 50,
-              "color": "#5094af"
+              "value": 50
             },
             {
               "date": "4/30/2025",
-              "value": 50,
-              "color": "#36c9b8"
+              "value": 50
             },
             {
               "date": "5/7/2025",
-              "value": 4,
-              "color": "#dea821"
+              "value": 4
             },
             {
               "date": "5/14/2025",
-              "value": 50,
-              "color": "#ee7411"
+              "value": 50
             },
             {
               "date": "5/21/2025",
-              "value": 44,
-              "color": "#e0451f"
+              "value": 44
             },
             {
               "date": "5/28/2025",
-              "value": 44,
-              "color": "#5094af"
+              "value": 44
             },
             {
               "date": "6/4/2025",
-              "value": 44,
-              "color": "#36c9b8"
+              "value": 44
             },
             {
               "date": "6/11/2025",
-              "value": 44,
-              "color": "#dea821"
+              "value": 44
             },
             {
               "date": "7/9/2025",
-              "value": 44,
-              "color": "#ee7411"
+              "value": 44
             },
             {
               "date": "7/16/2025",
-              "value": 44,
-              "color": "#e0451f"
+              "value": 44
             },
             {
               "date": "7/23/2025",
-              "value": 44,
-              "color": "#5094af"
+              "value": 44
             },
             {
               "date": "7/30/2025",
-              "value": 44,
-              "color": "#36c9b8"
+              "value": 44
             },
             {
               "date": "8/6/2025",
-              "value": 44,
-              "color": "#dea821"
+              "value": 44
             },
             {
               "date": "8/13/2025",
-              "value": 25,
-              "color": "#ee7411"
+              "value": 25
             },
             {
               "date": "8/20/2025",
-              "value": 25,
-              "color": "#e0451f"
+              "value": 25
             },
             {
               "date": "8/27/2025",
-              "value": 25,
-              "color": "#5094af"
+              "value": 25
             },
             {
               "date": "9/3/2025",
-              "value": 25,
-              "color": "#36c9b8"
+              "value": 25
             },
             {
               "date": "9/10/2025",
-              "value": 1,
-              "color": "#dea821"
+              "value": 1
             },
             {
               "date": "9/17/2025",
-              "value": 1,
-              "color": "#ee7411"
+              "value": 1
             },
             {
               "date": "9/24/2025",
-              "value": 1,
-              "color": "#e0451f"
+              "value": 1
             },
             {
               "date": "10/1/2025",
-              "value": 1,
-              "color": "#5094af"
+              "value": 1
             },
             {
               "date": "10/8/2025",
-              "value": 1,
-              "color": "#36c9b8"
+              "value": 1
             },
             {
               "date": "10/15/2025",
-              "value": 1,
-              "color": "#dea821"
+              "value": 1
             },
             {
               "date": "10/22/2025",
-              "value": 1,
-              "color": "#ee7411"
+              "value": 1
             },
             {
               "date": "11/12/2025",
-              "value": 0,
-              "color": "#e0451f"
+              "value": 0
             }
           ],
-          "id": "afb47e64-f9df-4f4b-a1db-450ea3f0f9e0",
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe",
-          "assignee": "anthony@rubino.us",
-          "chartSettings": {
-            "strokeWidth": 2,
-            "strokeColor": "#3b82f6",
-            "strokeOpacity": 1,
-            "showLegend": true,
-            "showGridLines": true,
-            "showDataLabels": true
-          },
-          "updateToken": "HJWKD5KH2QiNC-dI-eyWXg3Mjl-fAQFW"
+          "id": "a85e4d62-1fd6-4335-a4dd-6c3d696583e2"
         },
         {
           "name": "KPI028",
@@ -2195,8 +1845,7 @@
               "value": 100
             }
           ],
-          "id": "b15a5c7c-8d3e-406b-9015-1b2a5fade8d7",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "569cb1d3-ea73-4993-8638-f88363f810ba"
         },
         {
           "name": "KPI029",
@@ -2282,8 +1931,7 @@
               "value": 53.8
             }
           ],
-          "id": "df652972-79da-44a8-86a3-83a444d61ef2",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "811ce278-2d97-4e95-ac82-90357baddd5e"
         },
         {
           "name": "KPI030",
@@ -2769,8 +2417,7 @@
               "value": 0.01
             }
           ],
-          "id": "0a394af7-0c97-48e5-be1e-20862961af9b",
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe"
+          "id": "97c7a73a-7d06-4b52-b96f-2ece6c282c1c"
         },
         {
           "name": "KPI036",
@@ -3208,8 +2855,7 @@
               "value": 368
             }
           ],
-          "id": "bf8fed1b-31a7-40e0-b360-7d46ab39dd04",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "bb9c89ad-fd8a-4ade-bc1a-508e8c81f51e"
         },
         {
           "name": "KPI038",
@@ -3579,8 +3225,7 @@
               "value": 79
             }
           ],
-          "id": "aa90ee81-7771-47fa-b86e-86489c5a644f",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "c2ef69fc-692f-42ee-aec8-e9e4a4bb6b31"
         },
         {
           "name": "KPI039",
@@ -3646,8 +3291,7 @@
               "value": 561
             }
           ],
-          "id": "5f414a34-3fce-4b6b-b113-8eccb3de1345",
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe"
+          "id": "1144bcf7-9cba-4fb4-bcac-871b53457d2f"
         },
         {
           "name": "KPI040",
@@ -3877,8 +3521,7 @@
               "value": 521
             }
           ],
-          "id": "5f588499-96ea-4772-8a75-4ed35c3051ce",
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe"
+          "id": "5d17e811-1a7f-497a-a2e9-45474d33a9a0"
         },
         {
           "name": "KPI022",
@@ -4336,8 +3979,7 @@
               "value": 0
             }
           ],
-          "id": "48d7488a-5954-48f9-a818-ecd0eddb5c07",
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe"
+          "id": "d3957d99-a875-4b29-ab30-38f095a02b66"
         },
         {
           "name": "KPI031",
@@ -4819,16 +4461,14 @@
               "value": 135
             }
           ],
-          "id": "03db7c7b-891c-4b50-8717-94d16bd4dec7",
-          "sectionId": "0821bf61-c604-418a-98c6-7a07ba1973fe"
+          "id": "62c137b6-9d76-4e5c-8b8b-e043453b0441"
         },
         {
           "name": "AWARE002",
           "value": "Y",
           "date": "5/17/2023",
           "visualizationType": "text",
-          "id": "c972d6f4-d524-4c5c-8f7d-ba5136f53fd2",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "1abd6064-da43-4dd1-8c7c-19d6b48df2bc"
         },
         {
           "name": "KPI041",
@@ -4934,8 +4574,7 @@
               "value": 8.9
             }
           ],
-          "id": "b75d7186-5287-43a9-b06f-4a9f2097714b",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "ad3f1ab1-6ad8-483f-8f22-03ae743a8c34"
         },
         {
           "name": "KPI042",
@@ -5401,8 +5040,7 @@
               "value": 100
             }
           ],
-          "id": "cca3c5e7-5568-4ba2-b95b-a2422941db17",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "aeed8d0c-5001-4dfc-bef8-34d6105b2b6e"
         },
         {
           "name": "KPI049",
@@ -5456,32 +5094,28 @@
               "value": 2
             }
           ],
-          "id": "cd67126b-79aa-44c6-85e3-bce7ef60b1ab",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "e2cb714c-8379-4be9-9e6d-28b119c67b56"
         },
         {
           "name": "AWARE001",
           "value": "Y",
           "date": "6/7/2023",
           "visualizationType": "text",
-          "id": "0be221a2-2dd9-4ae8-9949-5a72bae44fa5",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "b430b109-7c62-48ce-a266-6293af42c0ba"
         },
         {
           "name": "KPI016",
           "value": "N",
           "date": "6/7/2023",
           "visualizationType": "text",
-          "id": "cb4570de-5336-4e7d-bd5f-b03ffae1c085",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "45cc6154-a67d-42d3-a2b1-53eec8811def"
         },
         {
           "name": "KPI017",
           "value": "Y",
           "date": "6/7/2023",
           "visualizationType": "text",
-          "id": "b3fe70eb-a546-4bea-b247-e0e762f499e2",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "1bde7e7a-bd78-4bfa-b8e0-f40f3eb2e144"
         },
         {
           "name": "KPI018",
@@ -5494,8 +5128,7 @@
               "value": 0
             }
           ],
-          "id": "0855e095-dc8d-40bb-816a-c1a33aa9b1ab",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "02219164-887b-4a7b-a6a5-34b3f48da53b"
         },
         {
           "name": "KPI019",
@@ -5905,8 +5538,7 @@
               "value": 20
             }
           ],
-          "id": "8b91c7b7-21ff-4c88-ba7c-2f662c7e194d",
-          "sectionId": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95"
+          "id": "4be65216-2242-4cfd-8317-5a2703280cbd"
         },
         {
           "name": "KPI023",
@@ -6336,8 +5968,7 @@
               "value": 0
             }
           ],
-          "id": "01831847-e328-4516-aac6-e6d14a5a257b",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "487f14f1-1fce-4d37-92a5-a07a36d51cb9"
         },
         {
           "name": "KPI024",
@@ -6751,8 +6382,7 @@
               "value": 44.92
             }
           ],
-          "id": "a8f38843-db1a-4f2a-9347-cba3d587842e",
-          "sectionId": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0"
+          "id": "6f0d6f97-1c84-474b-a1b5-bd277fe85832"
         },
         {
           "name": "KPI035",
@@ -6798,7 +6428,7 @@
               "value": 4230
             }
           ],
-          "id": "8cc09f23-7626-478a-ba62-63413411122a"
+          "id": "e21125cc-1fe4-4320-9bb1-f9e48f523b27"
         },
         {
           "name": "KPI013",
@@ -7188,7 +6818,7 @@
               "value": 100
             }
           ],
-          "id": "8bedf557-e47e-41bf-a694-27e76e3e9a8a"
+          "id": "002eb7ef-2794-4d48-8141-706d885258b2"
         },
         {
           "name": "KPI014",
@@ -7578,7 +7208,7 @@
               "value": 227
             }
           ],
-          "id": "5a674c69-528f-4f99-aee0-85839fc21760"
+          "id": "1c45623a-d96a-4a2b-84f8-63b31bcb15ac"
         },
         {
           "name": "KPI043",
@@ -7648,7 +7278,7 @@
               "value": 0
             }
           ],
-          "id": "aac5a3f9-473f-4a8a-84f2-576c0b1d9724"
+          "id": "c832a9da-6d97-41d9-bf98-dd7409165143"
         },
         {
           "name": "KPI044",
@@ -7914,7 +7544,7 @@
               "value": 0
             }
           ],
-          "id": "f3421bdd-b044-4def-b4c1-708e140e4747"
+          "id": "2cd617e9-382a-4b0d-ad2f-dc916b8081da"
         },
         {
           "name": "KPI047",
@@ -7948,7 +7578,7 @@
               "value": 454
             }
           ],
-          "id": "a8faf1a8-9f72-4605-a11b-1c0355f0333a"
+          "id": "8eb37b0c-cf0a-463b-b26a-6b5b5eb6c041"
         },
         {
           "name": "KPI048",
@@ -7982,7 +7612,7 @@
               "value": 1009
             }
           ],
-          "id": "6bc2561d-c91e-463d-9ab7-2bca0f15b845"
+          "id": "4396f0b5-2b69-4645-98e6-79cc188cbe3c"
         },
         {
           "name": "KPI012",
@@ -8308,7 +7938,7 @@
               "value": 0
             }
           ],
-          "id": "a2dafec1-5350-4658-8204-13f2af2d7ee9"
+          "id": "e0a3f242-1dc2-4a28-8928-0877b4a30ec4"
         },
         {
           "name": "KPI057",
@@ -8658,7 +8288,7 @@
               "value": 26
             }
           ],
-          "id": "c1d35660-e236-4b5a-a020-d53bb47c65a8"
+          "id": "36f919e3-ed9f-464c-b109-77848b8720b8"
         },
         {
           "name": "KPI009",
@@ -9072,7 +8702,7 @@
               "value": 0
             }
           ],
-          "id": "d6a58940-808a-40f3-b82f-af1ebb0ea293"
+          "id": "a9d16af7-f796-44eb-868c-38a4cfd58506"
         },
         {
           "name": "KPI014-analysis",
@@ -9414,7 +9044,7 @@
               "value": 0
             }
           ],
-          "id": "19d2059e-a838-4277-842c-ca95c1859b6c"
+          "id": "04c40195-d62e-4df2-8ee4-dc5d1a599096"
         },
         {
           "name": "KPI014-containment",
@@ -9764,7 +9394,7 @@
               "value": 227
             }
           ],
-          "id": "d6f8188f-2440-437a-930d-2018dda54510"
+          "id": "65b1de68-1a29-4491-8de4-7b74204a6080"
         },
         {
           "name": "KPI014-detection",
@@ -10114,7 +9744,7 @@
               "value": 0
             }
           ],
-          "id": "7fa39dc1-dc39-46c6-a6da-a4f80446bcb7"
+          "id": "b353de64-aa01-4459-b495-dbc3997fc7ab"
         },
         {
           "name": "KPI014-eradication",
@@ -10464,7 +10094,7 @@
               "value": 0
             }
           ],
-          "id": "e42648ce-e903-480a-a40d-b5fff00253e5"
+          "id": "de9b0275-e81a-43d4-a329-41cc6bc14891"
         },
         {
           "name": "KPI014-postincident",
@@ -10814,7 +10444,7 @@
               "value": 0
             }
           ],
-          "id": "794b3c54-7024-4270-b9e7-a3853b7668da"
+          "id": "6d7071fc-c31a-4ca1-a9b8-3555c4027f5c"
         },
         {
           "name": "KPI014-recovery",
@@ -11160,7 +10790,7 @@
               "value": 0
             }
           ],
-          "id": "0234f46d-3e82-49d4-b8c9-6adbaac03c1b"
+          "id": "bec87152-c53c-4179-9bfe-f68f8b278f71"
         },
         {
           "name": "KPI041-biomed",
@@ -11558,7 +11188,7 @@
               "value": 7.2
             }
           ],
-          "id": "ac93d3ac-9d3f-40c4-8a03-813a7e49e216"
+          "id": "0e5c6ada-cb9d-4644-8689-33db338aa871"
         },
         {
           "name": "KPI041-clients",
@@ -11956,7 +11586,7 @@
               "value": 7.4
             }
           ],
-          "id": "38ba96b4-dac2-4e86-a90d-580d1e991077"
+          "id": "d82d5454-a9ed-48c2-991d-6dee04201ccc"
         },
         {
           "name": "KPI041-scripps",
@@ -12354,7 +11984,7 @@
               "value": 6
             }
           ],
-          "id": "41a46794-cd32-4944-a11e-dd4c63e11f83"
+          "id": "3c0fbeac-b308-4be5-89a1-f2f72c1e157f"
         },
         {
           "name": "KPI041-tenant",
@@ -12752,7 +12382,7 @@
               "value": 7
             }
           ],
-          "id": "bbadfb29-c1c1-444d-bf5e-6a1d2b01648d"
+          "id": "568a2bc1-a652-4c60-8fac-dde9967902e4"
         },
         {
           "name": "KPI041-scrippshealth",
@@ -13150,7 +12780,7 @@
               "value": 4.8
             }
           ],
-          "id": "17f24c63-ca2d-4f8a-be51-3985174f72eb"
+          "id": "8eaf5d1d-f989-490e-9034-801b48250182"
         },
         {
           "name": "KPI059",
@@ -13524,7 +13154,7 @@
               "value": 161
             }
           ],
-          "id": "2d23822d-7d45-47a2-914c-826bfc29db8d"
+          "id": "ac20c4b3-b538-49f2-a601-000d33fc24c9"
         },
         {
           "name": "KPI060",
@@ -13886,7 +13516,7 @@
               "value": 2444
             }
           ],
-          "id": "0b9119e2-1e39-47be-82bd-3e7176d32203"
+          "id": "2e8d9802-3afa-4630-8f20-3f0bdfa026f4"
         },
         {
           "name": "KPI061",
@@ -14248,7 +13878,7 @@
               "value": 7130
             }
           ],
-          "id": "6eabad73-c3d9-4607-8813-e4c09dfebeff"
+          "id": "dcd0ae5c-6e91-4cef-a283-4c05fec57e44"
         },
         {
           "name": "KPI065",
@@ -14510,7 +14140,7 @@
               "value": 20
             }
           ],
-          "id": "de5e6c58-2706-4397-8733-f6532e3d49b6"
+          "id": "e63f9cf1-09eb-4237-8959-7623523528cd"
         },
         {
           "name": "KPI066",
@@ -14768,7 +14398,7 @@
               "value": 750
             }
           ],
-          "id": "d02b32e5-9a02-4bfd-8518-4ecbf687b247"
+          "id": "acb8b48e-7048-484c-a600-ab701606bc01"
         },
         {
           "name": "KPI067",
@@ -15030,7 +14660,7 @@
               "value": 8
             }
           ],
-          "id": "0ef49a17-9438-43d3-8b27-ea3bfce55719"
+          "id": "7e439585-c461-4755-8a3e-4caacc9b94ea"
         },
         {
           "name": "KPI068",
@@ -15292,7 +14922,7 @@
               "value": 0
             }
           ],
-          "id": "7bfadc9d-852d-41ee-96a7-c50a9f0c9903"
+          "id": "b621adc4-3022-4121-bf72-12ec41abb577"
         },
         {
           "name": "KPI057-exposed",
@@ -15314,7 +14944,7 @@
               "value": 33
             }
           ],
-          "id": "83ff9db6-5790-4914-98cd-e57aa95bc35d"
+          "id": "80bac59b-c42e-4d6f-9f0f-0bd6d830735b"
         },
         {
           "name": "KPI064-exposed",
@@ -15480,7 +15110,7 @@
               "value": 17
             }
           ],
-          "id": "a559c60a-0fef-4268-a505-d6dc43f86b9b"
+          "id": "ff5f3bac-a2d9-46e0-9430-e4a73b65c13a"
         },
         {
           "name": "KPI069",
@@ -15698,7 +15328,7 @@
               "value": 5
             }
           ],
-          "id": "bc15295c-01ea-408a-83ed-35e454ef5354"
+          "id": "df0ca52d-8a8b-4c34-bae3-d2f8a75e574c"
         },
         {
           "name": "KPI019-a",
@@ -15760,7 +15390,7 @@
               "value": 35
             }
           ],
-          "id": "4e819b54-3037-4f99-9a7c-dc002199c125"
+          "id": "3e4429db-1bd7-4e6c-a004-8b95deb3c593"
         },
         {
           "name": "KPI019-b",
@@ -15822,7 +15452,7 @@
               "value": 28
             }
           ],
-          "id": "3b2b1d7f-0aee-451d-bf46-8245a73f405d"
+          "id": "e8c3330d-542c-482b-bdac-68be4b30a1db"
         },
         {
           "name": "SOAR-1",
@@ -15872,7 +15502,7 @@
               "value": 226
             }
           ],
-          "id": "9709857f-1209-48de-a401-61646bbe7aa5"
+          "id": "5defa827-a203-410c-bad3-1247fc31db73"
         },
         {
           "name": "NAC001",
@@ -15910,7 +15540,7 @@
               "value": 488
             }
           ],
-          "id": "7502ed03-3863-4b83-b04a-465f08cbebe0"
+          "id": "db99d635-799b-476a-8dcb-02f841b9916c"
         },
         {
           "name": "NAC002",
@@ -15948,7 +15578,7 @@
               "value": 483
             }
           ],
-          "id": "71f06f26-4143-48e1-944c-254e72a03ef6"
+          "id": "cbf48b53-dbd2-40eb-933e-1434d08c0877"
         },
         {
           "name": "NAC003",
@@ -15986,7 +15616,7 @@
               "value": 488
             }
           ],
-          "id": "c93fc685-7d53-44de-a2ea-b380a89a0788"
+          "id": "c334c553-10eb-4264-bcb0-f9a1b57d5e01"
         },
         {
           "name": "SNOW-1",
@@ -16016,7 +15646,7 @@
               "value": 11
             }
           ],
-          "id": "408a5585-ee23-4940-af14-334851ab1aa8"
+          "id": "eba50afb-a36e-4158-aecf-a6129b2cb95e"
         },
         {
           "name": "SNOW-2",
@@ -16046,7 +15676,7 @@
               "value": 5
             }
           ],
-          "id": "ae34ef4e-6dc6-4355-816a-d37e7d47c4a9"
+          "id": "b04e06e1-8648-4798-934e-75b03b157a52"
         },
         {
           "name": "SNOW-3",
@@ -16076,7 +15706,7 @@
               "value": 0
             }
           ],
-          "id": "ec57f09d-5bd2-43fa-85f3-8a0a756994c1"
+          "id": "26ebe4a1-ead1-4f5e-ba74-9431eec850d3"
         },
         {
           "name": "SNOW-4",
@@ -16106,7 +15736,7 @@
               "value": 5
             }
           ],
-          "id": "43e04532-3ab6-4267-a433-13befc9ffbf1"
+          "id": "cbf87ded-9b12-4785-9b8f-91f94ec25bc9"
         },
         {
           "name": "SNOW-5",
@@ -16136,37 +15766,11 @@
               "value": 0
             }
           ],
-          "id": "2844251e-8954-469f-86b7-fec4de71d5d8"
+          "id": "6e8abff4-ef1a-4a56-a404-3169e14857f2"
         }
       ],
-      "createdAt": "2025-11-19T15:56:16.910Z",
-      "updatedAt": "2025-11-20T23:49:34.467Z",
-      "sections": [
-        {
-          "name": "ENDPOINT",
-          "color": "verdigris",
-          "order": 0,
-          "id": "0821bf61-c604-418a-98c6-7a07ba1973fe",
-          "opacity": 0.7
-        },
-        {
-          "name": "RISK",
-          "color": "tuscan-sun",
-          "order": 1,
-          "id": "823b9fcf-1204-4aa0-af7c-53d2bbed05b0",
-          "opacity": 0.7
-        },
-        {
-          "name": "DATA",
-          "color": "burnt-peach",
-          "order": 2,
-          "id": "8b72b0ad-7b9f-4c67-8dea-5548f1ba8e95",
-          "opacity": 0.7
-        }
-      ],
-      "assignees": {
-        "anthony@rubino.us": "w9SWQ0EnSFMOBGbA_1B1A0yjkba3uKTO"
-      }
+      "createdAt": "2025-11-22T17:10:01.302Z",
+      "updatedAt": "2025-11-22T17:11:25.045Z"
     }
   ]
 }

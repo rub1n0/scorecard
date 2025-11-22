@@ -7,7 +7,7 @@ import ScorecardForm from '@/components/ScorecardForm';
 import { Plus, BarChart3, LayoutDashboard } from 'lucide-react';
 
 export default function Dashboard() {
-    const { scorecards, addScorecard, deleteScorecard } = useScorecards();
+    const { scorecards, addScorecard, deleteScorecard, updateScorecard } = useScorecards();
     const [showForm, setShowForm] = useState(false);
 
     const handleCreateScorecard = (name: string, description: string) => {
@@ -59,6 +59,7 @@ export default function Dashboard() {
                                 key={scorecard.id}
                                 scorecard={scorecard}
                                 onDelete={() => deleteScorecard(scorecard.id)}
+                                onUpdate={(updates) => updateScorecard(scorecard.id, updates)}
                             />
                         ))}
                     </div>

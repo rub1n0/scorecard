@@ -53,6 +53,7 @@ export interface KPI {
     assignee?: string; // Email address of assigned user
     updateToken?: string; // Unique token for secure updates
     lastUpdatedBy?: string; // Email of user who made last update
+    reverseTrend?: boolean; // If true, trending down is good (green) and up is bad (red)
 }
 
 export interface Scorecard {

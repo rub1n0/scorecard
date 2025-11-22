@@ -28,22 +28,24 @@ A modern, self-hosted KPI (Key Performance Indicator) dashboard application buil
 ### Core Functionality
 - 📊 **Multiple Scorecards** - Create and manage unlimited scorecards
 - 📈 **KPI Tracking** - Track metrics with values, trends, and targets
-- 🎨 **Rich Visualizations** - Pie charts, bar charts, and line graphs
-- 📁 **Section Management** - Organize KPIs into custom sections with colors
-- 📤 **CSV Import** - Bulk import KPIs from CSV files
+- 🎨 **Rich Visualizations** - Pie charts, bar charts, line graphs, and sparklines
+- 📁 **Section Management** - Organize KPIs into custom sections with colors and reordering
+- 📤 **CSV Import** - Bulk import KPIs from CSV files with smart date normalization
 - 🔄 **Real-time Updates** - Automatic UI updates when data changes
 
 ### Collaboration Features
 - 👥 **User Assignments** - Assign KPIs to team members
 - 🔗 **Secure Update Links** - Token-based links for external updates
-- 📮 **Assignment Manager** - View and manage all assignments in one place
+- 📮 **Assignment Manager** - Centralized hub to view, assign, and manage all metrics
 - 🔐 **No Login Required** - Token-based access for assigned users
+- ⚡ **Bulk Operations** - Assign multiple metrics or entire sections at once
 
 ### User Experience
 - 🎨 **Industrial Dark Theme** - Modern, professional interface
 - 📱 **Responsive Design** - Works on desktop, tablet, and mobile
 - ⚡ **Fast Performance** - Optimized with Next.js and Turbopack
 - 💾 **File-based Storage** - No database setup required (uses LowDB)
+- 🛠️ **Customizable Charts** - Toggle legends, grid lines, and data labels
 
 ---
 
@@ -57,13 +59,7 @@ A modern, self-hosted KPI (Key Performance Indicator) dashboard application buil
 
 **Ubuntu/Linux:**
 ```bash
-bash setup-ubuntu.sh
-npm run dev
-```
-
-**Windows:**
-```powershell
-.\setup-windows.ps1
+bash scripts/setup.sh
 npm run dev
 ```
 
@@ -134,7 +130,7 @@ npm start
 The setup script can create a systemd service for automatic startup:
 
 ```bash
-bash setup-ubuntu.sh
+bash scripts/setup-ubuntu.sh
 # Select "Yes" when asked about systemd service
 ```
 
@@ -144,22 +140,6 @@ sudo systemctl start kpi-scorecard    # Start
 sudo systemctl stop kpi-scorecard     # Stop
 sudo systemctl restart kpi-scorecard  # Restart
 sudo systemctl status kpi-scorecard   # Check status
-```
-
-#### 2. Windows Server (Windows Service)
-
-The setup script can create a Windows service using NSSM:
-
-```powershell
-.\setup-windows.ps1
-# Select "Yes" when asked about Windows service
-```
-
-Service management:
-```powershell
-nssm start KPIScorecard     # Start
-nssm stop KPIScorecard      # Stop
-nssm restart KPIScorecard   # Restart
 ```
 
 #### 3. Docker (Optional)
@@ -256,11 +236,10 @@ git push heroku main
 3. Fill in the KPI details:
    - **Name**: Metric name (e.g., "Monthly Revenue")
    - **Subtitle**: Additional context (optional)
-   - **Value**: Current value
-   - **Target**: Goal value (optional)
-   - **Trend**: Percentage change
-   - **Chart Type**: Pie, Bar, or Line
-   - **Assignee**: Email of person responsible (optional)
+   - **Value**: Current value (automatically calculated for Number type)
+   - **Visualization Type**: Number with Trend, Chart, or Text
+   - **Chart Settings**: Customize colors, legends, and labels
+   - **Reverse Trend**: Option to mark downward trends as "Good" (Green)
 4. Click **"Save"**
 
 #### Importing Multiple KPIs via CSV
@@ -279,29 +258,30 @@ git push heroku main
 
 ### Organizing with Sections
 
-1. Click **"Manage Scorecard"** → **"Manage Sections"**
+1. Click **"Manage Scorecard"** → **"Sections"**
 2. Click **"Add Section"**
 3. Configure:
    - **Name**: Section name
    - **Color**: Choose from palette
    - **Opacity**: Adjust transparency
-4. Drag KPIs to assign them to sections
-5. Reorder KPIs within sections
+4. Use **Up/Down Arrows** to reorder sections
+5. Drag KPIs to assign them to sections in the main view
 
 ### Assignment Management
 
-#### Assigning KPIs to Users
+#### Bulk Assignment Manager
 
-**Individual Assignment:**
-1. Edit a KPI
-2. Enter assignee email
-3. Save - a unique update link is generated
-
-**Bulk Assignment View:**
-1. Click **"Manage Scorecard"** → **"Manage Assignments"**
-2. View all KPIs grouped by assignee
-3. Click **"Copy Link"** to get the user's bulk update URL
-4. Share the link with the assignee
+1. Click **"Manage Scorecard"** → **"Assignments"**
+2. **Select Metrics**:
+   - Check individual boxes
+   - Click **"Select Section"** to select all metrics in a group
+   - Use the search bar to find specific metrics
+3. **Assign**:
+   - Enter an email address
+   - Click **"Assign Metrics"**
+4. **Share**:
+   - Find the user in the "Assigned Metrics" list
+   - Click **"Copy Link"** to get their unique update URL
 
 #### Assignee Update Workflow
 
@@ -317,7 +297,7 @@ git push heroku main
 - **Edit KPI**: Click the edit icon on any KPI tile
 - **Delete KPI**: Click the delete icon (confirmation required)
 - **Edit Section**: Click edit in Section Management
-- **Reorder Sections**: Drag to reorder in Section Management
+- **Reorder Sections**: Use arrows in Section Management
 - **Delete Section**: Removes section but keeps KPIs (moved to General)
 
 ---
@@ -342,15 +322,12 @@ NODE_ENV=production
 
 ### Network Access
 
+### Network Access
+
 **Allow External Access (Ubuntu):**
 ```bash
 sudo ufw allow 3000/tcp
 sudo ufw reload
-```
-
-**Allow External Access (Windows):**
-```powershell
-New-NetFirewallRule -DisplayName "KPI Scorecard" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
 ```
 
 ### Performance Tuning
@@ -413,8 +390,8 @@ kpi-scorecard/
 │       └── tokenUtils.ts         # Token generation/validation
 ├── data/                         # Database storage (JSON files)
 ├── public/                       # Static assets
-├── setup-ubuntu.sh               # Ubuntu installation script
-├── setup-windows.ps1             # Windows installation script
+├── scripts/                      # Utility scripts
+│   └── setup.sh                  # Installation script
 ├── SETUP.md                      # Detailed setup guide
 └── package.json                  # Dependencies
 ```
@@ -454,6 +431,8 @@ kpi-scorecard/
   assignee?: string;
   updateToken?: string;
   lastUpdatedBy?: string;
+  reverseTrend?: boolean; // Down is Good
+  chartSettings?: ChartSettings;
 }
 ```
 

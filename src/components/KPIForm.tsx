@@ -14,7 +14,6 @@ interface KPIFormProps {
 export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
     const [name, setName] = useState(kpi?.name || '');
     const [subtitle, setSubtitle] = useState(kpi?.subtitle || '');
-    const [assignee, setAssignee] = useState(kpi?.assignee || '');
     const [value, setValue] = useState(kpi?.value.toString() || '');
     const [date, setDate] = useState(
         kpi?.date ? new Date(kpi.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
@@ -29,25 +28,34 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
 
     // Chart Settings State
     const [strokeWidth, setStrokeWidth] = useState(kpi?.chartSettings?.strokeWidth ?? 2);
-    const [strokeColor, setStrokeColor] = useState(kpi?.chartSettings?.strokeColor || '#3b82f6');
+    const [strokeColor, setStrokeColor] = useState(kpi?.chartSettings?.strokeColor || '#457B9D');
     const [strokeOpacity, setStrokeOpacity] = useState(kpi?.chartSettings?.strokeOpacity ?? 1.0);
     const [showLegend, setShowLegend] = useState(kpi?.chartSettings?.showLegend ?? true);
     const [showGridLines, setShowGridLines] = useState(kpi?.chartSettings?.showGridLines ?? true);
     const [showDataLabels, setShowDataLabels] = useState(kpi?.chartSettings?.showDataLabels ?? true);
+    const [reverseTrend, setReverseTrend] = useState(kpi?.reverseTrend ?? false);
+    const [showAllDataPoints, setShowAllDataPoints] = useState(false);
 
     // Default color palette (same as KPITile.tsx)
     const defaultColors = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
 
-    // Populate missing colors with default palette when editing
+    // Populate missing colors and sort data points when editing
     useEffect(() => {
-        if (kpi?.dataPoints && dataPoints.length > 0) {
-            const needsColors = dataPoints.some(dp => !dp.color);
+        if (kpi?.dataPoints) {
+            // Sort descending (newest first)
+            const sorted = [...kpi.dataPoints].sort((a, b) =>
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+
+            const needsColors = sorted.some(dp => !dp.color);
             if (needsColors) {
-                const updatedPoints = dataPoints.map((dp, index) => ({
+                const updatedPoints = sorted.map((dp, index) => ({
                     ...dp,
                     color: dp.color || defaultColors[index % defaultColors.length]
                 }));
                 setDataPoints(updatedPoints);
+            } else {
+                setDataPoints(sorted);
             }
         }
     }, [kpi]);
@@ -64,13 +72,16 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
             }
         }
 
-        setDataPoints([
-            ...dataPoints,
-            {
-                date: defaultLabel,
-                value: 0,
-            },
-        ]);
+        const newPoint = {
+            date: defaultLabel,
+            value: 0,
+        };
+
+        const updatedPoints = [...dataPoints, newPoint].sort((a, b) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setDataPoints(updatedPoints);
     };
 
     const handleUpdateDataPoint = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
@@ -113,22 +124,22 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         const kpiData: Omit<KPI, 'id'> = {
             name,
             subtitle: subtitle || undefined,
-            assignee: assignee || undefined,
             value: visualizationType === 'text' ? value : finalValue,
             date,
             notes: notes || undefined,
             visualizationType,
             chartType: visualizationType === 'chart' ? chartType : undefined,
             trendValue: visualizationType === 'number' ? finalTrend : undefined,
-            dataPoints: dataPoints.length > 0 ? dataPoints : undefined,
             chartSettings: (visualizationType === 'chart' || visualizationType === 'number') ? {
                 strokeWidth,
                 strokeColor,
                 strokeOpacity,
                 showLegend,
                 showGridLines,
-                showDataLabels
+                showDataLabels,
             } : undefined,
+            dataPoints: visualizationType !== 'text' ? dataPoints : undefined,
+            reverseTrend,
         };
 
         onSave(kpiData);
@@ -167,16 +178,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                         />
                     </div>
 
-                    <div className="form-group">
-                        <label className="form-label">Assignee Email (Optional)</label>
-                        <input
-                            type="email"
-                            className="input"
-                            value={assignee}
-                            onChange={(e) => setAssignee(e.target.value)}
-                            placeholder="user@example.com"
-                        />
-                    </div>
+
 
                     <div className="form-row">
                         <div className="form-group">
@@ -286,6 +288,22 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                         </div>
                     )}
 
+                    {/* Reverse Trend Option - Available for all types */}
+                    <div className="form-group mt-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                                checked={reverseTrend}
+                                onChange={(e) => setReverseTrend(e.target.checked)}
+                            />
+                            <span className="text-sm text-industrial-300">Reverse Trend (Down is Good)</span>
+                        </label>
+                        <p className="text-xs text-industrial-500 mt-1 ml-6">
+                            If checked, a negative trend will be shown in green and a positive trend in red.
+                        </p>
+                    </div>
+
                     {/* Value field - required for Number and Text, optional for Chart */}
                     {/* Value field - only for Text type */}
                     {visualizationType === 'text' && (
@@ -370,9 +388,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                         return (
                             <div className="form-group border-t border-industrial-800 pt-6">
                                 <div className="data-points-header">
-                                    <label className="form-label">
-                                        {visualizationType === 'number' ? 'Historical Data' : 'Data Points'}
-                                    </label>
+                                    <label className="form-label">Values</label>
                                     <button type="button" onClick={handleAddDataPoint} className="btn btn-secondary btn-sm">
                                         <Plus size={14} />
                                         ADD POINT
@@ -391,7 +407,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
 
                                 {dataPoints.length > 0 ? (
                                     <div className="space-y-2">
-                                        {dataPoints.map((dp, index) => (
+                                        {(showAllDataPoints ? dataPoints : dataPoints.slice(-10)).map((dp, index) => (
                                             <div key={index} className={`grid ${gridCols} gap-2 items-center`}>
                                                 <input
                                                     type={visualizationType === 'chart' && (chartType === 'pie' || chartType === 'donut' || chartType === 'radar' || chartType === 'bar' || chartType === 'radialBar') ? 'text' : 'date'}
@@ -424,6 +440,18 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                                                 </button>
                                             </div>
                                         ))}
+
+                                        {dataPoints.length > 10 && (
+                                            <div className="flex justify-center pt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAllDataPoints(!showAllDataPoints)}
+                                                    className="btn btn-secondary btn-sm"
+                                                >
+                                                    {showAllDataPoints ? 'Show Less' : `Show All (${dataPoints.length} points)`}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-muted" style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>

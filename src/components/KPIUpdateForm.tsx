@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { KPI, DataPoint } from '@/types';
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
+import ColorPicker from './ColorPicker';
 
 interface KPIUpdateFormProps {
     kpi: KPI;
@@ -10,42 +11,103 @@ interface KPIUpdateFormProps {
 }
 
 export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
-    const [value, setValue] = useState(kpi.value.toString());
-    const [trendValue, setTrendValue] = useState(kpi.trendValue?.toString() || '0');
     const [notes, setNotes] = useState(kpi.notes || '');
     const [dataPoints, setDataPoints] = useState<DataPoint[]>(kpi.dataPoints || []);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [showAllDataPoints, setShowAllDataPoints] = useState(false);
 
-    // Sort data points by date
+    // Default color palette
+    const defaultColors = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
+
+    // Helper function to normalize dates to YYYY-MM-DD format
+    const normalizeDate = (dateStr: string): string => {
+        // If it's already in ISO format or a category label, return as-is
+        if (!dateStr) return new Date().toISOString().split('T')[0];
+
+        // Try to parse the date
+        const parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+            return parsed.toISOString().split('T')[0];
+        }
+
+        // If parsing failed, it might be a category label, return as-is
+        return dateStr;
+    };
+
+    // Sort data points by date and normalize date format
     useEffect(() => {
         if (kpi.dataPoints) {
+            // Sort descending (newest first)
             const sorted = [...kpi.dataPoints].sort((a, b) =>
-                new Date(a.date).getTime() - new Date(b.date).getTime()
+                new Date(b.date).getTime() - new Date(a.date).getTime()
             );
-            setDataPoints(sorted);
+            // Normalize dates to YYYY-MM-DD format for date inputs
+            const normalized = sorted.map(dp => ({
+                ...dp,
+                date: normalizeDate(dp.date)
+            }));
+            setDataPoints(normalized);
         }
     }, [kpi]);
 
-    const handleAddDataPoint = () => {
-        const today = new Date().toISOString().split('T')[0];
-        setDataPoints([
-            ...dataPoints,
-            {
-                date: today,
-                value: 0,
-                color: kpi.chartSettings?.strokeColor || '#3b82f6'
-            }
-        ]);
+    // Determine what columns to show based on chart type
+    const getColumnConfig = () => {
+        if (kpi.visualizationType === 'text') {
+            return { dateLabel: 'Date', showValue: false, showColor: false };
+        }
+
+        if (kpi.visualizationType === 'number' || (kpi.visualizationType === 'chart' && (kpi.chartType === 'line' || kpi.chartType === 'area'))) {
+            return { dateLabel: 'Date', showValue: true, showColor: false };
+        }
+
+        if (kpi.visualizationType === 'chart' && kpi.chartType === 'radar') {
+            return { dateLabel: 'Dimension', showValue: true, showColor: false };
+        }
+
+        // bar, pie, donut, radialBar
+        return { dateLabel: 'Category', showValue: true, showColor: true };
     };
 
-    const handleUpdateDataPoint = (index: number, field: 'date' | 'value', newValue: string) => {
+    const columnConfig = getColumnConfig();
+
+    const handleAddDataPoint = () => {
+        let defaultLabel = new Date().toISOString().split('T')[0];
+
+        if (kpi.visualizationType === 'chart') {
+            if (kpi.chartType === 'pie' || kpi.chartType === 'donut' || kpi.chartType === 'bar' || kpi.chartType === 'radialBar') {
+                defaultLabel = 'New Category';
+            } else if (kpi.chartType === 'radar') {
+                defaultLabel = 'Dimension';
+            }
+        }
+
+        const newPoint: DataPoint = {
+            date: defaultLabel,
+            value: 0,
+        };
+
+        // Add color for chart types that use it
+        if (columnConfig.showColor) {
+            newPoint.color = defaultColors[dataPoints.length % defaultColors.length];
+        }
+
+        const updatedPoints = [...dataPoints, newPoint].sort((a, b) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setDataPoints(updatedPoints);
+    };
+
+    const handleUpdateDataPoint = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
         const updated = [...dataPoints];
         if (field === 'date') {
             updated[index].date = newValue;
-        } else {
+        } else if (field === 'value') {
             updated[index].value = parseFloat(newValue) || 0;
+        } else if (field === 'color') {
+            updated[index].color = newValue;
         }
         setDataPoints(updated);
     };
@@ -61,13 +123,24 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         setSuccess(false);
 
         try {
-            const finalValue = parseFloat(value) || 0;
-            const finalTrend = parseFloat(trendValue) || 0;
-
             // Sort data points
             const sortedPoints = [...dataPoints].sort((a, b) =>
                 new Date(a.date).getTime() - new Date(b.date).getTime()
             );
+
+            // Calculate value and trend from data points
+            let finalValue = kpi.value;
+            let finalTrend = kpi.trendValue || 0;
+
+            if (kpi.visualizationType === 'number' && sortedPoints.length > 0) {
+                const lastPoint = sortedPoints[sortedPoints.length - 1];
+                finalValue = lastPoint.value;
+
+                if (sortedPoints.length >= 2) {
+                    const prevPoint = sortedPoints[sortedPoints.length - 2];
+                    finalTrend = lastPoint.value - prevPoint.value;
+                }
+            }
 
             await onUpdate({
                 value: finalValue,
@@ -78,6 +151,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             });
 
             setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
         } catch (err) {
             setError('Failed to update KPI. Please try again.');
             console.error(err);
@@ -87,7 +161,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
             {/* Header Info */}
             <div className="bg-industrial-900/50 p-6 rounded-lg border border-industrial-800">
                 <h2 className="text-2xl font-bold text-industrial-100 mb-1">{kpi.name}</h2>
@@ -98,46 +172,19 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 </div>
             </div>
 
-            {/* Main Value */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="form-group">
-                    <label className="label">Current Value</label>
-                    <input
-                        type="number"
-                        step="any"
-                        className="input text-2xl font-mono"
-                        value={value}
-                        onChange={(e) => setValue(e.target.value)}
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label className="label">Trend %</label>
-                    <input
-                        type="number"
-                        step="any"
-                        className="input text-2xl font-mono"
-                        value={trendValue}
-                        onChange={(e) => setTrendValue(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {/* Notes */}
-            <div className="form-group">
-                <label className="label">Notes / Context</label>
-                <textarea
-                    className="input min-h-[100px]"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add any context about this update..."
-                />
-            </div>
-
-            {/* Data Points */}
+            {/* Values Table */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-industrial-200">Historical Data</h3>
+                    <div>
+                        <h3 className="text-lg font-semibold text-industrial-200">Values</h3>
+                        <p className="text-xs text-industrial-500 mt-1">
+                            {kpi.visualizationType === 'number'
+                                ? 'Add historical data points to track trends over time'
+                                : kpi.visualizationType === 'chart'
+                                    ? `Add data points for your ${kpi.chartType} chart`
+                                    : 'Add values to update this metric'}
+                        </p>
+                    </div>
                     <button
                         type="button"
                         onClick={handleAddDataPoint}
@@ -152,38 +199,51 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-industrial-900/50 text-industrial-400 uppercase text-xs">
                             <tr>
-                                <th className="px-4 py-3">Date / Label</th>
-                                <th className="px-4 py-3">Value</th>
+                                <th className="px-4 py-3">{columnConfig.dateLabel}</th>
+                                {columnConfig.showValue && <th className="px-4 py-3">Value</th>}
+                                {columnConfig.showColor && <th className="px-4 py-3 w-20">Color</th>}
                                 <th className="px-4 py-3 w-10"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-industrial-800/50">
                             {dataPoints.length === 0 ? (
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-8 text-center text-industrial-500 italic">
-                                        No data points yet. Add one to start tracking history.
+                                    <td colSpan={columnConfig.showColor ? 4 : columnConfig.showValue ? 3 : 2} className="px-4 py-8 text-center text-industrial-500 italic">
+                                        No data points yet. Add one to start tracking.
                                     </td>
                                 </tr>
                             ) : (
-                                dataPoints.map((point, index) => (
+                                (showAllDataPoints ? dataPoints : dataPoints.slice(-10)).map((point, index) => (
                                     <tr key={index} className="hover:bg-industrial-800/30 transition-colors">
                                         <td className="px-4 py-2">
                                             <input
-                                                type={kpi.visualizationType === 'chart' && kpi.chartType !== 'line' && kpi.chartType !== 'area' ? "text" : "date"}
+                                                type={columnConfig.dateLabel === 'Date' ? "date" : "text"}
                                                 className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
                                                 value={point.date}
                                                 onChange={(e) => handleUpdateDataPoint(index, 'date', e.target.value)}
+                                                placeholder={columnConfig.dateLabel}
                                             />
                                         </td>
-                                        <td className="px-4 py-2">
-                                            <input
-                                                type="number"
-                                                step="any"
-                                                className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
-                                                value={point.value}
-                                                onChange={(e) => handleUpdateDataPoint(index, 'value', e.target.value)}
-                                            />
-                                        </td>
+                                        {columnConfig.showValue && (
+                                            <td className="px-4 py-2">
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
+                                                    value={point.value}
+                                                    onChange={(e) => handleUpdateDataPoint(index, 'value', e.target.value)}
+                                                />
+                                            </td>
+                                        )}
+                                        {columnConfig.showColor && (
+                                            <td className="px-4 py-2">
+                                                <ColorPicker
+                                                    value={point.color || '#3b82f6'}
+                                                    onChange={(color) => handleUpdateDataPoint(index, 'color', color)}
+                                                    align="left"
+                                                />
+                                            </td>
+                                        )}
                                         <td className="px-4 py-2 text-right">
                                             <button
                                                 type="button"
@@ -198,7 +258,30 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                             )}
                         </tbody>
                     </table>
+
+                    {dataPoints.length > 10 && (
+                        <div className="flex justify-center p-4 border-t border-industrial-800">
+                            <button
+                                type="button"
+                                onClick={() => setShowAllDataPoints(!showAllDataPoints)}
+                                className="btn btn-secondary btn-sm"
+                            >
+                                {showAllDataPoints ? 'Show Less' : `Show All (${dataPoints.length} points)`}
+                            </button>
+                        </div>
+                    )}
                 </div>
+            </div>
+
+            {/* Notes */}
+            <div className="form-group">
+                <label className="label">Notes / Context (Optional)</label>
+                <textarea
+                    className="input min-h-[100px]"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add any context about this update..."
+                />
             </div>
 
             {/* Feedback & Actions */}
@@ -225,7 +308,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                     {isSubmitting ? 'Saving...' : (
                         <>
                             <Save size={18} />
-                            Update KPI
+                            Save Changes
                         </>
                     )}
                 </button>
