@@ -1,6 +1,8 @@
 import { KPI, DataPoint, VisualizationType, ChartType } from '@/types';
 
-export interface ParsedKPI extends Omit<KPI, 'id'> { }
+export interface ParsedKPI extends Omit<KPI, 'id'> {
+    sectionName?: string;
+}
 
 export interface CSVParseResult {
     success: boolean;
@@ -108,7 +110,7 @@ function parseSimpleFormat(rows: string[][]): ParsedKPI[] {
 
         const kpi: ParsedKPI = {
             name,
-            value: isNumber ? numValue : valueStr,
+            value: isNumber ? { "0": numValue } : { "0": valueStr }, // New Record format
             date,
             notes,
             visualizationType: isNumber ? 'number' : 'text',
@@ -192,7 +194,7 @@ function parseTimeSeriesFormat(rows: string[][]): ParsedKPI[] {
 
         const kpi: ParsedKPI = {
             name: kpiName,
-            value: latestValue,
+            value: { "0": latestValue }, // New Record format
             date: latestDate,
             notes,
             visualizationType: 'chart',
@@ -216,11 +218,14 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
 
     // Find all possible column indices
     const kpiNameIdx = headers.findIndex(h => h.includes('name'));
+    const subtitleIdx = headers.findIndex(h => h.includes('subtitle'));
     const valueIdx = headers.findIndex(h => h.includes('value'));
     const dateIdx = headers.findIndex(h => h.includes('date'));
     const notesIdx = headers.findIndex(h => h.includes('notes'));
     const chartTypeIdx = headers.findIndex(h => h.includes('chart') && h.includes('type'));
     const categoryIdx = headers.findIndex(h => h.includes('category'));
+    const sectionIdx = headers.findIndex(h => h.includes('section'));
+    const assignmentIdx = headers.findIndex(h => h.includes('assignment') || h.includes('assignee'));
 
     // Group rows by KPI name
     const kpiGroups = new Map<string, string[][]>();
@@ -266,18 +271,25 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             visualizationType = 'chart';
             chartType = 'bar';
         } else {
-            // Check if value is text
-            const valueStr = firstRow[valueIdx] || '';
-            if (isNaN(parseFloat(valueStr)) && valueStr.trim() !== '') {
+            // Check if ANY row has a text value
+            const hasTextValue = rowGroup.some(row => {
+                const valStr = row[valueIdx] || '';
+                return isNaN(parseFloat(valStr)) && valStr.trim() !== '';
+            });
+
+            if (hasTextValue) {
                 visualizationType = 'text';
             }
         }
 
-        // Extract data points from all rows
-        const dataPoints: DataPoint[] = [];
-        let latestValue: number | string = 0;
+        // Build the new value Record structure
+        const valueRecord: Record<string, number | string> = {};
+        const dataPoints: DataPoint[] = []; // Keep for backward compatibility
         let latestDate = firstRow[dateIdx] || new Date().toISOString().split('T')[0];
+        let subtitle: string | undefined = subtitleIdx >= 0 ? firstRow[subtitleIdx] : undefined;
         let notes: string | undefined = notesIdx >= 0 ? firstRow[notesIdx] : undefined;
+        let sectionName: string | undefined = sectionIdx >= 0 ? firstRow[sectionIdx] : undefined;
+        let assignee: string | undefined = assignmentIdx >= 0 ? firstRow[assignmentIdx] : undefined;
         let trendValue: number | undefined;
 
         // Sort rows by date if possible (for time series)
@@ -289,43 +301,92 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             });
         }
 
+        const isCategorical = ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(chartType);
+
         rowGroup.forEach(row => {
-            let dateOrCategory: string;
-            let value: number;
+            const valStr = row[valueIdx] || '0';
 
-            const isCategorical = ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(chartType);
+            // Check if this is a categorical chart with category:value format in the Value column
+            if (visualizationType === 'chart' && isCategorical && valStr.includes(':')) {
+                // Parse "Category1:value1 Category2:value2 ..." format
+                const pairs = valStr.split(/\s+/); // Split by whitespace
 
-            if (visualizationType === 'chart' && isCategorical && categoryIdx >= 0 && row[categoryIdx]) {
-                // Categorical chart: use Category column for label
-                dateOrCategory = row[categoryIdx];
-            } else {
-                // Time series or Number: use Date column
-                dateOrCategory = row[dateIdx] || new Date().toISOString().split('T')[0];
+                pairs.forEach(pair => {
+                    const colonIndex = pair.indexOf(':');
+                    if (colonIndex > 0) {
+                        const category = pair.substring(0, colonIndex).trim();
+                        const valueStr = pair.substring(colonIndex + 1).trim();
+                        const numValue = parseFloat(valueStr);
+
+                        if (category && !isNaN(numValue)) {
+                            valueRecord[category] = numValue;
+                            // Also add to dataPoints for backward compatibility
+                            dataPoints.push({
+                                date: category, // Use category as date for categorical charts
+                                value: numValue,
+                            });
+                        }
+                    }
+                });
+
+                // Update date and notes from this row
+                if (row[dateIdx]) {
+                    latestDate = row[dateIdx];
+                }
+                if (notesIdx >= 0 && row[notesIdx]) {
+                    notes = row[notesIdx];
+                }
+                return; // Done processing this row
             }
 
-            const valStr = row[valueIdx] || '0';
-            value = parseFloat(valStr);
+            // Original logic for non-categorical or old format
+            let key: string;
+            let value: number | string;
 
-            if (!isNaN(value)) {
+            if (visualizationType === 'chart' && isCategorical && categoryIdx >= 0 && row[categoryIdx]) {
+                // Old format: Categorical chart with separate Category column
+                key = row[categoryIdx];
+            } else if (visualizationType === 'number' || (visualizationType === 'chart' && !isCategorical)) {
+                // For number/line/area: use "0" for single value, or date for time series
+                key = visualizationType === 'number' ? "0" : (row[dateIdx] || new Date().toISOString().split('T')[0]);
+            } else {
+                // Text KPIs use "0" as key
+                key = "0";
+            }
+
+            const numValue = parseFloat(valStr);
+
+            if (!isNaN(numValue)) {
+                value = numValue;
+                // Also add to dataPoints for backward compatibility
                 dataPoints.push({
-                    date: dateOrCategory,
-                    value,
+                    date: row[categoryIdx] || row[dateIdx] || new Date().toISOString().split('T')[0],
+                    value: numValue,
                 });
-                latestValue = value; // Update latest value to the last row's value
                 if (row[dateIdx]) {
                     latestDate = row[dateIdx];
                 }
             } else if (visualizationType === 'text') {
-                latestValue = valStr;
+                value = valStr;
+            } else {
+                return; // Skip invalid numeric values
             }
 
-            // Update notes if found in later rows (optional, maybe just keep first?)
+            // Store in value Record
+            valueRecord[key] = value;
+
+            // Update notes if found in later rows
             if (notesIdx >= 0 && row[notesIdx]) {
                 notes = row[notesIdx];
             }
         });
 
-        // For Number KPIs, if we have data points but no explicit trend, calculate it
+        // For Number KPIs with only one value, ensure it's stored as "0"
+        if (visualizationType === 'number' && Object.keys(valueRecord).length === 0 && dataPoints.length > 0) {
+            valueRecord["0"] = dataPoints[dataPoints.length - 1].value;
+        }
+
+        // Calculate trend for number KPIs
         if (visualizationType === 'number' && dataPoints.length >= 2) {
             const last = dataPoints[dataPoints.length - 1].value;
             const prev = dataPoints[dataPoints.length - 2].value;
@@ -334,13 +395,16 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
 
         kpis.push({
             name: kpiName,
-            value: latestValue,
+            subtitle,
+            value: valueRecord,
             date: latestDate,
             notes,
             visualizationType,
             chartType: visualizationType === 'chart' ? chartType : undefined,
             trendValue,
-            dataPoints: dataPoints.length > 0 ? dataPoints : undefined,
+            dataPoints: dataPoints.length > 0 ? dataPoints : undefined, // Keep for backward compatibility
+            sectionName,
+            assignee,
         });
     });
 
@@ -387,90 +451,82 @@ export function parseCSV(csvContent: string): CSVParseResult {
 
 /**
  * Generate example CSV for download
+ * 
+ * CSV Structure creates KPI values as Record<string, number | string>:
+ * - Single values (number/text): Multiple rows with same name/date create historical data,
+ *   latest value stored as {"0": value}
+ * - Categorical charts (bar/pie/radar): Rows with same name/date but different categories
+ *   create value object like {"Category1": val1, "Category2": val2}
+ * - Time-series charts (line/area): Each row becomes a date->value mapping
+ * 
+ * Examples:
+ * - Number KPI with 6 rows → value: {"0": 150000}, dataPoints: [historical array]
+ * - Bar chart with 4 categories → value: {"North": 45000, "South": 38000, ...}
+ * - Text KPI → value: {"0": "On Track"}
  */
 export function generateExampleCSV(type: 'all' | 'number' | 'line' | 'bar' | 'pie' | 'radar' | 'text' = 'all'): string {
     // Unified template with all KPI types
-    const unifiedTemplate = `KPI Name,Value,Date,Notes,Chart Type,Category
-Monthly Revenue,120000,2024-10-01,,,
-Monthly Revenue,125000,2024-10-08,,,
-Monthly Revenue,130000,2024-10-15,,,
-Monthly Revenue,135000,2024-10-22,,,
-Monthly Revenue,140000,2024-11-01,,,
-Monthly Revenue,150000,2024-11-18,Strong growth,,
-Customer Count,5450,2024-10-01,,,
-Customer Count,5480,2024-10-08,,,
-Customer Count,5500,2024-10-15,,,
-Customer Count,5600,2024-10-22,,,
-Customer Count,5550,2024-11-01,,,
-Customer Count,5420,2024-11-18,Slight decline,,
-Conversion Rate,3.0,2024-10-01,,,
-Conversion Rate,3.1,2024-10-08,,,
-Conversion Rate,2.8,2024-10-15,,,
-Conversion Rate,2.9,2024-10-22,,,
-Conversion Rate,3.0,2024-11-01,,,
-Conversion Rate,3.2,2024-11-18,Improved targeting,,
-Project Status,On Track,2024-11-18,All milestones met,,
-Team Morale,High,2024-11-18,Positive feedback,,
-Website Traffic,12500,2024-11-01,,line,
-Website Traffic,13200,2024-11-05,,line,
-Website Traffic,14800,2024-11-10,,line,
-Website Traffic,15600,2024-11-18,Strong week,line,
-Sales by Region,45000,2024-11-18,,bar,North America
-Sales by Region,38000,2024-11-18,,bar,South America
-Sales by Region,52000,2024-11-18,Best region,bar,Europe
-Sales by Region,41000,2024-11-18,,bar,Asia Pacific
-Traffic Sources,45,2024-11-18,,pie,Organic
-Traffic Sources,25,2024-11-18,,pie,Paid Ads
-Traffic Sources,18,2024-11-18,,pie,Social
-Traffic Sources,12,2024-11-18,,pie,Direct
-Product Score,85,2024-11-18,,radar,Quality
-Product Score,72,2024-11-18,,radar,Speed
-Product Score,90,2024-11-18,,radar,Reliability
-Product Score,78,2024-11-18,,radar,Features
-Product Score,65,2024-11-18,,radar,Value`;
+    const unifiedTemplate = `KPI Name,Subtitle,Value,Date,Notes,Chart Type,Section,Assignment
+Monthly Revenue,Total Revenue,120000,2024-10-01,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,125000,2024-10-08,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,130000,2024-10-15,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,135000,2024-10-22,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,140000,2024-11-01,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,150000,2024-11-18,Strong growth,,Financial,finance@example.com
+Customer Count,Active Users,5450,2024-10-01,,,Growth,sales@example.com
+Customer Count,Active Users,5480,2024-10-08,,,Growth,sales@example.com
+Customer Count,Active Users,5500,2024-10-15,,,Growth,sales@example.com
+Customer Count,Active Users,5600,2024-10-22,,,Growth,sales@example.com
+Customer Count,Active Users,5550,2024-11-01,,,Growth,sales@example.com
+Customer Count,Active Users,5420,2024-11-18,Slight decline,,Growth,sales@example.com
+Conversion Rate,Percentage,3.0,2024-10-01,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,3.1,2024-10-08,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,2.8,2024-10-15,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,2.9,2024-10-22,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,3.0,2024-11-01,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,3.2,2024-11-18,Improved targeting,,Marketing,marketing@example.com
+Project Status,Current Phase,On Track,2024-11-18,"All milestones met. See [Roadmap](https://example.com)",,Operations,pm@example.com
+Team Morale,Employee Satisfaction,High,2024-11-18,"**Positive** feedback from team",,HR,hr@example.com
+Website Traffic,Daily Visits,12500,2024-11-01,,line,Marketing,
+Website Traffic,Daily Visits,13200,2024-11-05,,line,Marketing,
+Website Traffic,Daily Visits,14800,2024-11-10,,line,Marketing,
+Website Traffic,Daily Visits,15600,2024-11-18,Strong week,line,Marketing,
+Sales by Region,Q4 Performance,North:45000 South:38000 East:52000 West:41000,2024-11-18,,bar,Sales,
+Traffic Sources,Channel Distribution,Organic:45 Paid:25 Social:18 Direct:12,2024-11-18,,pie,Marketing,
+Product Score,Quality Metrics,Quality:85 Speed:72 Reliability:90 Features:78 Value:65,2024-11-18,,radar,Product,`;
 
     // Individual examples for backward compatibility
     const examples: Record<string, string> = {
         all: unifiedTemplate,
 
-        number: `KPI Name,Value,Date,Notes
-Monthly Revenue,120000,2024-10-01,
-Monthly Revenue,125000,2024-10-08,
-Monthly Revenue,130000,2024-10-15,
-Monthly Revenue,135000,2024-10-22,
-Monthly Revenue,140000,2024-11-01,
-Monthly Revenue,150000,2024-11-18,Strong growth`,
+        number: `KPI Name,Subtitle,Value,Date,Notes,Section,Assignment
+Monthly Revenue,Total Revenue,120000,2024-10-01,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,125000,2024-10-08,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,130000,2024-10-15,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,135000,2024-10-22,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,140000,2024-11-01,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,150000,2024-11-18,Strong growth,Financial,finance@example.com`,
 
-        line: `KPI Name,Chart Type,Date,Value,Notes
-Website Traffic,line,2024-11-01,12500,
-Website Traffic,line,2024-11-05,13200,
-Website Traffic,line,2024-11-10,14800,
-Website Traffic,line,2024-11-15,13900,
-Website Traffic,line,2024-11-18,15600,Last week strong`,
+        line: `KPI Name,Subtitle,Chart Type,Date,Value,Notes,Section,Assignment
+Website Traffic,Daily Visits,line,2024-11-01,12500,,Marketing,
+Website Traffic,Daily Visits,line,2024-11-05,13200,,Marketing,
+Website Traffic,Daily Visits,line,2024-11-10,14800,,Marketing,
+Website Traffic,Daily Visits,line,2024-11-15,13900,,Marketing,
+Website Traffic,Daily Visits,line,2024-11-18,15600,Last week strong,Marketing,`,
 
-        bar: `KPI Name,Chart Type,Category,Value,Notes
-Sales by Region,bar,North,45000,
-Sales by Region,bar,South,38000,
-Sales by Region,bar,East,52000,
-Sales by Region,bar,West,41000,Strong performance`,
+        bar: `KPI Name,Subtitle,Chart Type,Value,Date,Notes,Section,Assignment
+Sales by Region,Q4 Performance,bar,North:45000 South:38000 East:52000 West:41000,2024-11-18,,Sales,sales@example.com`,
 
-        pie: `KPI Name,Chart Type,Category,Value,Notes
-Traffic Sources,pie,Organic,45,
-Traffic Sources,pie,Paid,25,
-Traffic Sources,pie,Social,18,
-Traffic Sources,pie,Direct,12,Good organic reach`,
+        pie: `KPI Name,Subtitle,Chart Type,Value,Date,Notes,Section,Assignment
+Traffic Sources,Channel Distribution,pie,Organic:45 Paid:25 Social:18 Direct:12,2024-11-18,,Marketing,`,
 
-        radar: `KPI Name,Chart Type,Dimension,Value,Notes
-Product Performance,radar,Quality,85,
-Product Performance,radar,Speed,72,
-Product Performance,radar,Reliability,90,
-Product Performance,radar,Features,78,
-Product Performance,radar,Price,65,Competitive pricing needed`,
+        radar: `KPI Name,Subtitle,Chart Type,Value,Date,Notes,Section,Assignment
+Product Performance,Quality Metrics,radar,Quality:85 Speed:72 Reliability:90 Features:78 Price:65,2024-11-18,,Product,`,
 
-        text: `KPI Name,Value,Date,Notes
-Project Status,On Track,2024-11-18,All milestones met
-Team Morale,High,2024-11-18,Positive feedback
-Risk Level,Low,2024-11-18,No major concerns`,
+        text: `KPI Name,Subtitle,Value,Date,Notes,Section,Assignment
+Project Status,Current Phase,On Track,2024-11-18,"All milestones met. See [Roadmap](https://example.com)",Operations,pm@example.com
+Team Morale,Employee Satisfaction,High,2024-11-18,"**Positive** feedback from team",HR,hr@example.com
+Risk Level,Risk Assessment,Low,2024-11-18,No major concerns,Operations,`,
     };
 
     return examples[type] || examples.all;

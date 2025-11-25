@@ -38,8 +38,10 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
             );
         }
 
+
         if (kpi.visualizationType === 'text') {
-            const textValue = String(kpi.value);
+            // For text KPIs, value is stored as {"0": "actual text"}
+            const textValue = String(kpi.value["0"] || Object.values(kpi.value)[0] || '');
             const textLength = textValue.length;
 
             // Dynamic font sizing for text
@@ -54,7 +56,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 <div className="flex flex-col justify-center h-full py-4">
                     <div className="flex items-center justify-center w-full">
                         <p className={`${fontSizeClass} font-bold text-industrial-100 font-mono tracking-tight text-center leading-none break-words max-w-full px-2`}>
-                            {kpi.value}
+                            {textValue}
                         </p>
                     </div>
                 </div>
@@ -62,30 +64,45 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
         }
 
         if (kpi.visualizationType === 'number') {
-            const numValue = typeof kpi.value === 'number' ? kpi.value : parseFloat(kpi.value as string);
+            // For number KPIs, value is stored as {"0": actualNumber}
+            const rawValue = kpi.value["0"] || Object.values(kpi.value)[0] || 0;
+            const numValue = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue as string);
             const trend = kpi.trendValue || 0;
             const isPositive = trend >= 0;
+            const isGood = kpi.reverseTrend ? !isPositive : isPositive;
 
             const formattedValue = numValue.toLocaleString();
             const valueLength = formattedValue.length;
 
             // Larger font sizes for better visibility
             let fontSizeClass = 'text-8xl';
-            if (valueLength > 13) fontSizeClass = 'text-4xl';
-            else if (valueLength > 10) fontSizeClass = 'text-5xl';
-            else if (valueLength > 7) fontSizeClass = 'text-6xl';
-            else if (valueLength > 5) fontSizeClass = 'text-7xl';
+            if (valueLength > 11) fontSizeClass = 'text-4xl';
+            else if (valueLength > 9) fontSizeClass = 'text-5xl';
+            else if (valueLength > 6) fontSizeClass = 'text-6xl';
+            else if (valueLength > 4) fontSizeClass = 'text-7xl';
 
             return (
                 <div className="flex flex-col h-full py-4">
                     {/* Number and trend - takes up most of the space */}
                     <div className="flex-1 flex flex-col justify-center">
                         <div className="flex items-center justify-between gap-4">
-                            <span className={`${fontSizeClass} font-bold text-industrial-100 font-mono tracking-tighter leading-none`}>
-                                {formattedValue}
-                            </span>
+                            <div className="flex items-baseline gap-1">
+                                {kpi.prefix && (
+                                    <span className="text-3xl font-semibold text-industrial-300 font-mono">
+                                        {kpi.prefix}
+                                    </span>
+                                )}
+                                <span className={`${fontSizeClass} font-bold text-industrial-100 font-mono tracking-tighter leading-none`}>
+                                    {formattedValue}
+                                </span>
+                                {kpi.suffix && (
+                                    <span className="text-3xl font-semibold text-industrial-300 font-mono">
+                                        {kpi.suffix}
+                                    </span>
+                                )}
+                            </div>
                             {trend !== 0 && (
-                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xl font-mono font-medium whitespace-nowrap ${isPositive ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50' : 'bg-red-900/30 text-red-400 border border-red-900/50'}`}>
+                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xl font-mono font-medium whitespace-nowrap ${isGood ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50' : 'bg-red-900/30 text-red-400 border border-red-900/50'}`}>
                                     {isPositive ? <TrendingUp size={32} /> : <TrendingDown size={32} />}
                                     <span>{Math.abs(trend).toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>
                                 </div>

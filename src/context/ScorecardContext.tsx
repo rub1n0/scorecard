@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Scorecard, KPI, Section } from '@/types';
+import { Scorecard, KPI, Section, DataPoint } from '@/types';
 
 interface ScorecardContextType {
     scorecards: Scorecard[];
@@ -16,7 +16,7 @@ interface ScorecardContextType {
     deleteKPI: (scorecardId: string, kpiId: string) => Promise<void>;
     refreshScorecards: () => Promise<void>;
     // Section management
-    addSection: (scorecardId: string, section: Omit<Section, 'id'>) => Promise<void>;
+    addSection: (scorecardId: string, section: Omit<Section, 'id'>) => Promise<string | undefined>;
     updateSection: (scorecardId: string, sectionId: string, updates: Partial<Section>) => Promise<void>;
     deleteSection: (scorecardId: string, sectionId: string) => Promise<void>;
     assignKPIToSection: (scorecardId: string, kpiId: string, sectionId: string | null, order?: number) => Promise<void>;
@@ -119,6 +119,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
     const addKPIs = async (scorecardId: string, kpis: Omit<KPI, 'id'>[]) => {
         try {
+            const { generateUpdateToken } = await import('@/utils/tokenUtils');
             // Fetch the latest scorecard data from the API to avoid stale state
             const response = await fetch(`/api/scorecards/${scorecardId}`);
             if (!response.ok) return;
@@ -136,6 +137,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 .map(kpi => ({
                     ...kpi,
                     id: crypto.randomUUID(),
+                    updateToken: kpi.assignee && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
                 }));
 
             if (newKPIs.length === 0) {
@@ -151,11 +153,81 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Helper function to merge two KPIs
+    const mergeKPIs = (existingKPI: KPI, updatingKPI: KPI, newData: Partial<KPI>): Partial<KPI> => {
+        // Combine datapoints from both KPIs
+        const allDataPoints = [
+            ...(existingKPI.dataPoints || []),
+            ...(updatingKPI.dataPoints || [])
+        ];
+
+        const chartType = newData.chartType || existingKPI.chartType;
+
+        // For bar/radar: keep only latest per category
+        if (chartType === 'bar' || chartType === 'radar' || chartType === 'radialBar') {
+            const categoryMap = new Map<string, DataPoint>();
+
+            // Sort by date (which is category for these charts), keep latest
+            allDataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            for (const dp of allDataPoints) {
+                categoryMap.set(dp.date, dp); // date field holds the category name
+            }
+
+            return {
+                ...newData,
+                dataPoints: Array.from(categoryMap.values())
+            };
+        }
+
+        // For other types: merge and sort chronologically
+        const merged = allDataPoints.sort((a, b) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        return {
+            ...newData,
+            dataPoints: merged.length > 0 ? merged : undefined
+        };
+    };
+
     const updateKPI = async (scorecardId: string, kpiId: string, updates: Partial<KPI>) => {
         const { generateUpdateToken } = await import('@/utils/tokenUtils');
         const scorecard = getScorecard(scorecardId);
         if (!scorecard) return;
 
+        const currentKPI = scorecard.kpis.find(kpi => kpi.id === kpiId);
+        if (!currentKPI) return;
+
+        // Check if name is being changed
+        const isNameChanged = updates.name && updates.name !== currentKPI.name;
+
+        if (isNameChanged) {
+            // Look for another KPI with the new name (case-insensitive)
+            const existingKPI = scorecard.kpis.find(
+                kpi => kpi.id !== kpiId && kpi.name.toLowerCase() === updates.name!.toLowerCase()
+            );
+
+            if (existingKPI) {
+                // Merge the KPIs
+                const mergedData = mergeKPIs(existingKPI, currentKPI, updates);
+
+                // Update the existing KPI with merged data
+                const updatedKPIs = scorecard.kpis
+                    .filter(kpi => kpi.id !== kpiId) // Remove the renamed KPI
+                    .map(kpi => {
+                        if (kpi.id === existingKPI.id) {
+                            return { ...kpi, ...mergedData };
+                        }
+                        return kpi;
+                    });
+
+                await updateScorecard(scorecardId, { kpis: updatedKPIs });
+                return;
+            }
+        }
+
+        // No merge needed, proceed with normal update
         const updatedKPIs = scorecard.kpis.map(kpi => {
             if (kpi.id === kpiId) {
                 const updatedKPI = { ...kpi, ...updates };
@@ -191,6 +263,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
         const updatedSections = [...(scorecard.sections || []), newSection];
         await updateScorecard(scorecardId, { sections: updatedSections });
+        return newSection.id;
     };
 
     const updateSection = async (scorecardId: string, sectionId: string, updates: Partial<Section>) => {

@@ -1,0 +1,28 @@
+KPI Name,Subtitle,Value,Date,Notes,Chart Type,Section,Assignment
+Monthly Revenue,Total Revenue,120000,10/1/2024,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,125000,10/8/2024,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,130000,10/15/2024,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,135000,10/22/2024,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,140000,11/1/2024,,,Financial,finance@example.com
+Monthly Revenue,Total Revenue,150000,11/18/2024,Strong growth,,Financial,finance@example.com
+Customer Count,Active Users,5450,10/1/2024,,,Growth,sales@example.com
+Customer Count,Active Users,5480,10/8/2024,,,Growth,sales@example.com
+Customer Count,Active Users,5500,10/15/2024,,,Growth,sales@example.com
+Customer Count,Active Users,5600,10/22/2024,,,Growth,sales@example.com
+Customer Count,Active Users,5550,11/1/2024,,,Growth,sales@example.com
+Customer Count,Active Users,5420,11/18/2024,Slight decline,,Growth,sales@example.com
+Conversion Rate,Percentage,3.0,10/1/2024,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,3.1,10/8/2024,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,2.8,10/15/2024,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,2.9,10/22/2024,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,3.0,11/1/2024,,,Marketing,marketing@example.com
+Conversion Rate,Percentage,3.2,11/18/2024,Improved targeting,,Marketing,marketing@example.com
+Project Status,Current Phase,On Track,11/18/2024,"All milestones met. See [Roadmap](https://example.com)",,Operations,pm@example.com
+Team Morale,Employee Satisfaction,High,11/18/2024,**Positive** feedback from team,,HR,hr@example.com
+Website Traffic,Daily Visits,12500,11/1/2024,,line,Marketing,
+Website Traffic,Daily Visits,13200,11/5/2024,,line,Marketing,
+Website Traffic,Daily Visits,14800,11/10/2024,,line,Marketing,
+Website Traffic,Daily Visits,15600,11/18/2024,Strong week,line,Marketing,
+Sales by Region,Q4 Performance,North:45000 South:38000 East:52000 West:41000,11/18/2024,,bar,Sales,
+Traffic Sources,Channel Distribution,Organic:45 Paid:25 Social:18 Direct:12,11/18/2024,,pie,Marketing,
+Product Score,Quality Metrics,Quality:85 Speed:72 Reliability:90 Features:78 Value:65,11/18/2024,,radar,Product,

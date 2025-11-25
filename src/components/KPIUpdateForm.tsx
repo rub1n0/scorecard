@@ -128,22 +128,32 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 new Date(a.date).getTime() - new Date(b.date).getTime()
             );
 
-            // Calculate value and trend from data points
-            let finalValue = kpi.value;
+            // Build the value Record structure
+            let valueRecord: Record<string, number | string> = {};
             let finalTrend = kpi.trendValue || 0;
 
             if (kpi.visualizationType === 'number' && sortedPoints.length > 0) {
                 const lastPoint = sortedPoints[sortedPoints.length - 1];
-                finalValue = lastPoint.value;
+                valueRecord = { "0": lastPoint.value };
 
                 if (sortedPoints.length >= 2) {
                     const prevPoint = sortedPoints[sortedPoints.length - 2];
                     finalTrend = lastPoint.value - prevPoint.value;
                 }
+            } else if (kpi.visualizationType === 'text') {
+                // Text KPIs keep their existing value
+                valueRecord = kpi.value;
+            } else if (kpi.visualizationType === 'chart') {
+                // Chart KPIs build from dataPoints
+                const isCategorical = ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(kpi.chartType || '');
+
+                sortedPoints.forEach(dp => {
+                    valueRecord[dp.date] = dp.value;
+                });
             }
 
             await onUpdate({
-                value: finalValue,
+                value: valueRecord,
                 trendValue: finalTrend,
                 notes: notes || undefined,
                 dataPoints: sortedPoints,

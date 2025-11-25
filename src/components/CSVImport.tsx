@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { parseCSV, generateExampleCSV, ParsedKPI } from '@/utils/csvParser';
+import { getDisplayValue } from '@/utils/kpiValueUtils'; // Added this import
 
 interface CSVImportProps {
     onImport: (kpis: ParsedKPI[]) => void;
@@ -190,6 +191,55 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                         </div>
                     )}
 
+                    {/* Summary */}
+                    {parsedKPIs.length > 0 && (() => {
+                        const sections = new Set<string>();
+                        const assignees = new Set<string>();
+
+                        parsedKPIs.forEach(kpi => {
+                            if (kpi.sectionName) sections.add(kpi.sectionName);
+                            if (kpi.assignee) assignees.add(kpi.assignee);
+                        });
+
+                        return (
+                            <div className="bg-industrial-900/30 rounded-lg border border-industrial-800 p-4 mb-4">
+                                <h3 className="text-sm font-semibold text-industrial-200 mb-3">Import Summary</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                                    <div>
+                                        <div className="text-industrial-500 uppercase tracking-wider mb-1">KPIs</div>
+                                        <div className="text-2xl font-bold text-industrial-100">{parsedKPIs.length}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-industrial-500 uppercase tracking-wider mb-1">Sections</div>
+                                        <div className="text-2xl font-bold text-verdigris-400">{sections.size}</div>
+                                        {sections.size > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                {Array.from(sections).map(section => (
+                                                    <span key={section} className="px-2 py-0.5 bg-verdigris-900/30 text-verdigris-300 rounded text-xs">
+                                                        {section}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="text-industrial-500 uppercase tracking-wider mb-1">Assignments</div>
+                                        <div className="text-2xl font-bold text-tuscan-sun-400">{assignees.size}</div>
+                                        {assignees.size > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                {Array.from(assignees).map(assignee => (
+                                                    <span key={assignee} className="px-2 py-0.5 bg-tuscan-sun-900/30 text-tuscan-sun-300 rounded text-xs">
+                                                        {assignee}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* Preview */}
                     {parsedKPIs.length > 0 && (
                         <div className="preview-section">
@@ -205,7 +255,7 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                                             <span className="preview-badge">{kpi.visualizationType}</span>
                                         </div>
                                         <div className="preview-item-details">
-                                            <span>Value: {kpi.value}</span>
+                                            <span>Value: {getDisplayValue(kpi.value)}</span>
                                             {kpi.chartType && <span>Chart: {kpi.chartType}</span>}
                                             {kpi.trendValue !== undefined && <span>Trend: {kpi.trendValue}%</span>}
                                             {kpi.dataPoints && <span>Data Points: {kpi.dataPoints.length}</span>}

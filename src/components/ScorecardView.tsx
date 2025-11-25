@@ -9,7 +9,7 @@ import KPIForm from './KPIForm';
 import CSVImport from './CSVImport';
 import SectionManagementModal from './SectionManagementModal';
 import AssignmentManager from './AssignmentManager';
-import { Plus, ArrowLeft, Upload, BarChart3, Settings, ChevronDown, Layout, User } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 
@@ -20,7 +20,7 @@ interface ScorecardViewProps {
 
 export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const router = useRouter();
-    const { addKPI, addKPIs, updateKPI, deleteKPI } = useScorecards();
+    const { addKPI, addKPIs, updateKPI, deleteKPI, addSection, refreshScorecards, updateScorecard } = useScorecards();
     const [showKPIForm, setShowKPIForm] = useState(false);
     const [showCSVImport, setShowCSVImport] = useState(false);
     const [showSectionManagement, setShowSectionManagement] = useState(false);
@@ -28,6 +28,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const [showManageDropdown, setShowManageDropdown] = useState(false);
     const [editingKPI, setEditingKPI] = useState<KPI | undefined>();
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -76,8 +77,142 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     };
 
     const handleCSVImport = async (kpis: ParsedKPI[]) => {
-        await addKPIs(scorecard.id, kpis);
+        // Extract unique section names from KPIs
+        const sectionNames = new Set<string>();
+        kpis.forEach(kpi => {
+            if (kpi.sectionName) {
+                sectionNames.add(kpi.sectionName);
+            }
+        });
+
+        // Create sections that don't exist and build a name->id map
+        const sectionNameToId = new Map<string, string>();
+
+        // Add existing sections to the map
+        const existingSections = scorecard.sections || [];
+        existingSections.forEach(section => {
+            sectionNameToId.set(section.name, section.id);
+        });
+
+        // Define colors for new sections (cycle through available colors)
+        const availableColors = ['verdigris', 'tuscan-sun', 'sandy-brown', 'burnt-peach', 'charcoal-blue'];
+        let colorIndex = existingSections.length % availableColors.length;
+
+        // Prepare new sections
+        const newSections: Section[] = [];
+        for (const sectionName of sectionNames) {
+            if (!sectionNameToId.has(sectionName)) {
+                const newSectionId = crypto.randomUUID();
+                const newSection: Section = {
+                    id: newSectionId,
+                    name: sectionName,
+                    color: availableColors[colorIndex],
+                    order: existingSections.length + newSections.length,
+                };
+                newSections.push(newSection);
+                sectionNameToId.set(sectionName, newSectionId);
+                colorIndex = (colorIndex + 1) % availableColors.length;
+            }
+        }
+
+        // Batch update sections if needed
+        if (newSections.length > 0) {
+            const allSections = [...existingSections, ...newSections];
+            await updateScorecard(scorecard.id, { sections: allSections });
+            await refreshScorecards();
+        }
+
+        // Map KPIs to their sections and prepare for import
+        const kpisWithSections = kpis.map(kpi => {
+            const { sectionName, ...kpiData } = kpi;
+            const sectionId = sectionName ? sectionNameToId.get(sectionName) : undefined;
+
+            return {
+                ...kpiData,
+                sectionId,
+            };
+        });
+
+        // Import the KPIs with section assignments
+        await addKPIs(scorecard.id, kpisWithSections);
         setShowCSVImport(false);
+    };
+
+    const handleExportBackup = () => {
+        const backup = {
+            name: scorecard.name,
+            description: scorecard.description,
+            kpis: scorecard.kpis,
+            sections: scorecard.sections,
+            assignees: scorecard.assignees,
+            exportedAt: new Date().toISOString(),
+            version: '1.0'
+        };
+
+        const dataStr = JSON.stringify(backup, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${scorecard.name.replace(/[^a-z0-9]/gi, '_')}_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setShowManageDropdown(false);
+    };
+
+    const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const backup = JSON.parse(text);
+
+            // Validate backup structure
+            if (!backup.kpis || !Array.isArray(backup.kpis)) {
+                throw new Error('Invalid backup file: missing KPIs data');
+            }
+
+            // Confirm with user
+            const confirmed = confirm(
+                `Import backup from ${new Date(backup.exportedAt).toLocaleDateString()}?\n\n` +
+                `This will add ${backup.kpis.length} metrics and ${backup.sections?.length || 0} sections to this scorecard.`
+            );
+
+            if (!confirmed) return;
+
+            // Import sections if present
+            if (backup.sections && Array.isArray(backup.sections)) {
+                const existingSections = scorecard.sections || [];
+                const newSections = backup.sections.map((s: Section) => ({
+                    ...s,
+                    id: crypto.randomUUID(), // Generate new IDs
+                    order: existingSections.length + backup.sections.indexOf(s)
+                }));
+
+                await updateScorecard(scorecard.id, {
+                    sections: [...existingSections, ...newSections]
+                });
+                await refreshScorecards();
+            }
+
+            // Import KPIs (strip IDs, assign new ones)
+            const kpisToImport = backup.kpis.map(({ id, ...kpi }: any) => kpi);
+            await addKPIs(scorecard.id, kpisToImport);
+
+            alert('Backup imported successfully!');
+        } catch (error) {
+            alert(`Failed to import backup: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+
+        // Reset file input
+        if (e.target) {
+            e.target.value = '';
+        }
     };
 
     // Grouping Logic with Section Support
@@ -176,6 +311,28 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                         <Layout size={14} />
                                         Sections
                                     </button>
+                                    <div className="border-t border-industrial-800 my-1"></div>
+                                    <button
+                                        onClick={() => {
+                                            setShowManageDropdown(false);
+                                            handleExportBackup();
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors"
+                                    >
+                                        <Download size={14} />
+                                        Backup
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowManageDropdown(false);
+                                            fileInputRef.current?.click();
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors"
+                                    >
+                                        <Upload size={14} />
+                                        Restore
+                                    </button>
+                                    <div className="border-t border-industrial-800 my-1"></div>
                                     <button
                                         onClick={() => {
                                             setShowCSVImport(true);
@@ -199,6 +356,13 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                 </div>
                             </div>
                         )}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".json"
+                            className="hidden"
+                            onChange={handleImportBackup}
+                        />
                     </div>
                 </div>
             </header>

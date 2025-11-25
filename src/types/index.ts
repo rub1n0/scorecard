@@ -39,21 +39,22 @@ export interface KPI {
     id: string;
     name: string;
     subtitle?: string; // Optional subtitle displayed under the name
-    value: number | string;
+    value: Record<string, number | string>; // Stores key:value pairs. Single values as {"0": value}, categories as {category: value}
     date: string;
     notes?: string;
     visualizationType: VisualizationType;
     chartType?: ChartType;
-    dataPoints?: DataPoint[];
+    dataPoints?: DataPoint[]; // DEPRECATED: Kept for backward compatibility during migration
     trendValue?: number; // Percentage change for number display
     chartSettings?: ChartSettings;
-    section?: string; // Legacy field for backward compatibility
     sectionId?: string; // Reference to Section.id
     order?: number; // Order within the section
     assignee?: string; // Email address of assigned user
     updateToken?: string; // Unique token for secure updates
     lastUpdatedBy?: string; // Email of user who made last update
     reverseTrend?: boolean; // If true, trending down is good (green) and up is bad (red)
+    prefix?: string; // Optional prefix for number display (e.g., "$", "€")
+    suffix?: string; // Optional suffix for number display (e.g., "%", "ms", "GB")
 }
 
 export interface Scorecard {
