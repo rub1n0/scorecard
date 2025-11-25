@@ -143,6 +143,17 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                                 </button>
                             </div>
                         </details>
+
+                        <div className="mt-4 p-3 bg-industrial-900/50 rounded-md border border-industrial-800">
+                            <h4 className="text-xs font-semibold text-industrial-400 uppercase tracking-wider mb-2">Template Headers</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {['KPI Name', 'Subtitle', 'Value', 'Date', 'Notes', 'Chart Type', 'Section', 'Assignment'].map((header) => (
+                                    <span key={header} className="px-2 py-1 bg-industrial-800 text-industrial-300 rounded text-xs font-mono border border-industrial-700">
+                                        {header}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Upload Section */}
@@ -279,7 +290,7 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                         Import {parsedKPIs.length} KPI{parsedKPIs.length !== 1 ? 's' : ''}
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

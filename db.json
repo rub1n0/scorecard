@@ -6801,7 +6801,7 @@
             {
               "date": "Analysis",
               "value": 300,
-              "color": "#2A9D8F"
+              "color": "#001219"
             },
             {
               "date": "Exposed",
@@ -10939,7 +10939,7 @@
         }
       ],
       "createdAt": "2025-11-24T19:55:07.955Z",
-      "updatedAt": "2025-11-25T16:12:25.026Z",
+      "updatedAt": "2025-11-25T17:13:07.720Z",
       "sections": [
         {
           "id": "5705aae7-e81e-441f-b915-bce58bea985d",

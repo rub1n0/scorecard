@@ -59,12 +59,12 @@ export default function ScorecardCard({ scorecard, onDelete, onUpdate }: Scoreca
         >
             {/* Visual Preview Background - Semi-transparent mini scorecard with sections */}
             {!isEditing && scorecard.kpis.length > 0 && (
-                <div className="absolute inset-0 opacity-[0.10] group-hover:opacity-[0.17] transition-opacity pointer-events-none overflow-hidden flex items-center justify-end">
-                    <div className="space-y-2 scale-[0.95] w-1/2 pr-2">
+                <div className="absolute inset-0 opacity-[0.10] group-hover:opacity-[0.10] transition-opacity pointer-events-none overflow-hidden flex justify-end">
+                    <div className="space-y-2 w-1/2 h-full pr-2 py-2 flex flex-col">
                         {/* Show sections with their KPIs */}
                         {scorecard.sections && scorecard.sections.length > 0 ? (
-                            scorecard.sections.slice(0, 2).map((section) => {
-                                const sectionKpis = scorecard.kpis.filter(k => k.sectionId === section.id).slice(0, 3);
+                            scorecard.sections.slice(0, 4).map((section) => {
+                                const sectionKpis = scorecard.kpis.filter(k => k.sectionId === section.id).slice(0, 6);
                                 if (sectionKpis.length === 0) return null;
 
                                 return (
@@ -150,7 +150,7 @@ export default function ScorecardCard({ scorecard, onDelete, onUpdate }: Scoreca
                         ) : (
                             /* If no sections, show ungrouped KPIs */
                             <div className="grid grid-cols-3 gap-1">
-                                {scorecard.kpis.slice(0, 6).map((kpi, idx) => (
+                                {scorecard.kpis.slice(0, 12).map((kpi, idx) => (
                                     <div
                                         key={idx}
                                         className="bg-industrial-700/50 rounded-sm border border-industrial-600/50 p-1.5 h-12 flex flex-col justify-between"
