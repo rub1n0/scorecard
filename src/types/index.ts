@@ -49,7 +49,8 @@ export interface KPI {
     chartSettings?: ChartSettings;
     sectionId?: string; // Reference to Section.id
     order?: number; // Order within the section
-    assignee?: string; // Email address of assigned user
+    assignees?: string[]; // Email addresses of assigned users (supports multiple)
+    assignee?: string; // DEPRECATED: single assignee, kept for backward compatibility
     updateToken?: string; // Unique token for secure updates
     lastUpdatedBy?: string; // Email of user who made last update
     reverseTrend?: boolean; // If true, trending down is good (green) and up is bad (red)
@@ -59,6 +60,7 @@ export interface KPI {
 
 export interface Scorecard {
     id: string;
+    slug?: string;
     name: string;
     description?: string;
     kpis: KPI[];

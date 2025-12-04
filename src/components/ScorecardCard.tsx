@@ -19,7 +19,8 @@ export default function ScorecardCard({ scorecard, onDelete, onUpdate }: Scoreca
 
     const handleClick = () => {
         if (!isEditing) {
-            router.push(`/scorecard/${scorecard.id}`);
+            const pathId = scorecard.slug || scorecard.id;
+            router.push(`/scorecard/${pathId}`);
         }
     };
 
@@ -242,7 +243,7 @@ export default function ScorecardCard({ scorecard, onDelete, onUpdate }: Scoreca
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="btn btn-icon btn-primary"
+                                    className="btn btn-icon btn-secondary"
                                     aria-label="Save changes"
                                 >
                                     <Save size={16} />

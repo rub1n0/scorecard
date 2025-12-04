@@ -82,7 +82,7 @@ kpi-scorecard/
 │   ├── context/          # Context providers
 │   ├── types/            # TypeScript types
 │   └── utils/            # Utility functions
-├── data/                 # Database (lowdb JSON files)
+├── db/                   # Drizzle schema, migrations, seeds
 ├── public/               # Static assets
 ├── setup-ubuntu.sh       # Ubuntu setup script
 ├── setup-windows.ps1     # Windows setup script

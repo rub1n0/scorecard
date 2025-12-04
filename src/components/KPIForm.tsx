@@ -1,6 +1,7 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { KPI, VisualizationType, ChartType, DataPoint } from '@/types';
 import { Plus, Trash2 } from 'lucide-react';
 import ColorPicker from './ColorPicker';
@@ -24,7 +25,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         kpi?.visualizationType || 'number'
     );
     const [chartType, setChartType] = useState<ChartType>(kpi?.chartType || 'line');
-    const [trendValue, setTrendValue] = useState(kpi?.trendValue?.toString() || '0');
+    const [trendValue] = useState(kpi?.trendValue?.toString() || '0');
     const [dataPoints, setDataPoints] = useState<DataPoint[]>(kpi?.dataPoints || []);
 
     // Chart Settings State
@@ -40,7 +41,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
     const [suffix, setSuffix] = useState(kpi?.suffix || '');
 
     // Default color palette (same as KPITile.tsx)
-    const defaultColors = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
+    const defaultColors = useMemo(() => ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'], []);
 
     // Helper function to normalize dates to YYYY-MM-DD format for HTML date inputs
     const normalizeDateForInput = (dateString: string): string => {
@@ -51,7 +52,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
             if (!isNaN(parsed.getTime())) {
                 return parsed.toISOString().split('T')[0];
             }
-        } catch (e) {
+        } catch {
             // If parsing fails, return the original string (for categorical values)
         }
         // Return the original string if it's not a parseable date
@@ -95,7 +96,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                 setDataPoints(sorted);
             }
         }
-    }, [kpi, visualizationType, chartType]);
+    }, [kpi, visualizationType, chartType, defaultColors]);
 
 
     const handleAddDataPoint = () => {

@@ -1,14 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useScorecards } from '@/context/ScorecardContext';
 import ScorecardCard from '@/components/ScorecardCard';
 import ScorecardForm from '@/components/ScorecardForm';
-import { Plus, BarChart3, LayoutDashboard } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+import { Plus, BarChart3, LayoutDashboard, ChevronDown, UserCog, ClipboardList, PanelLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
     const { scorecards, addScorecard, deleteScorecard, updateScorecard } = useScorecards();
     const [showForm, setShowForm] = useState(false);
+    const [showNavMenu, setShowNavMenu] = useState(false);
+    const navMenuRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
+
+    useEffect(() => {
+        const handler = (event: MouseEvent) => {
+            if (navMenuRef.current && !navMenuRef.current.contains(event.target as Node)) {
+                setShowNavMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const handleCreateScorecard = (name: string, description: string) => {
         addScorecard({
@@ -21,28 +36,58 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-industrial-950">
-            {/* Industrial Header */}
-            <header className="border-b border-industrial-800 bg-industrial-900/50 backdrop-blur-sm sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-industrial-800 rounded-md border border-industrial-700">
-                            <LayoutDashboard size={20} className="text-industrial-100" />
+            <PageHeader
+                label="Scorecards"
+                title="SCORECARD MANAGER"
+                subtitle="System v2.0"
+                icon={<LayoutDashboard size={20} className="text-industrial-100" />}
+                rightContent={
+                    <div className="flex items-center gap-2" ref={navMenuRef}>
+                        <button onClick={() => setShowForm(true)} className="btn btn-primary btn-sm border-0">
+                            <Plus size={16} />
+                            New Scorecard
+                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowNavMenu(!showNavMenu)}
+                                className="btn btn-secondary btn-sm flex items-center gap-2"
+                                title="People & Assignments"
+                            >
+                                <PanelLeft size={16} />
+                                Manage
+                                <ChevronDown size={14} />
+                            </button>
+                            {showNavMenu && (
+                                <div className="absolute right-0 mt-2 w-52 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-20">
+                                    <div className="py-1">
+                                        <button
+                                            onClick={() => {
+                                                router.push('/assignments');
+                                                setShowNavMenu(false);
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                        >
+                                            <ClipboardList size={14} />
+                                            Assignments
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                router.push('/users');
+                                                setShowNavMenu(false);
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                        >
+                                            <UserCog size={14} />
+                                            Users
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-industrial-100 tracking-tight leading-none">
-                                SCORECARD MANAGER
-                            </h1>
-                            <p className="text-xs text-industrial-500 font-mono uppercase tracking-wider">
-                                System v2.0
-                            </p>
-                        </div>
+
                     </div>
-                    <button onClick={() => setShowForm(true)} className="btn btn-primary btn-sm">
-                        <Plus size={16} />
-                        New Scorecard
-                    </button>
-                </div>
-            </header>
+                }
+            />
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-6 py-8">

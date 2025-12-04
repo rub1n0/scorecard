@@ -61,10 +61,20 @@ function parseCSVToRows(csvContent: string): string[][] {
     return rows;
 }
 
+function parseAssigneeField(value?: string): string[] {
+    if (!value) return [];
+
+    return value
+        .split(/[,;]+/)
+        .map(entry => entry.trim())
+        .filter(Boolean);
+}
+
 /**
  * Parse simple format CSV (one row per KPI)
  * Format: KPI Name,Value,Date,Trend %,Notes,Historical Data
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function parseSimpleFormat(rows: string[][]): ParsedKPI[] {
     const kpis: ParsedKPI[] = [];
     const headers = rows[0].map(h => h.toLowerCase());
@@ -128,9 +138,9 @@ function parseSimpleFormat(rows: string[][]): ParsedKPI[] {
  * Parse time series format CSV (multiple rows per KPI)
  * Format: KPI Name,Chart Type,Date/Category,Value,Notes
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function parseTimeSeriesFormat(rows: string[][]): ParsedKPI[] {
     const kpis: ParsedKPI[] = [];
-    const headers = rows[0].map(h => h.toLowerCase());
 
     // Group rows by KPI name
     const kpiGroups = new Map<string, string[][]>();
@@ -286,10 +296,10 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
         const valueRecord: Record<string, number | string> = {};
         const dataPoints: DataPoint[] = []; // Keep for backward compatibility
         let latestDate = firstRow[dateIdx] || new Date().toISOString().split('T')[0];
-        let subtitle: string | undefined = subtitleIdx >= 0 ? firstRow[subtitleIdx] : undefined;
+        const subtitle: string | undefined = subtitleIdx >= 0 ? firstRow[subtitleIdx] : undefined;
         let notes: string | undefined = notesIdx >= 0 ? firstRow[notesIdx] : undefined;
-        let sectionName: string | undefined = sectionIdx >= 0 ? firstRow[sectionIdx] : undefined;
-        let assignee: string | undefined = assignmentIdx >= 0 ? firstRow[assignmentIdx] : undefined;
+        const sectionName: string | undefined = sectionIdx >= 0 ? firstRow[sectionIdx] : undefined;
+        const assignees: string[] = assignmentIdx >= 0 ? parseAssigneeField(firstRow[assignmentIdx]) : [];
         let trendValue: number | undefined;
 
         // Sort rows by date if possible (for time series)
@@ -404,7 +414,8 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             trendValue,
             dataPoints: dataPoints.length > 0 ? dataPoints : undefined, // Keep for backward compatibility
             sectionName,
-            assignee,
+            assignees: assignees.length ? assignees : undefined,
+            assignee: assignees[0],
         });
     });
 

@@ -1,0 +1,165 @@
+import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { eq, inArray } from 'drizzle-orm';
+import { db } from '@/lib/mysql';
+import {
+    assignments,
+    assignmentAssignees,
+    metrics,
+    sections,
+    scorecards,
+    users,
+} from '../../../../db/schema';
+
+const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
+
+async function loadAssignments(ids?: string[]) {
+    const base = ids && ids.length > 0
+        ? await db.select().from(assignments).where(inArray(assignments.id, ids))
+        : await db.select().from(assignments);
+
+    const assignees = await db
+        .select({
+            assignmentId: assignmentAssignees.assignmentId,
+            user: users,
+        })
+        .from(assignmentAssignees)
+        .leftJoin(users, eq(assignmentAssignees.userId, users.id));
+
+    const assigneesByAssignment = new Map<string, typeof assignees>();
+    assignees.forEach((row) => {
+        const list = assigneesByAssignment.get(row.assignmentId) || [];
+        list.push(row);
+        assigneesByAssignment.set(row.assignmentId, list);
+    });
+
+    const metricIds = base.map(a => a.metricId);
+    const metricsRows = metricIds.length
+        ? await db
+            .select({ metric: metrics, section: sections, scorecard: scorecards })
+            .from(metrics)
+            .leftJoin(sections, eq(metrics.sectionId, sections.id))
+            .leftJoin(scorecards, eq(metrics.scorecardId, scorecards.id))
+            .where(inArray(metrics.id, metricIds))
+        : [];
+
+    const metricsById = new Map<string, typeof metricsRows[number]>();
+    metricsRows.forEach(row => metricsById.set(row.metric.id, row));
+
+    return base.map((assignment) => {
+        const assigneeRows = assigneesByAssignment.get(assignment.id) || [];
+        const metricRow = metricsById.get(assignment.metricId);
+        return {
+            ...assignment,
+            metric: metricRow?.metric || null,
+            section: metricRow?.section || null,
+            scorecard: metricRow?.scorecard || null,
+            assignees: assigneeRows.map(r => r.user).filter(Boolean),
+        };
+    });
+}
+
+export async function GET() {
+    try {
+        const data = await loadAssignments();
+        return NextResponse.json(data);
+    } catch (error) {
+        console.error('[assignments][GET]', error);
+        return NextResponse.json({ error: 'Failed to fetch assignments' }, { status: 500 });
+    }
+}
+
+export async function POST(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const metricId = body?.metricId as string;
+        if (!metricId) return badRequest('metricId is required');
+        const sectionId = body?.sectionId ?? null;
+        const assigneeIds = Array.isArray(body?.assigneeIds) ? body.assigneeIds.filter(Boolean) : [];
+
+        const id = crypto.randomUUID();
+        const now = new Date();
+
+        await db.transaction(async (tx) => {
+            await tx.insert(assignments).values({
+                id,
+                metricId,
+                sectionId,
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            for (const userId of assigneeIds) {
+                await tx
+                    .insert(assignmentAssignees)
+                    .values({
+                        id: crypto.randomUUID(),
+                        assignmentId: id,
+                        userId,
+                    })
+                    .onDuplicateKeyUpdate({
+                        set: { userId },
+                    });
+            }
+        });
+
+        const [result] = await loadAssignments([id]);
+        return NextResponse.json(result, { status: 201 });
+    } catch (error) {
+        console.error('[assignments][POST]', error);
+        return NextResponse.json({ error: 'Failed to create assignment' }, { status: 500 });
+    }
+}
+
+export async function PUT(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const id = body?.id as string;
+        if (!id) return badRequest('id is required');
+
+        const update = {
+            sectionId: body?.sectionId ?? null,
+            updatedAt: new Date(),
+        };
+
+        await db.transaction(async (tx) => {
+            await tx.update(assignments).set(update).where(eq(assignments.id, id));
+
+            if (Array.isArray(body?.assigneeIds)) {
+                // replace assignees
+                await tx.delete(assignmentAssignees).where(eq(assignmentAssignees.assignmentId, id));
+                for (const userId of body.assigneeIds.filter(Boolean)) {
+                    await tx.insert(assignmentAssignees).values({
+                        id: crypto.randomUUID(),
+                        assignmentId: id,
+                        userId,
+                    });
+                }
+            }
+        });
+
+        const [result] = await loadAssignments([id]);
+        return result ? NextResponse.json(result) : NextResponse.json({ error: 'Not found' }, { status: 404 });
+    } catch (error) {
+        console.error('[assignments][PUT]', error);
+        return NextResponse.json({ error: 'Failed to update assignment' }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const id = body?.id as string;
+        if (!id) return badRequest('id is required');
+
+        await db.transaction(async (tx) => {
+            await tx.delete(assignmentAssignees).where(eq(assignmentAssignees.assignmentId, id));
+            await tx.delete(assignments).where(eq(assignments.id, id));
+        });
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('[assignments][DELETE]', error);
+        return NextResponse.json({ error: 'Failed to delete assignment' }, { status: 500 });
+    }
+}

@@ -1,7 +1,21 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Scorecard, KPI, Section, DataPoint } from '@/types';
+
+const clientFetch = (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
+const newId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
+const slugify = (name: string) =>
+    name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-{2,}/g, '-');
+const buildSlug = (name: string, id: string) => {
+    const base = slugify(name || 'scorecard');
+    return `${base}-${id.slice(0, 8)}`;
+};
 
 interface ScorecardContextType {
     scorecards: Scorecard[];
@@ -24,10 +38,10 @@ interface ScorecardContextType {
     reorderSections: (scorecardId: string, sectionIds: string[]) => Promise<void>;
     // Collaborative updates
     assignKPIToUser: (scorecardId: string, kpiId: string, email: string) => Promise<void>;
-    bulkAssignKPIs: (scorecardId: string, kpiIds: string[], email: string) => Promise<void>;
+    bulkAssignKPIs: (scorecardId: string, kpiIds: string[], emails: string[]) => Promise<void>;
     updateKPIByToken: (token: string, updates: Partial<KPI>, updatedBy?: string) => Promise<void>;
     getKPIByToken: (token: string) => { scorecard: Scorecard; kpi: KPI } | null;
-    getKPIsByAssigneeToken: (token: string) => { scorecard: Scorecard; kpis: KPI[] } | null;
+    getKPIsByAssigneeToken: (token: string) => { scorecard: Scorecard; kpis: KPI[]; assigneeEmail: string } | null;
     generateAssigneeToken: (scorecardId: string, email: string) => Promise<string>;
 }
 
@@ -37,27 +51,43 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
     const [scorecards, setScorecards] = useState<Scorecard[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchScorecards = async () => {
+    const combineAssignees = (assignee?: string, assignees?: string[]) => {
+        const combined = [
+            ...(assignees || []),
+            ...(assignee ? [assignee] : []),
+        ].filter(Boolean) as string[];
+
+        return Array.from(new Set(combined));
+    };
+
+    const normalizeKPIAssignees = (kpi: KPI) => combineAssignees(kpi.assignee, kpi.assignees);
+
+    const fetchScorecards = useCallback(async () => {
         try {
-            const response = await fetch('/api/scorecards');
+            const response = await clientFetch('/api/scorecards');
             if (response.ok) {
                 const data = await response.json();
-                setScorecards(data);
+                setScorecards(
+                    data.map((sc: Scorecard) => ({
+                        ...sc,
+                        slug: sc.slug || buildSlug(sc.name, sc.id),
+                    }))
+                );
             }
         } catch (error) {
             console.error('Failed to fetch scorecards:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchScorecards();
-    }, []);
+    }, [fetchScorecards]);
 
     const addScorecard = async (scorecard: Omit<Scorecard, 'id' | 'createdAt' | 'updatedAt'>) => {
         try {
-            const response = await fetch('/api/scorecards', {
+            const response = await clientFetch('/api/scorecards', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(scorecard),
@@ -72,7 +102,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
     const updateScorecard = async (id: string, updates: Partial<Scorecard>) => {
         try {
-            const response = await fetch(`/api/scorecards/${id}`, {
+            const response = await clientFetch(`/api/scorecards/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates),
@@ -87,7 +117,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
     const deleteScorecard = async (id: string) => {
         try {
-            const response = await fetch(`/api/scorecards/${id}`, {
+            const response = await clientFetch(`/api/scorecards/${id}`, {
                 method: 'DELETE',
             });
             if (response.ok) {
@@ -99,7 +129,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
     };
 
     const getScorecard = (id: string) => {
-        return scorecards.find(sc => sc.id === id);
+        return scorecards.find(sc => sc.id === id || sc.slug === id);
     };
 
     const addKPI = async (scorecardId: string, kpi: Omit<KPI, 'id'>) => {
@@ -107,10 +137,14 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         const scorecard = getScorecard(scorecardId);
         if (!scorecard) return;
 
+        const assigneeList = combineAssignees(kpi.assignee, kpi.assignees);
+
         const newKPI: KPI = {
             ...kpi,
-            id: crypto.randomUUID(),
-            updateToken: kpi.assignee && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
+            id: newId(),
+            assignees: assigneeList.length ? assigneeList : undefined,
+            assignee: assigneeList[0],
+            updateToken: assigneeList.length > 0 && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
         };
 
         const updatedKPIs = [...scorecard.kpis, newKPI];
@@ -121,7 +155,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         try {
             const { generateUpdateToken } = await import('@/utils/tokenUtils');
             // Fetch the latest scorecard data from the API to avoid stale state
-            const response = await fetch(`/api/scorecards/${scorecardId}`);
+            const response = await clientFetch(`/api/scorecards/${scorecardId}`);
             if (!response.ok) return;
 
             const scorecard: Scorecard = await response.json();
@@ -134,11 +168,16 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             // Filter out duplicates and add IDs to new KPIs
             const newKPIs: KPI[] = kpis
                 .filter(kpi => !existingKeys.has(`${kpi.name}|${kpi.date}`))
-                .map(kpi => ({
-                    ...kpi,
-                    id: crypto.randomUUID(),
-                    updateToken: kpi.assignee && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
-                }));
+                .map(kpi => {
+                    const assigneeList = combineAssignees(kpi.assignee, kpi.assignees);
+                    return {
+                        ...kpi,
+                        id: newId(),
+                        assignees: assigneeList.length ? assigneeList : undefined,
+                        assignee: assigneeList[0],
+                        updateToken: assigneeList.length > 0 && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
+                    };
+                });
 
             if (newKPIs.length === 0) {
                 console.log('No new KPIs to add (all duplicates)');
@@ -163,6 +202,19 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
         const chartType = newData.chartType || existingKPI.chartType;
 
+        const attachAssignments = (partial: Partial<KPI>) => {
+            const mergedAssignees = combineAssignees(
+                partial.assignee ?? existingKPI.assignee ?? updatingKPI.assignee,
+                partial.assignees ?? existingKPI.assignees ?? updatingKPI.assignees
+            );
+
+            return {
+                ...partial,
+                assignees: mergedAssignees.length ? mergedAssignees : undefined,
+                assignee: mergedAssignees[0],
+            };
+        };
+
         // For bar/radar: keep only latest per category
         if (chartType === 'bar' || chartType === 'radar' || chartType === 'radialBar') {
             const categoryMap = new Map<string, DataPoint>();
@@ -174,10 +226,10 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 categoryMap.set(dp.date, dp); // date field holds the category name
             }
 
-            return {
+            return attachAssignments({
                 ...newData,
                 dataPoints: Array.from(categoryMap.values())
-            };
+            });
         }
 
         // For other types: merge and sort chronologically
@@ -185,10 +237,10 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             new Date(a.date).getTime() - new Date(b.date).getTime()
         );
 
-        return {
+        return attachAssignments({
             ...newData,
             dataPoints: merged.length > 0 ? merged : undefined
-        };
+        });
     };
 
     const updateKPI = async (scorecardId: string, kpiId: string, updates: Partial<KPI>) => {
@@ -231,9 +283,17 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         const updatedKPIs = scorecard.kpis.map(kpi => {
             if (kpi.id === kpiId) {
                 const updatedKPI = { ...kpi, ...updates };
-                // Generate token if assignee exists but token doesn't
-                if (updatedKPI.assignee && !updatedKPI.updateToken) {
-                    updatedKPI.updateToken = generateUpdateToken();
+                const nextAssignees = (updates.assignees !== undefined || updates.assignee !== undefined)
+                    ? combineAssignees(updatedKPI.assignee, updatedKPI.assignees)
+                    : normalizeKPIAssignees(updatedKPI);
+
+                updatedKPI.assignees = nextAssignees.length ? nextAssignees : undefined;
+                updatedKPI.assignee = nextAssignees[0];
+
+                if (nextAssignees.length > 0) {
+                    updatedKPI.updateToken = updatedKPI.updateToken || generateUpdateToken();
+                } else {
+                    updatedKPI.updateToken = undefined;
                 }
                 return updatedKPI;
             }
@@ -258,7 +318,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
         const newSection: Section = {
             ...section,
-            id: crypto.randomUUID(),
+            id: newId(),
         };
 
         const updatedSections = [...(scorecard.sections || []), newSection];
@@ -355,32 +415,46 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         kpiId: string,
         email: string
     ) => {
-        await bulkAssignKPIs(scorecardId, [kpiId], email);
+        await bulkAssignKPIs(scorecardId, [kpiId], [email]);
     };
 
     const bulkAssignKPIs = async (
         scorecardId: string,
         kpiIds: string[],
-        email: string
+        emails: string[]
     ) => {
         const { generateUpdateToken } = await import('@/utils/tokenUtils');
         const scorecard = getScorecard(scorecardId);
         if (!scorecard) return;
 
-        // Generate assignee token if it doesn't exist for this user
-        let assigneeToken = scorecard.assignees?.[email];
-        let newAssignees = { ...(scorecard.assignees || {}) };
-
-        if (!assigneeToken) {
-            assigneeToken = generateUpdateToken(); // Reuse same token generator for simplicity
-            newAssignees[email] = assigneeToken;
-        }
-
-        const updatedKPIs = scorecard.kpis.map(kpi =>
-            kpiIds.includes(kpi.id)
-                ? { ...kpi, assignee: email, updateToken: generateUpdateToken() }
-                : kpi
+        const targetEmails = Array.from(
+            new Set(emails.map(email => email.trim()).filter(Boolean))
         );
+
+        if (targetEmails.length === 0) return;
+
+        const newAssignees = { ...(scorecard.assignees || {}) };
+
+        targetEmails.forEach(email => {
+            if (!newAssignees[email]) {
+                newAssignees[email] = generateUpdateToken(); // Reuse same token generator for simplicity
+            }
+        });
+
+        const updatedKPIs = scorecard.kpis.map(kpi => {
+            if (!kpiIds.includes(kpi.id)) return kpi;
+
+            const mergedAssignees = Array.from(
+                new Set([...normalizeKPIAssignees(kpi), ...targetEmails])
+            );
+
+            return {
+                ...kpi,
+                assignees: mergedAssignees.length ? mergedAssignees : undefined,
+                assignee: mergedAssignees[0],
+                updateToken: kpi.updateToken || generateUpdateToken(),
+            };
+        });
 
         await updateScorecard(scorecardId, {
             kpis: updatedKPIs,
@@ -419,15 +493,15 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         return null;
     };
 
-    const getKPIsByAssigneeToken = (token: string): { scorecard: Scorecard; kpis: KPI[] } | null => {
+    const getKPIsByAssigneeToken = (token: string): { scorecard: Scorecard; kpis: KPI[]; assigneeEmail: string } | null => {
         for (const scorecard of scorecards) {
             // Find email associated with this token
-            const email = Object.entries(scorecard.assignees || {}).find(([_, t]) => t === token)?.[0];
+            const email = Object.entries(scorecard.assignees || {}).find(([, t]) => t === token)?.[0];
 
             if (email) {
                 // Find all KPIs assigned to this email
-                const kpis = scorecard.kpis.filter(k => k.assignee === email);
-                return { scorecard, kpis };
+                const kpis = scorecard.kpis.filter(k => normalizeKPIAssignees(k).includes(email));
+                return { scorecard, kpis, assigneeEmail: email };
             }
         }
         return null;

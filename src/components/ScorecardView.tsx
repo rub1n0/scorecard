@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Scorecard, KPI, Section } from '@/types';
@@ -9,8 +10,9 @@ import KPIForm from './KPIForm';
 import CSVImport from './CSVImport';
 import SectionManagementModal from './SectionManagementModal';
 import AssignmentManager from './AssignmentManager';
-import { Plus, ArrowLeft, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download } from 'lucide-react';
+import { Plus, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import PageHeader from './PageHeader';
 
 
 
@@ -20,7 +22,7 @@ interface ScorecardViewProps {
 
 export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const router = useRouter();
-    const { addKPI, addKPIs, updateKPI, deleteKPI, addSection, refreshScorecards, updateScorecard } = useScorecards();
+    const { addKPI, addKPIs, updateKPI, deleteKPI, refreshScorecards, updateScorecard } = useScorecards();
     const [showKPIForm, setShowKPIForm] = useState(false);
     const [showCSVImport, setShowCSVImport] = useState(false);
     const [showSectionManagement, setShowSectionManagement] = useState(false);
@@ -201,7 +203,11 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
             }
 
             // Import KPIs (strip IDs, assign new ones)
-            const kpisToImport = backup.kpis.map(({ id, ...kpi }: any) => kpi);
+            const kpisToImport = backup.kpis.map((kpi: any) => {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { id: _id, ...rest } = kpi;
+                return rest;
+            });
             await addKPIs(scorecard.id, kpisToImport);
 
             alert('Backup imported successfully!');
@@ -261,23 +267,13 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
 
     return (
         <div className="min-h-screen bg-industrial-950">
-            {/* Industrial Header */}
-            <header className="border-b border-industrial-800 bg-industrial-900/50 backdrop-blur-sm sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => router.push('/')} className="btn btn-icon btn-secondary" aria-label="Back to Dashboard">
-                            <ArrowLeft size={18} />
-                        </button>
-                        <div className="h-8 w-px bg-industrial-800"></div>
-                        <div>
-                            <h1 className="text-lg font-bold text-industrial-100 tracking-tight leading-none">
-                                {scorecard.name}
-                            </h1>
-                            <p className="text-xs text-industrial-500 font-mono uppercase tracking-wider mt-0.5">
-                                {scorecard.kpis.length} Metrics • Updated {new Date(scorecard.updatedAt).toLocaleDateString()}
-                            </p>
-                        </div>
-                    </div>
+            <PageHeader
+                onBack={() => router.push('/')}
+                icon={<BarChart3 size={18} className="text-industrial-100" />}
+                label="Scorecard"
+                title={scorecard.name}
+                subtitle={`${scorecard.kpis.length} Metrics • Updated ${new Date(scorecard.updatedAt).toLocaleDateString()}`}
+                rightContent={
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => setShowManageDropdown(!showManageDropdown)}
@@ -293,8 +289,8 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                 <div className="py-1">
                                     <button
                                         onClick={() => {
-                                            setShowAssignmentManager(true);
                                             setShowManageDropdown(false);
+                                            router.push(`/assignments?scorecard=${scorecard.id}`);
                                         }}
                                         className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
                                     >
@@ -364,8 +360,8 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                             onChange={handleImportBackup}
                         />
                     </div>
-                </div>
-            </header>
+                }
+            />
 
             <main className="max-w-7xl mx-auto px-6 py-8">
                 {scorecard.description && (

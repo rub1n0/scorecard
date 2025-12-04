@@ -1,10 +1,11 @@
 
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { KPI } from '@/types';
-import { Edit2, Trash2, TrendingUp, TrendingDown, MoreHorizontal, Link as LinkIcon, Check } from 'lucide-react';
+import { Edit2, Trash2, TrendingUp, TrendingDown, Link as LinkIcon, Check } from 'lucide-react';
 import ChartErrorBoundary from './ChartErrorBoundary';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });

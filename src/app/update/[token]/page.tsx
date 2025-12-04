@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useScorecards } from '@/context/ScorecardContext';
 import { KPI, Scorecard } from '@/types';
@@ -12,30 +12,17 @@ export default function UpdateKPIPage() {
     const token = params.token as string;
     const { getKPIByToken, updateKPIByToken, loading } = useScorecards();
 
-    const [kpiData, setKpiData] = useState<{ scorecard: Scorecard; kpi: KPI } | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const kpiData = useMemo<{ scorecard: Scorecard; kpi: KPI } | null>(() => {
+        if (loading || !token) return null;
+        return getKPIByToken(token);
+    }, [getKPIByToken, loading, token]);
 
-    useEffect(() => {
-        if (!loading && token) {
-            const result = getKPIByToken(token);
-            if (result) {
-                setKpiData(result);
-                setError(null);
-            } else {
-                setError('Invalid or expired update token.');
-            }
-        }
-    }, [loading, token, getKPIByToken]);
+    const error = !loading && token && !kpiData ? 'Invalid or expired update token.' : null;
 
     const handleUpdate = async (updates: Partial<KPI>) => {
         if (!token) return;
-        await updateKPIByToken(token, updates, kpiData?.kpi.assignee);
-
-        // Refresh local data
-        const result = getKPIByToken(token);
-        if (result) {
-            setKpiData(result);
-        }
+        const updatedBy = kpiData?.kpi.assignees?.[0] || kpiData?.kpi.assignee;
+        await updateKPIByToken(token, updates, updatedBy);
     };
 
     if (loading) {

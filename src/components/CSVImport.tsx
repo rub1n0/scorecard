@@ -209,7 +209,12 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
 
                         parsedKPIs.forEach(kpi => {
                             if (kpi.sectionName) sections.add(kpi.sectionName);
-                            if (kpi.assignee) assignees.add(kpi.assignee);
+                            const kpiAssignees = [
+                                ...(kpi.assignees || []),
+                                ...(kpi.assignee ? [kpi.assignee] : [])
+                            ].filter(Boolean);
+
+                            kpiAssignees.forEach(a => assignees.add(a));
                         });
 
                         return (

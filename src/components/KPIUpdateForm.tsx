@@ -145,8 +145,6 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 valueRecord = kpi.value;
             } else if (kpi.visualizationType === 'chart') {
                 // Chart KPIs build from dataPoints
-                const isCategorical = ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(kpi.chartType || '');
-
                 sortedPoints.forEach(dp => {
                     valueRecord[dp.date] = dp.value;
                 });

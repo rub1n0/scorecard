@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useScorecards } from '@/context/ScorecardContext';
 import { Scorecard, KPI } from '@/types';
@@ -12,26 +12,13 @@ export default function AssigneeUpdatePage() {
     const token = params.token as string;
     const { getKPIsByAssigneeToken, updateKPIByToken, loading: contextLoading } = useScorecards();
 
-    const [data, setData] = useState<{ scorecard: Scorecard; kpis: KPI[] } | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const data = useMemo<{ scorecard: Scorecard; kpis: KPI[]; assigneeEmail: string } | null>(() => {
+        if (contextLoading || !token) return null;
+        return getKPIsByAssigneeToken(token);
+    }, [contextLoading, getKPIsByAssigneeToken, token]);
 
-    useEffect(() => {
-        // Wait for scorecards to finish loading from the context
-        if (contextLoading) {
-            return;
-        }
-
-        if (token) {
-            const result = getKPIsByAssigneeToken(token);
-            if (result) {
-                setData(result);
-            } else {
-                setError('Invalid or expired assignment token.');
-            }
-            setLoading(false);
-        }
-    }, [token, getKPIsByAssigneeToken, contextLoading]);
+    const loading = contextLoading;
+    const error = !contextLoading && token && !data ? 'Invalid or expired assignment token.' : '';
 
     if (loading) {
         return (
@@ -55,7 +42,7 @@ export default function AssigneeUpdatePage() {
         );
     }
 
-    const { scorecard, kpis } = data;
+    const { scorecard, kpis, assigneeEmail } = data;
 
     return (
         <div className="min-h-screen bg-industrial-950 pb-12">
@@ -79,6 +66,7 @@ export default function AssigneeUpdatePage() {
                         <p className="text-sm text-industrial-300 font-medium">
                             {kpis.length} Metric{kpis.length !== 1 ? 's' : ''} Assigned
                         </p>
+                        <p className="text-xs text-industrial-500 mt-1">{assigneeEmail}</p>
                     </div>
                 </div>
             </header>
@@ -107,13 +95,7 @@ export default function AssigneeUpdatePage() {
                                     // each KPI has its own token (which they do) and use that.
 
                                     if (kpi.updateToken) {
-                                        await updateKPIByToken(kpi.updateToken, updates, kpi.assignee);
-                                        // Refresh local data? The context updates, but we need to force re-render or refetch
-                                        // Since we use getKPIsByAssigneeToken in render, it reads from context state.
-                                        // But getKPIsByAssigneeToken is a function, not a hook.
-                                        // We need to trigger a re-fetch.
-                                        const refreshed = getKPIsByAssigneeToken(token);
-                                        if (refreshed) setData(refreshed);
+                                        await updateKPIByToken(kpi.updateToken, updates, assigneeEmail);
                                     } else {
                                         console.error("KPI missing update token");
                                     }

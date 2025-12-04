@@ -46,7 +46,9 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
     // Get unassigned KPIs
     const unassignedKPIs = useMemo(() => {
         const sectionIds = new Set(sections.map(s => s.id));
-        return scorecard.kpis.filter(kpi => !kpi.sectionId || !sectionIds.has(kpi.sectionId));
+        return scorecard.kpis
+            .filter(kpi => !kpi.sectionId || !sectionIds.has(kpi.sectionId))
+            .sort((a, b) => a.name.localeCompare(b.name));
     }, [scorecard.kpis, sections]);
 
     const handleCreateSection = async () => {
@@ -119,6 +121,8 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
     const getColorVariable = (colorName: string) => {
         return AVAILABLE_COLORS.find(c => c.name === colorName)?.value || '#36c9b8';
     };
+
+    const truncate = (value: string, length = 25) => (value.length > length ? `${value.slice(0, length)}...` : value);
 
     return (
         <Modal
@@ -358,7 +362,7 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
 
                     {selectedSectionId === null ? (
                         /* Show unassigned KPIs */
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             {unassignedKPIs.length === 0 ? (
                                 <p className="text-sm text-industrial-500 p-4 text-center">
                                     No unassigned KPIs
@@ -367,24 +371,29 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                                 unassignedKPIs.map((kpi) => (
                                     <div
                                         key={kpi.id}
-                                        className="p-3 rounded-md border border-industrial-800 bg-industrial-950"
+                                        className="p-2 rounded-md border border-industrial-800 bg-industrial-950"
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm text-industrial-200 font-mono">
-                                                {kpi.name}
-                                            </span>
-                                            <select
-                                                onChange={(e) => handleAssignKPI(kpi.id, e.target.value || null)}
-                                                className="select text-xs py-1 px-2"
-                                                defaultValue=""
-                                            >
-                                                <option value="">Assign to...</option>
-                                                {sections.map((section) => (
-                                                    <option key={section.id} value={section.id}>
-                                                        {section.name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div >
+                                                    <a className="text-sm text-industrial-200 font-mono truncate" title={kpi.name}>{kpi.name} </a>
+                                                    <a className="text-xs text-industrial-500 font-mono truncate" title={kpi.subtitle || kpi.name}>{kpi.subtitle ? truncate(kpi.subtitle, 25) : truncate(kpi.name, 25)}</a>
+                                                </div>
+                                            </div>
+                                            <div className="w-full sm:w-auto">
+                                                <select
+                                                    onChange={(e) => handleAssignKPI(kpi.id, e.target.value || null)}
+                                                    className="select text-xs py-1 px-2 w-full sm:w-40"
+                                                    defaultValue=""
+                                                >
+                                                    <option value="">Assign to...</option>
+                                                    {sections.map((section) => (
+                                                        <option key={section.id} value={section.id}>
+                                                            {section.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
                                 ))

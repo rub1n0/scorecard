@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function ScorecardPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+    const { id: slugOrId } = use(params);
     const { getScorecard, loading } = useScorecards();
     const router = useRouter();
-    const scorecard = getScorecard(id);
+    const scorecard = getScorecard(slugOrId);
 
     if (loading) {
         return (
@@ -29,7 +29,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
                 <div className="glass-card p-12 text-center max-w-md">
                     <h1 className="text-xl font-bold text-industrial-100 mb-4">Scorecard Not Found</h1>
                     <p className="text-industrial-500 mb-8 text-sm">
-                        The scorecard you're looking for doesn't exist or has been deleted.
+                        The scorecard you&apos;re looking for doesn&apos;t exist or has been deleted.
                     </p>
                     <button onClick={() => router.push('/')} className="btn btn-primary">
                         <ArrowLeft size={20} />
