@@ -1,0 +1,2 @@
+ALTER TABLE `metrics`
+    ADD COLUMN `visible` TINYINT(1) NOT NULL DEFAULT 1;

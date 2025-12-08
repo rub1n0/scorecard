@@ -490,11 +490,26 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
     const [showCopied, setShowCopied] = useState(false);
 
+    const copyToClipboard = async (text: string) => {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+    };
+
     const handleCopyLink = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (kpi.updateToken) {
             const url = `${window.location.origin}/update/${kpi.updateToken}`;
-            await navigator.clipboard.writeText(url);
+            await copyToClipboard(url);
             setShowCopied(true);
             setTimeout(() => setShowCopied(false), 2000);
         }

@@ -8,7 +8,7 @@ import PageHeader from '@/components/PageHeader';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DbSection = { id: string; name: string | null; scorecardId: string };
-type DbMetric = { id: string; name: string; sectionId: string | null; scorecardId: string; updateToken?: string | null };
+type DbMetric = { id: string; name: string; subtitle?: string | null; sectionId: string | null; scorecardId: string; updateToken?: string | null; section?: DbSection | null; scorecard?: DbScorecard | null };
 type DbScorecard = { id: string; name: string };
 type AssignmentRow = {
     id: string;
@@ -18,6 +18,7 @@ type AssignmentRow = {
     metric?: DbMetric | null;
     section?: DbSection | null;
     scorecard?: DbScorecard | null;
+    _virtual?: boolean;
 };
 
 type DrawerMode = { type: 'create' } | { type: 'edit'; assignment: AssignmentRow } | { type: 'bulk' };
@@ -97,6 +98,13 @@ function AssignmentDashboardInner() {
         setSelectedUserIds([]);
     };
 
+    const openCreateForMetric = (metric: DbMetric) => {
+        setDrawer({ type: 'create' });
+        setSelectedMetricId(metric.id);
+        setSelectedSectionId(metric.sectionId || '');
+        setSelectedUserIds([]);
+    };
+
     const openDrawer = (mode: DrawerMode) => {
         setDrawer(mode);
         resetDrawerState();
@@ -122,8 +130,36 @@ function AssignmentDashboardInner() {
         [metrics, scorecardFilter]
     );
 
+    const combinedRows = useMemo(() => {
+        const sectionById = new Map(sections.map(s => [s.id, s]));
+        const scorecardById = new Map(scorecards.map(sc => [sc.id, sc]));
+        const assignedMetricIds = new Set(assignments.map(a => a.metricId));
+
+        const normalizedAssignments = assignments.map(a => {
+            const metric = a.metric || metrics.find(m => m.id === a.metricId) || null;
+            const section = a.section || (metric?.sectionId ? sectionById.get(metric.sectionId) || null : null);
+            const scorecard = a.scorecard || (metric ? scorecardById.get(metric.scorecardId) || null : null);
+            return { ...a, metric, section, scorecard, _virtual: false } as AssignmentRow;
+        });
+
+        const virtuals: AssignmentRow[] = metrics
+            .filter(m => !assignedMetricIds.has(m.id))
+            .map(m => ({
+                id: `virtual-${m.id}`,
+                metricId: m.id,
+                sectionId: m.sectionId,
+                assignees: [],
+                metric: m,
+                section: m.section || (m.sectionId ? sectionById.get(m.sectionId) || null : null),
+                scorecard: m.scorecard || scorecardById.get(m.scorecardId) || null,
+                _virtual: true,
+            }));
+
+        return [...normalizedAssignments, ...virtuals];
+    }, [assignments, metrics, sections, scorecards]);
+
     const filtered = useMemo(() => {
-        return assignments
+        return combinedRows
             .filter(a => {
                 const metricName = a.metric?.name?.toLowerCase?.() || '';
                 const sectionName = a.section?.name?.toLowerCase?.() || '';
@@ -133,7 +169,8 @@ function AssignmentDashboardInner() {
                     return false;
                 }
 
-                if (scorecardFilter !== 'all' && a.scorecard?.id !== scorecardFilter) return false;
+                const assignmentScorecardId = a.scorecard?.id || a.metric?.scorecardId || null;
+                if (scorecardFilter !== 'all' && assignmentScorecardId !== scorecardFilter) return false;
                 if (sectionFilter !== 'all' && a.sectionId !== sectionFilter) return false;
 
                 const assigneeIds = a.assignees.map(u => u.id);
@@ -144,17 +181,19 @@ function AssignmentDashboardInner() {
                 return true;
             })
             .sort((a, b) => (a.metric?.name || '').localeCompare(b.metric?.name || ''));
-    }, [assignments, search, sectionFilter, userFilter, showUnassigned, showMultiAssigned]);
+    }, [combinedRows, search, sectionFilter, userFilter, showUnassigned, showMultiAssigned, scorecardFilter]);
 
     const toggleUser = (id: string) => {
         setSelectedUserIds(prev => (prev.includes(id) ? prev.filter(u => u !== id) : [...prev, id]));
     };
 
     const saveAssignment = async () => {
-        if (!selectedMetricId || selectedUserIds.length === 0) return;
+        if (!selectedMetricId) return;
+        const isEdit = drawer?.type === 'edit';
+        if (!isEdit && selectedUserIds.length === 0) return; // require assignee for new rows but allow clearing on edit
         setSaving(true);
         try {
-            if (drawer?.type === 'edit') {
+            if (isEdit) {
                 await fetch('/api/assignments', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -237,6 +276,22 @@ function AssignmentDashboardInner() {
         setAssignments(prev => prev.filter(a => a.id !== id));
     };
 
+    const copyToClipboard = async (text: string) => {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        // Fallback for environments without clipboard API
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+    };
+
     const copyLink = async (row: AssignmentRow, user: DbUser) => {
         try {
             const scorecard = scorecards.find(s => s.id === row.scorecard?.id);
@@ -253,8 +308,17 @@ function AssignmentDashboardInner() {
             if (!token) {
                 token = await generateAssigneeToken(sc.id, email);
             }
+
+            // Fallback to KPI token if no assignee token exists (single metric)
+            if (!token) {
+                const metric = sc.kpis.find(k => k.id === row.metricId);
+                token = metric?.updateToken;
+            }
+
+            if (!token) throw new Error('Unable to generate link token');
+
             const url = `${window.location.origin}/update/user/${token}`;
-            await navigator.clipboard.writeText(url);
+            await copyToClipboard(url);
             setCopyState(email);
             setTimeout(() => setCopyState(''), 1500);
         } catch (error) {
@@ -319,15 +383,32 @@ function AssignmentDashboardInner() {
                     <div className="space-y-2 mb-4">
                         <label className="text-xs text-industrial-400">Assignees</label>
                         <div className="flex flex-wrap gap-2">
-                            {users.map(u => (
-                                <button
-                                    key={u.id}
-                                    onClick={() => toggleUser(u.id)}
-                                    className={`${chip} ${selectedUserIds.includes(u.id) ? 'border-verdigris text-verdigris' : ''}`}
-                                >
-                                    {u.name || u.email || 'Unnamed'}
-                                </button>
-                            ))}
+                            {users.map(u => {
+                                const checked = selectedUserIds.includes(u.id);
+                                return (
+                                    <label
+                                        key={u.id}
+                                        className={`flex items-center gap-2 px-2 py-1 rounded border text-xs cursor-pointer transition-colors ${checked ? 'border-verdigris text-verdigris bg-industrial-900' : 'border-industrial-700 text-industrial-200 hover:border-industrial-500'}`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-verdigris focus:ring-verdigris"
+                                            checked={checked}
+                                            onChange={() => toggleUser(u.id)}
+                                        />
+                                        <span className="truncate max-w-[200px]">{u.name || u.email || 'Unnamed'}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        <div className="flex gap-2 text-[11px] text-industrial-400">
+                            <button type="button" className="underline" onClick={() => setSelectedUserIds(users.map(u => u.id))}>
+                                Select all
+                            </button>
+                            <span>•</span>
+                            <button type="button" className="underline" onClick={() => setSelectedUserIds([])}>
+                                Clear
+                            </button>
                         </div>
                     </div>
 
@@ -357,10 +438,6 @@ function AssignmentDashboardInner() {
                         <button className="btn btn-secondary btn-sm flex items-center gap-2" onClick={() => openDrawer({ type: 'bulk' })}>
                             <Filter size={16} />
                             Bulk assign by section
-                        </button>
-                        <button className="btn btn-primary btn-sm flex items-center gap-2" onClick={() => openDrawer({ type: 'create' })}>
-                            <Plus size={16} />
-                            Add Assignment
                         </button>
                     </>
                 }
@@ -450,57 +527,69 @@ function AssignmentDashboardInner() {
                                 ) : filtered.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="text-center py-8 text-industrial-500">
-                                            No assignments match your filters.
+                                            No metrics or assignments match your filters.
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.map(row => (
-                                        <tr key={row.id} className="hover:bg-industrial-900/40">
-                                            <td className="px-4 py-3 text-industrial-100">{row.metric?.name || 'Unknown metric'}</td>
-                                            <td className="px-4 py-3 text-industrial-300">
-                                                {row.section?.name || 'Unassigned'}
-                                            </td>
-                                            <td className="px-4 py-3 text-industrial-400">{row.scorecard?.name || '—'}</td>
+                                    filtered.map(row => {
+                                        const isVirtual = !!row._virtual;
+                                        return (
+                                            <tr key={row.id} className="hover:bg-industrial-900/40">
+                                                <td className="px-4 py-3 text-industrial-100">{row.metric?.name || 'Unknown metric'}</td>
+                                                <td className="px-4 py-3 text-industrial-300">
+                                                    {row.section?.name || 'Unassigned'}
+                                                </td>
+                                                <td className="px-4 py-3 text-industrial-400">{row.scorecard?.name || '—'}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-wrap gap-2">
                                                     {row.assignees.length === 0 && <span className="text-industrial-500 text-xs">None</span>}
                                                     {row.assignees.map(user => (
-                                                        <span key={user.id} className={chip}>
+                                                        <span key={user.id} className={`${chip} flex items-center gap-1`}>
                                                             {user.name || user.email || 'Unnamed'}
+                                                            <button
+                                                                className="text-industrial-400 hover:text-industrial-100"
+                                                                onClick={() => copyLink(row, user)}
+                                                                title="Copy update link"
+                                                            >
+                                                                {copyState === (user.email || user.name) ? <Check size={12} /> : <Copy size={12} />}
+                                                            </button>
                                                         </span>
                                                     ))}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex justify-end gap-2">
-                                                    <button
-                                                        className="btn btn-xs btn-secondary flex items-center gap-1"
-                                                        onClick={() => openDrawer({ type: 'edit', assignment: row })}
-                                                    >
-                                                        <UserPlus size={12} />
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-xs btn-ghost flex items-center gap-1"
-                                                        onClick={() => deleteAssignment(row.id)}
-                                                    >
-                                                        <X size={12} />
-                                                        Remove
-                                                    </button>
-                                                    {row.assignees.map(user => (
+                                                    {isVirtual ? (
                                                         <button
-                                                            key={user.id}
-                                                            className="btn btn-xs btn-ghost flex items-center gap-1"
-                                                            onClick={() => copyLink(row, user)}
+                                                            className="btn btn-xs btn-primary flex items-center gap-1"
+                                                            onClick={() => row.metric && openCreateForMetric(row.metric)}
                                                         >
-                                                            {copyState === (user.email || user.name) ? <Check size={12} /> : <Copy size={12} />}
-                                                            Link
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                                <Plus size={12} />
+                                                                Assign
+                                                            </button>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    className="btn btn-xs btn-secondary flex items-center gap-1"
+                                                                    onClick={() => openDrawer({ type: 'edit', assignment: row })}
+                                                                >
+                                                                    <UserPlus size={12} />
+                                                                    Edit
+                                                                </button>
+                                                                <button
+                                                                    className="btn btn-xs btn-ghost flex items-center gap-1"
+                                                                    onClick={() => deleteAssignment(row.id)}
+                                                                >
+                                                                    <X size={12} />
+                                                                    Remove
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

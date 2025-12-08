@@ -70,6 +70,7 @@ export const metrics = mysqlTable(
         chartSettings: json('chart_settings'),
         order: int('order'),
         lastUpdatedBy: varchar('last_updated_by', { length: 255 }),
+        visible: boolean('visible').default(true).notNull(),
         createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
     },

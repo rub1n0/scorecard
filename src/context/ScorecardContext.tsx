@@ -145,6 +145,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             assignees: assigneeList.length ? assigneeList : undefined,
             assignee: assigneeList[0],
             updateToken: assigneeList.length > 0 && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
+            visible: kpi.visible ?? true,
         };
 
         const updatedKPIs = [...scorecard.kpis, newKPI];
@@ -176,6 +177,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                         assignees: assigneeList.length ? assigneeList : undefined,
                         assignee: assigneeList[0],
                         updateToken: assigneeList.length > 0 && !kpi.updateToken ? generateUpdateToken() : kpi.updateToken,
+                        visible: kpi.visible ?? true,
                     };
                 });
 
@@ -201,6 +203,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         ];
 
         const chartType = newData.chartType || existingKPI.chartType;
+        const nextVisible = newData.visible ?? existingKPI.visible ?? updatingKPI.visible ?? true;
 
         const attachAssignments = (partial: Partial<KPI>) => {
             const mergedAssignees = combineAssignees(
@@ -210,6 +213,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
             return {
                 ...partial,
+                visible: nextVisible,
                 assignees: mergedAssignees.length ? mergedAssignees : undefined,
                 assignee: mergedAssignees[0],
             };
@@ -282,7 +286,12 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         // No merge needed, proceed with normal update
         const updatedKPIs = scorecard.kpis.map(kpi => {
             if (kpi.id === kpiId) {
-                const updatedKPI = { ...kpi, ...updates };
+                const nextVisible = updates.visible ?? kpi.visible ?? true;
+                const updatedKPI = {
+                    ...kpi,
+                    ...updates,
+                    visible: nextVisible,
+                };
                 const nextAssignees = (updates.assignees !== undefined || updates.assignee !== undefined)
                     ? combineAssignees(updatedKPI.assignee, updatedKPI.assignees)
                     : normalizeKPIAssignees(updatedKPI);
@@ -471,11 +480,19 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         for (const scorecard of scorecards) {
             const kpi = scorecard.kpis.find(k => k.updateToken === token);
             if (kpi) {
-                const updatedKPIs = scorecard.kpis.map(k =>
-                    k.id === kpi.id
-                        ? { ...k, ...updates, lastUpdatedBy: updatedBy, date: new Date().toISOString() }
-                        : k
-                );
+                const updatedKPIs = scorecard.kpis.map(k => {
+                    if (k.id !== kpi.id) return k;
+
+                    const nextVisible = updates.visible ?? k.visible ?? true;
+
+                    return {
+                        ...k,
+                        ...updates,
+                        visible: nextVisible,
+                        lastUpdatedBy: updatedBy,
+                        date: new Date().toISOString(),
+                    };
+                });
                 await updateScorecard(scorecard.id, { kpis: updatedKPIs });
                 return;
             }
@@ -499,6 +516,14 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             const email = Object.entries(scorecard.assignees || {}).find(([, t]) => t === token)?.[0];
 
             if (email) {
+                // Special pseudo-assignee for section links: __section__:<id|unassigned>
+                if (email.startsWith('__section__:')) {
+                    const sectionKey = email.replace('__section__:', '');
+                    const targetSectionId = sectionKey === 'unassigned' ? null : sectionKey;
+                    const kpis = scorecard.kpis.filter(k => (k.sectionId || null) === targetSectionId);
+                    return { scorecard, kpis, assigneeEmail: email };
+                }
+
                 // Find all KPIs assigned to this email
                 const kpis = scorecard.kpis.filter(k => normalizeKPIAssignees(k).includes(email));
                 return { scorecard, kpis, assigneeEmail: email };

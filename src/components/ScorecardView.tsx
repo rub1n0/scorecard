@@ -10,9 +10,11 @@ import KPIForm from './KPIForm';
 import CSVImport from './CSVImport';
 import SectionManagementModal from './SectionManagementModal';
 import AssignmentManager from './AssignmentManager';
-import { Plus, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Plus, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download, Link2, Copy, Check, Eye } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PageHeader from './PageHeader';
+import Modal from './Modal';
+import MetricVisibilityModal from './MetricVisibilityModal';
 
 
 
@@ -22,15 +24,22 @@ interface ScorecardViewProps {
 
 export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const router = useRouter();
-    const { addKPI, addKPIs, updateKPI, deleteKPI, refreshScorecards, updateScorecard } = useScorecards();
+    const searchParams = useSearchParams();
+    const { addKPI, addKPIs, updateKPI, deleteKPI, refreshScorecards, updateScorecard, generateAssigneeToken } = useScorecards();
     const [showKPIForm, setShowKPIForm] = useState(false);
     const [showCSVImport, setShowCSVImport] = useState(false);
     const [showSectionManagement, setShowSectionManagement] = useState(false);
     const [showAssignmentManager, setShowAssignmentManager] = useState(false);
+    const [showMetricVisibility, setShowMetricVisibility] = useState(false);
+    const [showLinksModal, setShowLinksModal] = useState(false);
+    const [linksLoading, setLinksLoading] = useState(false);
     const [showManageDropdown, setShowManageDropdown] = useState(false);
     const [editingKPI, setEditingKPI] = useState<KPI | undefined>();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [assigneeLinks, setAssigneeLinks] = useState<{ email: string; token: string; count: number }[]>([]);
+    const [sectionLinks, setSectionLinks] = useState<{ label: string; token: string; key: string }[]>([]);
+    const [copyState, setCopyState] = useState<string>('');
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -221,6 +230,8 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         }
     };
 
+    const visibleKPIs = useMemo(() => scorecard.kpis.filter(kpi => kpi.visible !== false), [scorecard.kpis]);
+
     // Grouping Logic with Section Support
     const groupedKPIs = useMemo(() => {
         const groups: Map<string | null, { section: Section | null; kpis: KPI[] }> = new Map();
@@ -234,7 +245,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         groups.set(null, { section: null, kpis: [] });
 
         // Assign KPIs to groups
-        scorecard.kpis.forEach(kpi => {
+        visibleKPIs.forEach(kpi => {
             const sectionId = kpi.sectionId || null;
             const group = groups.get(sectionId);
             if (group) {
@@ -247,12 +258,75 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         });
 
         return groups;
-    }, [scorecard.kpis, scorecard.sections]);
+    }, [visibleKPIs, scorecard.sections]);
 
+    const selectedSectionParam = searchParams?.get('section') || null;
     const sortedSections = useMemo(() => {
         const defined = (scorecard.sections || []).sort((a, b) => a.order - b.order);
-        return [...defined, null]; // null represents unassigned
-    }, [scorecard.sections]);
+        const all = [...defined, null]; // null represents unassigned
+        if (!selectedSectionParam) return all;
+        if (selectedSectionParam === 'unassigned') return [null];
+        return all.filter(sec => (sec ? sec.id === selectedSectionParam : false));
+    }, [scorecard.sections, selectedSectionParam]);
+
+    const assigneeEmails = useMemo(() => {
+        const emails = new Set<string>();
+        scorecard.kpis.forEach(kpi => {
+            if (kpi.assignee) emails.add(kpi.assignee);
+            (kpi.assignees || []).forEach(e => emails.add(e));
+        });
+        return Array.from(emails);
+    }, [scorecard.kpis]);
+
+    const copyToClipboard = async (text: string) => {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+    };
+
+    const loadLinks = async () => {
+        setLinksLoading(true);
+        try {
+            const rows: { email: string; token: string; count: number }[] = [];
+            for (const email of assigneeEmails) {
+                let token = scorecard.assignees?.[email];
+                if (!token) {
+                    token = await generateAssigneeToken(scorecard.id, email);
+                }
+                const count = scorecard.kpis.filter(kpi => {
+                    const list = new Set([...(kpi.assignees || []), ...(kpi.assignee ? [kpi.assignee] : [])]);
+                    return list.has(email);
+                }).length;
+                rows.push({ email, token, count });
+            }
+            setAssigneeLinks(rows);
+
+            const allSections: (Section | null)[] = [...(scorecard.sections || []).sort((a, b) => a.order - b.order), null];
+            const sectionRows: { label: string; token: string; key: string }[] = [];
+            for (const sec of allSections) {
+                const key = sec?.id || 'unassigned';
+                const pseudoEmail = `__section__:${key}`;
+                const label = sec ? sec.name || 'Untitled Section' : 'Unassigned';
+                let token = scorecard.assignees?.[pseudoEmail];
+                if (!token) {
+                    token = await generateAssigneeToken(scorecard.id, pseudoEmail);
+                }
+                sectionRows.push({ label, token, key });
+            }
+            setSectionLinks(sectionRows);
+        } finally {
+            setLinksLoading(false);
+        }
+    };
 
     const getColorVariable = (colorName: string) => {
         const colorMap: Record<string, string> = {
@@ -272,7 +346,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                 icon={<BarChart3 size={18} className="text-industrial-100" />}
                 label="Scorecard"
                 title={scorecard.name}
-                subtitle={`${scorecard.kpis.length} Metrics • Updated ${new Date(scorecard.updatedAt).toLocaleDateString()}`}
+                subtitle={`${visibleKPIs.length} Visible Metrics • Updated ${new Date(scorecard.updatedAt).toLocaleDateString()}`}
                 rightContent={
                     <div className="relative" ref={dropdownRef}>
                         <button
@@ -284,9 +358,9 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                             <ChevronDown size={16} />
                         </button>
 
-                        {showManageDropdown && (
-                            <div className="absolute right-0 mt-2 w-56 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-10 animate-fade-in">
-                                <div className="py-1">
+            {showManageDropdown && (
+                <div className="absolute right-0 mt-2 w-56 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-10 animate-fade-in">
+                    <div className="py-1">
                                     <button
                                         onClick={() => {
                                             setShowManageDropdown(false);
@@ -299,6 +373,17 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                     </button>
                                     <button
                                         onClick={() => {
+                                            setShowManageDropdown(false);
+                                            setShowLinksModal(true);
+                                            loadLinks();
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                    >
+                                        <Link2 size={14} />
+                                        Links
+                                    </button>
+                                    <button
+                                        onClick={() => {
                                             setShowSectionManagement(true);
                                             setShowManageDropdown(false);
                                         }}
@@ -306,6 +391,16 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                     >
                                         <Layout size={14} />
                                         Sections
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowMetricVisibility(true);
+                                            setShowManageDropdown(false);
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                    >
+                                        <Eye size={14} />
+                                        Metrics
                                     </button>
                                     <div className="border-t border-industrial-800 my-1"></div>
                                     <button
@@ -371,7 +466,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                 )}
 
                 {/* KPI Grid */}
-                {scorecard.kpis.length > 0 ? (
+                {visibleKPIs.length > 0 ? (
                     <div className="space-y-10">
                         {sortedSections.map((sectionOrNull) => {
                             const sectionId = sectionOrNull?.id || null;
@@ -425,9 +520,9 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                         <div className="p-4 bg-industrial-900 rounded-full border border-industrial-800 mb-6">
                             <BarChart3 size={32} className="text-industrial-600" />
                         </div>
-                        <h3 className="text-lg font-medium text-industrial-200 mb-2">No Metrics Configured</h3>
+                        <h3 className="text-lg font-medium text-industrial-200 mb-2">No Metrics Visible</h3>
                         <p className="text-industrial-500 mb-8 max-w-md text-sm">
-                            This scorecard is currently empty. Add metrics manually or import data to begin tracking.
+                            Add metrics manually, import data, or toggle existing metrics on from Manage Scorecard &gt; Metrics to show them here.
                         </p>
                         <div className="flex gap-3 justify-center">
                             <button onClick={() => setShowCSVImport(true)} className="btn btn-secondary">
@@ -465,12 +560,144 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                 />
             )}
 
+            {showMetricVisibility && (
+                <MetricVisibilityModal
+                    scorecard={scorecard}
+                    onClose={() => setShowMetricVisibility(false)}
+                />
+            )}
+
             {showAssignmentManager && (
                 <AssignmentManager
                     scorecard={scorecard}
                     onClose={() => setShowAssignmentManager(false)}
                 />
             )}
+
+            {showLinksModal && (
+                <LinksModal
+                    onClose={() => setShowLinksModal(false)}
+                    sectionLinks={sectionLinks}
+                    assigneeLinks={assigneeLinks}
+                    loading={linksLoading}
+                    copyState={copyState}
+                    copyToClipboard={copyToClipboard}
+                    setCopyState={setCopyState}
+                />
+            )}
         </div>
+    );
+}
+
+function LinksModal({
+    onClose,
+    sectionLinks,
+    assigneeLinks,
+    loading,
+    copyState,
+    copyToClipboard,
+    setCopyState
+}: {
+    onClose: () => void;
+    sectionLinks: { label: string; token: string; key: string }[];
+    assigneeLinks: { email: string; token: string; count: number }[];
+    loading: boolean;
+    copyState: string;
+    copyToClipboard: (text: string) => Promise<void>;
+    setCopyState: (v: string) => void;
+}) {
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title="Share Links" maxWidth="max-w-3xl">
+            <div className="space-y-6">
+                <div>
+                    <h4 className="text-sm font-semibold text-industrial-200 mb-2">Section Links</h4>
+                    <div className="border border-industrial-800 rounded-md overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
+                                <tr>
+                                    <th className="px-4 py-2 text-left">Section</th>
+                                    <th className="px-4 py-2 text-right">Copy Link</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-industrial-800">
+                                {sectionLinks.map(link => {
+                                    const fullLink = `${window.location.origin}/update/user/${link.token}`;
+                                    return (
+                                        <tr key={link.key}>
+                                            <td className="px-4 py-2 text-industrial-100">{link.label}</td>
+                                            <td className="px-4 py-2 text-right">
+                                                <button
+                                                    className="btn btn-xs btn-ghost"
+                                                    onClick={async () => {
+                                                        await copyToClipboard(fullLink);
+                                                        setCopyState(link.key);
+                                                        setTimeout(() => setCopyState(''), 1500);
+                                                    }}
+                                                >
+                                                    {copyState === link.key ? <Check size={12} /> : <Copy size={12} />} Copy
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 className="text-sm font-semibold text-industrial-200 mb-2">Assignee Links</h4>
+                    <div className="border border-industrial-800 rounded-md overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
+                                <tr>
+                                    <th className="px-4 py-2 text-left">Assignee</th>
+                                    <th className="px-4 py-2 text-left">Metrics</th>
+                                    <th className="px-4 py-2 text-right">Copy Link</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-industrial-800">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={3} className="px-4 py-4 text-center text-industrial-500">
+                                            Loading links...
+                                        </td>
+                                    </tr>
+                                ) : assigneeLinks.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={3} className="px-4 py-4 text-center text-industrial-500">
+                                            No assignees found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    assigneeLinks.map(row => {
+                                        const link = `${window.location.origin}/update/user/${row.token}`;
+                                        return (
+                                            <tr key={row.email}>
+                                                <td className="px-4 py-2 text-industrial-100">{row.email}</td>
+                                                <td className="px-4 py-2 text-industrial-400">{row.count}</td>
+                                                <td className="px-4 py-2 text-right">
+                                                    <button
+                                                        className="btn btn-xs btn-ghost"
+                                                        onClick={async () => {
+                                                            await copyToClipboard(link);
+                                                            setCopyState(row.email);
+                                                            setTimeout(() => setCopyState(''), 1500);
+                                                        }}
+                                                    >
+                                                        {copyState === row.email ? <Check size={12} /> : <Copy size={12} />} Copy
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </Modal>
     );
 }

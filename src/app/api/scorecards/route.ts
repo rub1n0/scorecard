@@ -82,6 +82,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
         order: m.order ?? undefined,
         lastUpdatedBy: m.lastUpdatedBy || undefined,
         sectionId: m.sectionId || undefined,
+        visible: m.visible ?? true,
         assignees: assigneesByMetric.get(m.id) || [],
         dataPoints: (dataPointsByMetric.get(m.id) || []).map(dp => ({
             date: dp.date,
@@ -214,6 +215,7 @@ export async function PUT(req: NextRequest) {
                     chartSettings: kpi.chartSettings || null,
                     order: kpi.order ?? idx,
                     lastUpdatedBy: kpi.lastUpdatedBy || null,
+                    visible: kpi.visible ?? true,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 }));

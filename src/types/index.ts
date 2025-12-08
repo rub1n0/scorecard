@@ -56,6 +56,7 @@ export interface KPI {
     reverseTrend?: boolean; // If true, trending down is good (green) and up is bad (red)
     prefix?: string; // Optional prefix for number display (e.g., "$", "€")
     suffix?: string; // Optional suffix for number display (e.g., "%", "ms", "GB")
+    visible?: boolean; // Controls whether the metric is shown on the scorecard
 }
 
 export interface Scorecard {

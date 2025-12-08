@@ -2,12 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import { useRouter } from 'next/navigation';
 import { Users, Plus, Search, Edit2, Trash2, Loader2 } from 'lucide-react';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DrawerMode = { type: 'create' } | { type: 'edit'; user: DbUser };
 
 export default function UserManagementPage() {
+    const router = useRouter();
     const [users, setUsers] = useState<DbUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -151,6 +153,7 @@ export default function UserManagementPage() {
     return (
         <div className="min-h-screen bg-industrial-950">
             <PageHeader
+                onBack={() => router.push('/')}
                 icon={<Users size={18} className="text-industrial-100" />}
                 label="Directory"
                 title="User Management"

@@ -4,21 +4,224 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useScorecards } from '@/context/ScorecardContext';
 import { Scorecard, KPI } from '@/types';
-import KPIUpdateForm from '@/components/KPIUpdateForm';
-import { LayoutDashboard, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
+
+type MetricUpdateRowProps = {
+    kpi: KPI;
+    onUpdate: (updates: Partial<KPI>) => Promise<void>;
+};
+
+function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
+    const historyPoints = useMemo(() => {
+        const fromDataPoints = (kpi.dataPoints || []).map(dp => ({
+            date: dp.date,
+            value: dp.value,
+        }));
+
+        if (fromDataPoints.length > 0) {
+            return fromDataPoints.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        }
+
+        // Fallback: derive from value record if dataPoints are missing
+        const fromValue = Object.entries(kpi.value || {}).map(([key, val]) => ({
+            date: key,
+            value: val as number | string,
+        }));
+
+        return fromValue.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [kpi.dataPoints, kpi.value]);
+
+    const latestPoint = historyPoints[0];
+
+    const isChart = kpi.visualizationType === 'chart';
+    type ValueEntry = { key: string; value: number | string };
+
+    const initialEntries: ValueEntry[] = useMemo(() => {
+        if (isChart) {
+            const base: ValueEntry[] = historyPoints.length
+                ? historyPoints.map(({ date, value }) => ({ key: date, value }))
+                : Object.entries(kpi.value || {}).map(([key, val]) => ({ key, value: val as number | string }));
+            return base.map(dp => ({
+                key: dp.key || 'Value',
+                value: typeof dp.value === 'number' ? dp.value : Number(dp.value) || 0
+            }));
+        }
+        if (kpi.visualizationType === 'text') {
+            const entry = Object.values(kpi.value || {})[0];
+            return [{ key: '0', value: typeof entry === 'string' ? entry : '' }];
+        }
+        const numeric = kpi.value?.['0'];
+        const firstVal = typeof numeric === 'number'
+            ? numeric
+            : (latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
+        return [{ key: '0', value: firstVal }];
+    }, [isChart, historyPoints, kpi.value, kpi.visualizationType, latestPoint?.value]);
+
+    const [entries, setEntries] = useState<ValueEntry[]>(initialEntries);
+    const [notes, setNotes] = useState(kpi.notes || '');
+    const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+
+    const buildUpdates = (): Partial<KPI> => {
+        if (isChart) {
+            const valueRecord: Record<string, number> = {};
+            entries.forEach(e => {
+                const num = typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0;
+                valueRecord[e.key] = num;
+            });
+            const dataPoints = entries.map(e => ({
+                date: e.key,
+                value: typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0
+            }));
+            return {
+                value: valueRecord,
+                dataPoints,
+                notes: notes || undefined,
+                date: date ? new Date(date).toISOString() : new Date().toISOString(),
+            };
+        }
+
+        if (kpi.visualizationType === 'text') {
+            return {
+                value: { '0': entries[0]?.value ?? '' },
+                notes: notes || undefined,
+                date: date ? new Date(date).toISOString() : new Date().toISOString(),
+            };
+        }
+
+        const num = parseFloat(String(entries[0]?.value ?? 0));
+        const safeNum = isNaN(num) ? 0 : num;
+
+        return {
+            value: { '0': safeNum },
+            trendValue: safeNum,
+            notes: notes || undefined,
+            date: date ? new Date(date).toISOString() : new Date().toISOString(),
+        };
+    };
+
+    const submit = async () => {
+        if (!kpi.updateToken) {
+            setError('Missing update token for this metric.');
+            return;
+        }
+        setSaving(true);
+        setError(null);
+        setSuccess(false);
+        try {
+            await onUpdate(buildUpdates());
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 2000);
+        } catch {
+            setError('Failed to save update.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <tr className="align-top">
+            <td className="px-4 py-3">
+                <div className="font-semibold text-industrial-100">{kpi.name}</div>
+            </td>
+            <td className="px-4 py-3">
+                <div className="text-xs text-industrial-500 truncate">{kpi.subtitle || '—'}</div>
+            </td>
+            <td className="px-4 py-3">
+                <div className="text-xs text-industrial-300">{kpi.date ? new Date(kpi.date).toLocaleString() : '—'}</div>
+            </td>
+            <td className="px-4 py-3 w-[260px]">
+                <div className="space-y-2">
+                    {isChart ? (
+                        <div className="space-y-2">
+                            {entries.map((entry, idx) => (
+                                <div key={entry.key || idx} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-industrial-500 w-24 truncate">{entry.key}</span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        className="input w-full font-mono"
+                                        value={entry.value}
+                                        onChange={(e) => {
+                                            const next = [...entries];
+                                            next[idx] = { ...entry, value: e.target.value };
+                                            setEntries(next);
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : kpi.visualizationType === 'text' ? (
+                        <textarea
+                            className="input w-full min-h-[70px]"
+                            value={entries[0]?.value as string}
+                            onChange={(e) => setEntries([{ ...entries[0], value: e.target.value }])}
+                            placeholder="Enter text"
+                        />
+                    ) : (
+                        <input
+                            type="number"
+                            step="any"
+                            className="input w-full font-mono"
+                            value={entries[0]?.value as number | string}
+                            onChange={(e) => setEntries([{ ...entries[0], value: e.target.value }])}
+                            placeholder="Enter value"
+                        />
+                    )}
+                    {!isChart && (
+                        <input
+                            type="date"
+                            className="input w-full"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                        />
+                    )}
+                </div>
+            </td>
+            <td className="px-4 py-3 w-[220px]">
+                <textarea
+                    className="input w-full min-h-[70px]"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add notes"
+                />
+            </td>
+            <td className="px-4 py-3">
+                <div className="flex flex-col gap-2 items-stretch">
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={saving}
+                        className="btn btn-secondary btn-sm flex items-center justify-center gap-2"
+                    >
+                        {saving ? 'Saving...' : (
+                            <>
+                                <Save size={14} />
+                                Save
+                            </>
+                        )}
+                    </button>
+                    {error && <div className="text-[10px] text-red-400">{error}</div>}
+                    {success && <div className="text-[10px] text-verdigris-400">Saved</div>}
+                </div>
+            </td>
+        </tr>
+    );
+}
 
 export default function AssigneeUpdatePage() {
     const params = useParams();
     const token = params.token as string;
     const {
-        scorecards,
         getKPIsByAssigneeToken,
         getKPIByToken,
         updateKPIByToken,
         refreshScorecards,
         loading: contextLoading
     } = useScorecards();
-    const [refreshed, setRefreshed] = useState(false);
+    const refreshAttempted = React.useRef(false);
 
     const data = useMemo<{ scorecard: Scorecard; kpis: KPI[]; assigneeEmail: string } | null>(() => {
         if (contextLoading || !token) return null;
@@ -31,14 +234,14 @@ export default function AssigneeUpdatePage() {
             return { scorecard: kpiMatch.scorecard, kpis: [kpiMatch.kpi], assigneeEmail: email };
         }
         return null;
-    }, [contextLoading, getKPIsByAssigneeToken, getKPIByToken, token, scorecards]);
+    }, [contextLoading, getKPIsByAssigneeToken, getKPIByToken, token]);
 
     useEffect(() => {
-        if (!contextLoading && !data && !refreshed) {
-            setRefreshed(true);
+        if (!contextLoading && !data && !refreshAttempted.current) {
+            refreshAttempted.current = true;
             refreshScorecards();
         }
-    }, [contextLoading, data, refreshed, refreshScorecards]);
+    }, [contextLoading, data, refreshScorecards]);
 
     const loading = contextLoading;
     const error = !contextLoading && token && !data ? 'Invalid or expired assignment token.' : '';
@@ -92,34 +295,44 @@ export default function AssigneeUpdatePage() {
 
             {/* Main Content */}
             <main className="max-w-5xl mx-auto px-5 py-6 space-y-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                    {kpis.map(kpi => (
-                        <div key={kpi.id} className="border border-industrial-800 bg-industrial-900/40 rounded-lg shadow-sm shadow-black/10">
-                            <div className="px-4 py-3 border-b border-industrial-800 flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-industrial-100 truncate">{kpi.name}</div>
-                                    {kpi.subtitle && (
-                                        <div className="text-[11px] text-industrial-500 truncate">{kpi.subtitle}</div>
-                                    )}
-                                </div>
-                                <span className="text-[10px] font-mono text-industrial-500 px-2 py-1 rounded border border-industrial-700 bg-industrial-900/60">
-                                    {kpi.updateToken ? 'LINKED' : 'MANUAL'}
-                                </span>
-                            </div>
-                            <div className="p-4">
-                                <KPIUpdateForm
-                                    kpi={kpi}
-                                    onUpdate={async (updates) => {
-                                        if (kpi.updateToken) {
-                                            await updateKPIByToken(kpi.updateToken, updates, assigneeEmail);
-                                        } else {
-                                            console.error('KPI missing update token');
-                                        }
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    ))}
+                <div className="border border-industrial-800 rounded-lg overflow-hidden bg-industrial-900/40">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm table-fixed">
+                            <colgroup>
+                                <col className="w-[14%]" />
+                                <col className="w-[16%]" />
+                                <col className="w-[14%]" />
+                                <col className="w-[20%]" />
+                                <col className="w-[24%]" />
+                                <col className="w-[12%]" />
+                            </colgroup>
+                            <thead className="bg-industrial-900/70 text-industrial-400 uppercase text-[11px]">
+                                <tr>
+                                    <th className="px-4 py-3 text-left">KPI</th>
+                                    <th className="px-4 py-3 text-left">Subtitle</th>
+                                    <th className="px-4 py-3 text-left">Last Updated</th>
+                                    <th className="px-4 py-3 text-left">Value</th>
+                                    <th className="px-4 py-3 text-left">Notes</th>
+                                    <th className="px-4 py-3 text-left">Save</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-industrial-800">
+                                {kpis.map(kpi => (
+                                    <MetricUpdateRow
+                                        key={kpi.id}
+                                        kpi={kpi}
+                                        onUpdate={async (updates) => {
+                                            if (kpi.updateToken) {
+                                                await updateKPIByToken(kpi.updateToken, updates, assigneeEmail);
+                                            } else {
+                                                console.error('KPI missing update token');
+                                            }
+                                        }}
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {kpis.length === 0 && (

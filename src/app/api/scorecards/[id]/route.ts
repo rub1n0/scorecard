@@ -70,6 +70,7 @@ const buildScorecard = async (id: string) => {
         order: m.order ?? undefined,
         lastUpdatedBy: m.lastUpdatedBy || undefined,
         sectionId: m.sectionId || undefined,
+        visible: m.visible ?? true,
         assignees: assigneesByMetric.get(m.id) || [],
         dataPoints: (dataPointsByMetric.get(m.id) || []).map(dp => ({
             date: dp.date,
@@ -114,8 +115,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const now = new Date();
 
         await db.transaction(async (tx) => {
-            // Update basic fields
-            await tx.update(scorecards).set({ name: body?.name, description: body?.description, updatedAt: now }).where(eq(scorecards.id, id));
+            // Update basic fields (only when provided)
+            const updateFields: Partial<typeof scorecards.$inferInsert> = { updatedAt: now };
+            if (body?.name !== undefined) updateFields.name = body.name;
+            if (body?.description !== undefined) updateFields.description = body.description;
+            await tx.update(scorecards).set(updateFields).where(eq(scorecards.id, id));
 
             // Replace sections if provided
             if (Array.isArray(body?.sections)) {
@@ -168,6 +172,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     chartSettings: kpi.chartSettings || null,
                     order: kpi.order ?? idx,
                     lastUpdatedBy: kpi.lastUpdatedBy || null,
+                    visible: kpi.visible ?? true,
                     createdAt: now,
                     updatedAt: now,
                 }));
@@ -219,6 +224,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                             await tx.insert(metricDataPoints).values(points);
                         }
                     }
+                }
+            }
+
+            if (body?.assignees && typeof body.assignees === 'object') {
+                await tx.delete(scorecardAssigneeTokens).where(eq(scorecardAssigneeTokens.scorecardId, id));
+                const rows = Object.entries(body.assignees).map(([email, token]) => ({
+                    scorecardId: id,
+                    email,
+                    token: String(token),
+                }));
+                if (rows.length) {
+                    await tx.insert(scorecardAssigneeTokens).values(rows);
                 }
             }
         });

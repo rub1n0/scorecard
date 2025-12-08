@@ -1,4 +1,4 @@
-import { KPI, DataPoint, VisualizationType, ChartType } from '@/types';
+import { KPI, DataPoint, VisualizationType, ChartType, ChartSettings } from '@/types';
 
 export interface ParsedKPI extends Omit<KPI, 'id'> {
     sectionName?: string;
@@ -68,6 +68,22 @@ function parseAssigneeField(value?: string): string[] {
         .split(/[,;]+/)
         .map(entry => entry.trim())
         .filter(Boolean);
+}
+
+function parseBooleanField(value?: string): boolean | undefined {
+    if (!value) return undefined;
+    const normalized = value.trim().toLowerCase();
+
+    if (['true', 'yes', 'y', '1', 'on'].includes(normalized)) return true;
+    if (['false', 'no', 'n', '0', 'off'].includes(normalized)) return false;
+
+    return undefined;
+}
+
+function parseNumberField(value?: string): number | undefined {
+    if (value === undefined || value === null || value === '') return undefined;
+    const num = parseFloat(value);
+    return isNaN(num) ? undefined : num;
 }
 
 /**
@@ -236,6 +252,23 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
     const categoryIdx = headers.findIndex(h => h.includes('category'));
     const sectionIdx = headers.findIndex(h => h.includes('section'));
     const assignmentIdx = headers.findIndex(h => h.includes('assignment') || h.includes('assignee'));
+    const prefixIdx = headers.findIndex(h => h.includes('prefix'));
+    const suffixIdx = headers.findIndex(h => h.includes('suffix'));
+    const reverseTrendIdx = headers.findIndex(h => h.includes('reverse') && h.includes('trend'));
+    const strokeWidthIdx = headers.findIndex(h => h.includes('stroke') && h.includes('width'));
+    const strokeColorIdx = headers.findIndex(h => h.includes('stroke') && h.includes('color'));
+    const strokeOpacityIdx = headers.findIndex(h => h.includes('stroke') && h.includes('opacity'));
+    const showLegendIdx = headers.findIndex(h => h.includes('legend'));
+    const showGridLinesIdx = headers.findIndex(h => h.includes('grid'));
+    const showDataLabelsIdx = headers.findIndex(h => h.includes('data') && h.includes('label'));
+
+    if (kpiNameIdx === -1) {
+        throw new Error('CSV is missing required "KPI Name" column');
+    }
+
+    if (valueIdx === -1) {
+        throw new Error('CSV is missing required "Value" column');
+    }
 
     // Group rows by KPI name
     const kpiGroups = new Map<string, string[][]>();
@@ -255,23 +288,37 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
     kpiGroups.forEach((rowGroup, kpiName) => {
         const firstRow = rowGroup[0];
 
+        const getColumnValue = (idx: number): string | undefined => {
+            if (idx < 0) return undefined;
+            const rowWithValue = rowGroup.find(row => (row[idx] || '').trim() !== '');
+            return rowWithValue ? rowWithValue[idx] : undefined;
+        };
+
         // Determine KPI type based on available data
-        const hasChartType = chartTypeIdx >= 0 && !!firstRow[chartTypeIdx];
-        const hasCategory = categoryIdx >= 0 && !!firstRow[categoryIdx];
+        const rawChartType = chartTypeIdx >= 0 ? (getColumnValue(chartTypeIdx)?.trim() || '') : '';
+        const normalizedChartType = rawChartType.toLowerCase();
+        const hasChartType = chartTypeIdx >= 0 && !!rawChartType;
+        const hasCategory = categoryIdx >= 0 && !!getColumnValue(categoryIdx)?.trim();
 
         // Default to number unless chart type is specified or it looks like a categorical chart
         let visualizationType: VisualizationType = 'number';
         let chartType: ChartType = 'line'; // Default chart type
 
-        if (hasChartType) {
+        // Allow explicit type hints for number/text in the Chart Type column
+        if (['number', 'metric', 'value'].includes(normalizedChartType)) {
+            visualizationType = 'number';
+            chartType = 'line';
+        } else if (['text', 'note', 'status'].includes(normalizedChartType)) {
+            visualizationType = 'text';
+            chartType = 'line';
+        } else if (hasChartType) {
             visualizationType = 'chart';
-            const chartTypeStr = (firstRow[chartTypeIdx] || 'line').toLowerCase();
             const chartTypeMap: Record<string, ChartType> = {
                 'line': 'line', 'area': 'area', 'bar': 'bar', 'column': 'bar',
                 'pie': 'pie', 'donut': 'donut', 'radar': 'radar',
                 'radialbar': 'radialBar', 'scatter': 'scatter', 'heatmap': 'heatmap',
             };
-            chartType = chartTypeMap[chartTypeStr] || 'line';
+            chartType = chartTypeMap[normalizedChartType] || 'line';
         } else if (hasCategory) {
             // If no chart type but has category, assume bar chart or similar?
             // Or maybe just keep it as number if it's ambiguous?
@@ -295,11 +342,29 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
         // Build the new value Record structure
         const valueRecord: Record<string, number | string> = {};
         const dataPoints: DataPoint[] = []; // Keep for backward compatibility
-        let latestDate = firstRow[dateIdx] || new Date().toISOString().split('T')[0];
-        const subtitle: string | undefined = subtitleIdx >= 0 ? firstRow[subtitleIdx] : undefined;
-        let notes: string | undefined = notesIdx >= 0 ? firstRow[notesIdx] : undefined;
-        const sectionName: string | undefined = sectionIdx >= 0 ? firstRow[sectionIdx] : undefined;
-        const assignees: string[] = assignmentIdx >= 0 ? parseAssigneeField(firstRow[assignmentIdx]) : [];
+        let latestDate = (dateIdx >= 0 ? firstRow[dateIdx] : undefined) || new Date().toISOString().split('T')[0];
+        const subtitle: string | undefined = subtitleIdx >= 0 ? getColumnValue(subtitleIdx) || undefined : undefined;
+        let notes: string | undefined = notesIdx >= 0 ? getColumnValue(notesIdx) || undefined : undefined;
+        const sectionName: string | undefined = sectionIdx >= 0 ? (getColumnValue(sectionIdx)?.trim() || undefined) : undefined;
+        const assignees: string[] = assignmentIdx >= 0 ? parseAssigneeField(getColumnValue(assignmentIdx)) : [];
+        const prefix = prefixIdx >= 0 ? (getColumnValue(prefixIdx) || '').trim() : '';
+        const suffix = suffixIdx >= 0 ? (getColumnValue(suffixIdx) || '').trim() : '';
+        const reverseTrend = reverseTrendIdx >= 0 ? parseBooleanField(getColumnValue(reverseTrendIdx)) : undefined;
+        const chartSettings: ChartSettings = {};
+
+        const strokeWidth = strokeWidthIdx >= 0 ? parseNumberField(getColumnValue(strokeWidthIdx)) : undefined;
+        const strokeColor = strokeColorIdx >= 0 ? getColumnValue(strokeColorIdx) : undefined;
+        const strokeOpacity = strokeOpacityIdx >= 0 ? parseNumberField(getColumnValue(strokeOpacityIdx)) : undefined;
+        const showLegend = showLegendIdx >= 0 ? parseBooleanField(getColumnValue(showLegendIdx)) : undefined;
+        const showGridLines = showGridLinesIdx >= 0 ? parseBooleanField(getColumnValue(showGridLinesIdx)) : undefined;
+        const showDataLabels = showDataLabelsIdx >= 0 ? parseBooleanField(getColumnValue(showDataLabelsIdx)) : undefined;
+
+        if (strokeWidth !== undefined) chartSettings.strokeWidth = strokeWidth;
+        if (strokeColor) chartSettings.strokeColor = strokeColor;
+        if (strokeOpacity !== undefined) chartSettings.strokeOpacity = strokeOpacity;
+        if (showLegend !== undefined) chartSettings.showLegend = showLegend;
+        if (showGridLines !== undefined) chartSettings.showGridLines = showGridLines;
+        if (showDataLabels !== undefined) chartSettings.showDataLabels = showDataLabels;
         let trendValue: number | undefined;
 
         // Sort rows by date if possible (for time series)
@@ -315,6 +380,8 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
 
         rowGroup.forEach(row => {
             const valStr = row[valueIdx] || '0';
+            const rowDate = dateIdx >= 0 ? row[dateIdx] : undefined;
+            const rowCategory = categoryIdx >= 0 ? row[categoryIdx] : undefined;
 
             // Check if this is a categorical chart with category:value format in the Value column
             if (visualizationType === 'chart' && isCategorical && valStr.includes(':')) {
@@ -340,8 +407,8 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
                 });
 
                 // Update date and notes from this row
-                if (row[dateIdx]) {
-                    latestDate = row[dateIdx];
+                if (rowDate) {
+                    latestDate = rowDate;
                 }
                 if (notesIdx >= 0 && row[notesIdx]) {
                     notes = row[notesIdx];
@@ -353,12 +420,12 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             let key: string;
             let value: number | string;
 
-            if (visualizationType === 'chart' && isCategorical && categoryIdx >= 0 && row[categoryIdx]) {
+            if (visualizationType === 'chart' && isCategorical && rowCategory) {
                 // Old format: Categorical chart with separate Category column
-                key = row[categoryIdx];
+                key = rowCategory;
             } else if (visualizationType === 'number' || (visualizationType === 'chart' && !isCategorical)) {
                 // For number/line/area: use "0" for single value, or date for time series
-                key = visualizationType === 'number' ? "0" : (row[dateIdx] || new Date().toISOString().split('T')[0]);
+                key = visualizationType === 'number' ? "0" : (rowDate || new Date().toISOString().split('T')[0]);
             } else {
                 // Text KPIs use "0" as key
                 key = "0";
@@ -370,11 +437,11 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
                 value = numValue;
                 // Also add to dataPoints for backward compatibility
                 dataPoints.push({
-                    date: row[categoryIdx] || row[dateIdx] || new Date().toISOString().split('T')[0],
+                    date: rowCategory || rowDate || new Date().toISOString().split('T')[0],
                     value: numValue,
                 });
-                if (row[dateIdx]) {
-                    latestDate = row[dateIdx];
+                if (rowDate) {
+                    latestDate = rowDate;
                 }
             } else if (visualizationType === 'text') {
                 value = valStr;
@@ -416,6 +483,10 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             sectionName,
             assignees: assignees.length ? assignees : undefined,
             assignee: assignees[0],
+            reverseTrend,
+            prefix: prefix || undefined,
+            suffix: suffix || undefined,
+            chartSettings: Object.keys(chartSettings).length > 0 ? chartSettings : undefined,
         });
     });
 
@@ -475,69 +546,131 @@ export function parseCSV(csvContent: string): CSVParseResult {
  * - Bar chart with 4 categories → value: {"North": 45000, "South": 38000, ...}
  * - Text KPI → value: {"0": "On Track"}
  */
-export function generateExampleCSV(type: 'all' | 'number' | 'line' | 'bar' | 'pie' | 'radar' | 'text' = 'all'): string {
+export function generateExampleCSV(
+    type: 'all' | 'number' | 'line' | 'area' | 'bar' | 'pie' | 'donut' | 'radar' | 'radialBar' | 'text' = 'all'
+): string {
+    const headers = [
+        'KPI Name',
+        'Subtitle',
+        'Value',
+        'Date',
+        'Notes',
+        'Chart Type',
+        'Section',
+        'Assignment',
+        'Prefix',
+        'Suffix',
+        'Reverse Trend',
+        'Stroke Width',
+        'Stroke Color',
+        'Stroke Opacity',
+        'Show Legend',
+        'Show Grid Lines',
+        'Show Data Labels',
+    ];
+
+    const buildCSV = (rows: string[][]) => [headers, ...rows].map(row => row.join(',')).join('\n');
+
     // Unified template with all KPI types
-    const unifiedTemplate = `KPI Name,Subtitle,Value,Date,Notes,Chart Type,Section,Assignment
-Monthly Revenue,Total Revenue,120000,2024-10-01,,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,125000,2024-10-08,,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,130000,2024-10-15,,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,135000,2024-10-22,,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,140000,2024-11-01,,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,150000,2024-11-18,Strong growth,,Financial,finance@example.com
-Customer Count,Active Users,5450,2024-10-01,,,Growth,sales@example.com
-Customer Count,Active Users,5480,2024-10-08,,,Growth,sales@example.com
-Customer Count,Active Users,5500,2024-10-15,,,Growth,sales@example.com
-Customer Count,Active Users,5600,2024-10-22,,,Growth,sales@example.com
-Customer Count,Active Users,5550,2024-11-01,,,Growth,sales@example.com
-Customer Count,Active Users,5420,2024-11-18,Slight decline,,Growth,sales@example.com
-Conversion Rate,Percentage,3.0,2024-10-01,,,Marketing,marketing@example.com
-Conversion Rate,Percentage,3.1,2024-10-08,,,Marketing,marketing@example.com
-Conversion Rate,Percentage,2.8,2024-10-15,,,Marketing,marketing@example.com
-Conversion Rate,Percentage,2.9,2024-10-22,,,Marketing,marketing@example.com
-Conversion Rate,Percentage,3.0,2024-11-01,,,Marketing,marketing@example.com
-Conversion Rate,Percentage,3.2,2024-11-18,Improved targeting,,Marketing,marketing@example.com
-Project Status,Current Phase,On Track,2024-11-18,"All milestones met. See [Roadmap](https://example.com)",,Operations,pm@example.com
-Team Morale,Employee Satisfaction,High,2024-11-18,"**Positive** feedback from team",,HR,hr@example.com
-Website Traffic,Daily Visits,12500,2024-11-01,,line,Marketing,
-Website Traffic,Daily Visits,13200,2024-11-05,,line,Marketing,
-Website Traffic,Daily Visits,14800,2024-11-10,,line,Marketing,
-Website Traffic,Daily Visits,15600,2024-11-18,Strong week,line,Marketing,
-Sales by Region,Q4 Performance,North:45000 South:38000 East:52000 West:41000,2024-11-18,,bar,Sales,
-Traffic Sources,Channel Distribution,Organic:45 Paid:25 Social:18 Direct:12,2024-11-18,,pie,Marketing,
-Product Score,Quality Metrics,Quality:85 Speed:72 Reliability:90 Features:78 Value:65,2024-11-18,,radar,Product,`;
+    const unifiedRows: string[][] = [
+        // Number KPIs with history
+        ['Monthly Revenue', 'Total Revenue', '120000', '2024-10-01', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+        ['Monthly Revenue', 'Total Revenue', '125000', '2024-10-08', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+        ['Monthly Revenue', 'Total Revenue', '130000', '2024-10-15', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+        ['Monthly Revenue', 'Total Revenue', '135000', '2024-10-22', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+        ['Monthly Revenue', 'Total Revenue', '140000', '2024-11-01', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+        ['Monthly Revenue', 'Total Revenue', '150000', '2024-11-18', 'Strong growth', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
 
-    // Individual examples for backward compatibility
+        ['Customer Count', 'Active Users', '5450', '2024-10-01', '', '', 'Growth', 'sales@example.com', '', '', '', '', '', '', '', '', ''],
+        ['Customer Count', 'Active Users', '5480', '2024-10-08', '', '', 'Growth', 'sales@example.com', '', '', '', '', '', '', '', '', ''],
+        ['Customer Count', 'Active Users', '5500', '2024-10-15', '', '', 'Growth', 'sales@example.com', '', '', '', '', '', '', '', '', ''],
+        ['Customer Count', 'Active Users', '5600', '2024-10-22', '', '', 'Growth', 'sales@example.com', '', '', '', '', '', '', '', '', ''],
+        ['Customer Count', 'Active Users', '5550', '2024-11-01', '', '', 'Growth', 'sales@example.com', '', '', '', '', '', '', '', '', ''],
+        ['Customer Count', 'Active Users', '5420', '2024-11-18', 'Slight decline', '', 'Growth', 'sales@example.com', '', '', '', '', '', '', '', '', ''],
+
+        ['Conversion Rate', 'Percentage', '3.0', '2024-10-01', '', '', 'Marketing', 'marketing@example.com', '', '%', '', '', '', '', '', '', ''],
+        ['Conversion Rate', 'Percentage', '3.1', '2024-10-08', '', '', 'Marketing', 'marketing@example.com', '', '%', '', '', '', '', '', '', ''],
+        ['Conversion Rate', 'Percentage', '2.8', '2024-10-15', '', '', 'Marketing', 'marketing@example.com', '', '%', '', '', '', '', '', '', ''],
+        ['Conversion Rate', 'Percentage', '2.9', '2024-10-22', '', '', 'Marketing', 'marketing@example.com', '', '%', '', '', '', '', '', '', ''],
+        ['Conversion Rate', 'Percentage', '3.0', '2024-11-01', '', '', 'Marketing', 'marketing@example.com', '', '%', '', '', '', '', '', '', ''],
+        ['Conversion Rate', 'Percentage', '3.2', '2024-11-18', 'Improved targeting', '', 'Marketing', 'marketing@example.com', '', '%', '', '', '', '', '', '', ''],
+
+        // Text KPIs
+        ['Project Status', 'Current Phase', 'On Track', '2024-11-18', 'All milestones met. See [Roadmap](https://example.com)', '', 'Operations', 'pm@example.com', '', '', '', '', '', '', '', '', ''],
+        ['Team Morale', 'Employee Satisfaction', 'High', '2024-11-18', '**Positive** feedback from team', '', 'HR', 'hr@example.com', '', '', '', '', '', '', '', '', ''],
+
+        // Line chart
+        ['Website Traffic', 'Daily Visits', '12500', '2024-11-01', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+        ['Website Traffic', 'Daily Visits', '13200', '2024-11-05', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+        ['Website Traffic', 'Daily Visits', '14800', '2024-11-10', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+        ['Website Traffic', 'Daily Visits', '15600', '2024-11-18', 'Strong week', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+
+        // Area chart
+        ['Latency', 'p95 by Week', '480', '2024-11-01', '', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+        ['Latency', 'p95 by Week', '440', '2024-11-08', '', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+        ['Latency', 'p95 by Week', '420', '2024-11-15', '', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+        ['Latency', 'p95 by Week', '405', '2024-11-22', 'Caching rollout', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+
+        // Categorical charts
+        ['Sales by Region', 'Q4 Performance', 'North:45000 South:38000 East:52000 West:41000', '2024-11-18', '', 'bar', 'Sales', '', '$', '', '', '2', '#dea821', '1', 'true', 'false', 'true'],
+        ['Traffic Sources', 'Channel Distribution', 'Organic:45 Paid:25 Social:18 Direct:12', '2024-11-18', '', 'pie', 'Marketing', '', '', '', '', '2', '#36c9b8', '0.85', 'true', '', 'true'],
+        ['Product Score', 'Quality Metrics', 'Quality:85 Speed:72 Reliability:90 Features:78 Value:65', '2024-11-18', '', 'radar', 'Product', '', '', '', '', '2', '#e0451f', '1', 'true', 'true', 'true'],
+        ['Spend by Channel', 'Budget Split', 'Paid:120 Organic:80 Direct:50 Partners:45', '2024-11-18', '', 'donut', 'Marketing', '', '$', '', '', '2', '#36c9b8', '0.9', 'true', '', 'true'],
+        ['SLA Compliance', 'Regional Uptime', 'US-East:99.9 EMEA:99.7 APAC:99.5 LATAM:99.3', '2024-11-18', '', 'radialBar', 'Platform', '', '', '%', '', '4', '#5094af', '1', 'true', '', 'true'],
+    ];
+
     const examples: Record<string, string> = {
-        all: unifiedTemplate,
+        all: buildCSV(unifiedRows),
 
-        number: `KPI Name,Subtitle,Value,Date,Notes,Section,Assignment
-Monthly Revenue,Total Revenue,120000,2024-10-01,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,125000,2024-10-08,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,130000,2024-10-15,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,135000,2024-10-22,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,140000,2024-11-01,,Financial,finance@example.com
-Monthly Revenue,Total Revenue,150000,2024-11-18,Strong growth,Financial,finance@example.com`,
+        number: buildCSV([
+            ['Monthly Revenue', 'Total Revenue', '120000', '2024-10-01', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+            ['Monthly Revenue', 'Total Revenue', '125000', '2024-10-08', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+            ['Monthly Revenue', 'Total Revenue', '130000', '2024-10-15', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+            ['Monthly Revenue', 'Total Revenue', '135000', '2024-10-22', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+            ['Monthly Revenue', 'Total Revenue', '140000', '2024-11-01', '', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+            ['Monthly Revenue', 'Total Revenue', '150000', '2024-11-18', 'Strong growth', '', 'Financial', 'finance@example.com', '$', '', 'false', '2', '#457B9D', '1', 'false', 'false', 'false'],
+        ]),
 
-        line: `KPI Name,Subtitle,Chart Type,Date,Value,Notes,Section,Assignment
-Website Traffic,Daily Visits,line,2024-11-01,12500,,Marketing,
-Website Traffic,Daily Visits,line,2024-11-05,13200,,Marketing,
-Website Traffic,Daily Visits,line,2024-11-10,14800,,Marketing,
-Website Traffic,Daily Visits,line,2024-11-15,13900,,Marketing,
-Website Traffic,Daily Visits,line,2024-11-18,15600,Last week strong,Marketing,`,
+        line: buildCSV([
+            ['Website Traffic', 'Daily Visits', '12500', '2024-11-01', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+            ['Website Traffic', 'Daily Visits', '13200', '2024-11-05', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+            ['Website Traffic', 'Daily Visits', '14800', '2024-11-10', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+            ['Website Traffic', 'Daily Visits', '13900', '2024-11-15', '', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+            ['Website Traffic', 'Daily Visits', '15600', '2024-11-18', 'Last week strong', 'line', 'Marketing', '', '', '', '', '2', '#36c9b8', '1', 'true', 'true', 'false'],
+        ]),
 
-        bar: `KPI Name,Subtitle,Chart Type,Value,Date,Notes,Section,Assignment
-Sales by Region,Q4 Performance,bar,North:45000 South:38000 East:52000 West:41000,2024-11-18,,Sales,sales@example.com`,
+        area: buildCSV([
+            ['Latency', 'p95 by Week', '480', '2024-11-01', '', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+            ['Latency', 'p95 by Week', '440', '2024-11-08', '', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+            ['Latency', 'p95 by Week', '420', '2024-11-15', '', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+            ['Latency', 'p95 by Week', '405', '2024-11-22', 'Caching rollout', 'area', 'Platform', '', '', 'ms', '', '3', '#5094af', '0.8', 'false', 'true', 'false'],
+        ]),
 
-        pie: `KPI Name,Subtitle,Chart Type,Value,Date,Notes,Section,Assignment
-Traffic Sources,Channel Distribution,pie,Organic:45 Paid:25 Social:18 Direct:12,2024-11-18,,Marketing,`,
+        bar: buildCSV([
+            ['Sales by Region', 'Q4 Performance', 'North:45000 South:38000 East:52000 West:41000', '2024-11-18', '', 'bar', 'Sales', 'sales@example.com', '$', '', '', '2', '#dea821', '1', 'true', 'false', 'true'],
+        ]),
 
-        radar: `KPI Name,Subtitle,Chart Type,Value,Date,Notes,Section,Assignment
-Product Performance,Quality Metrics,radar,Quality:85 Speed:72 Reliability:90 Features:78 Price:65,2024-11-18,,Product,`,
+        pie: buildCSV([
+            ['Traffic Sources', 'Channel Distribution', 'Organic:45 Paid:25 Social:18 Direct:12', '2024-11-18', '', 'pie', 'Marketing', '', '', '', '', '2', '#36c9b8', '0.85', 'true', '', 'true'],
+        ]),
 
-        text: `KPI Name,Subtitle,Value,Date,Notes,Section,Assignment
-Project Status,Current Phase,On Track,2024-11-18,"All milestones met. See [Roadmap](https://example.com)",Operations,pm@example.com
-Team Morale,Employee Satisfaction,High,2024-11-18,"**Positive** feedback from team",HR,hr@example.com
-Risk Level,Risk Assessment,Low,2024-11-18,No major concerns,Operations,`,
+        donut: buildCSV([
+            ['Spend by Channel', 'Budget Split', 'Paid:120 Organic:80 Direct:50 Partners:45', '2024-11-18', '', 'donut', 'Marketing', '', '$', '', '', '2', '#36c9b8', '0.9', 'true', '', 'true'],
+        ]),
+
+        radar: buildCSV([
+            ['Product Performance', 'Quality Metrics', 'Quality:85 Speed:72 Reliability:90 Features:78 Price:65', '2024-11-18', '', 'radar', 'Product', '', '', '', '', '2', '#e0451f', '1', 'true', 'true', 'true'],
+        ]),
+
+        radialBar: buildCSV([
+            ['SLA Compliance', 'Regional Uptime', 'US-East:99.9 EMEA:99.7 APAC:99.5 LATAM:99.3', '2024-11-18', '', 'radialBar', 'Platform', '', '', '%', '', '4', '#5094af', '1', 'true', '', 'true'],
+        ]),
+
+        text: buildCSV([
+            ['Project Status', 'Current Phase', 'On Track', '2024-11-18', 'All milestones met. See [Roadmap](https://example.com)', '', 'Operations', 'pm@example.com', '', '', '', '', '', '', '', '', ''],
+            ['Team Morale', 'Employee Satisfaction', 'High', '2024-11-18', '**Positive** feedback from team', '', 'HR', 'hr@example.com', '', '', '', '', '', '', '', '', ''],
+            ['Risk Level', 'Risk Assessment', 'Low', '2024-11-18', 'No major concerns', '', 'Operations', '', '', '', '', '', '', '', '', '', ''],
+        ]),
     };
 
     return examples[type] || examples.all;

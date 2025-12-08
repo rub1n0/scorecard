@@ -79,6 +79,7 @@ async function seed() {
                 valueJson: { "0": 120 },
                 notes: 'Seeded metric',
                 chartSettings: { showLegend: false },
+                visible: true,
             })
             .onDuplicateKeyUpdate({
                 set: {

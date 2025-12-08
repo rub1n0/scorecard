@@ -11,11 +11,23 @@ interface CSVImportProps {
 }
 
 export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
+    type ExampleType = Parameters<typeof generateExampleCSV>[0];
     const [dragActive, setDragActive] = useState(false);
     const [parsedKPIs, setParsedKPIs] = useState<ParsedKPI[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const templateButtons: { type: ExampleType; label: string }[] = [
+        { type: 'number', label: 'Number KPIs' },
+        { type: 'line', label: 'Line Chart' },
+        { type: 'area', label: 'Area Chart' },
+        { type: 'bar', label: 'Bar Chart' },
+        { type: 'pie', label: 'Pie Chart' },
+        { type: 'donut', label: 'Donut Chart' },
+        { type: 'radar', label: 'Radar Chart' },
+        { type: 'radialBar', label: 'Radial Bar' },
+        { type: 'text', label: 'Text KPIs' },
+    ];
 
     const handleFile = (file: File) => {
         if (!file.name.endsWith('.csv')) {
@@ -79,7 +91,7 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
         }
     };
 
-    const downloadExample = (type: 'all' | 'number' | 'line' | 'bar' | 'pie' | 'radar' | 'text') => {
+    const downloadExample = (type: ExampleType) => {
         const csv = generateExampleCSV(type);
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
@@ -117,37 +129,37 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                         <details className="individual-templates">
                             <summary>Or download individual type templates</summary>
                             <div className="example-buttons">
-                                <button onClick={() => downloadExample('number')} className="btn btn-secondary btn-sm">
-                                    <Download size={16} />
-                                    Number KPIs
-                                </button>
-                                <button onClick={() => downloadExample('line')} className="btn btn-secondary btn-sm">
-                                    <Download size={16} />
-                                    Line Chart
-                                </button>
-                                <button onClick={() => downloadExample('bar')} className="btn btn-secondary btn-sm">
-                                    <Download size={16} />
-                                    Bar Chart
-                                </button>
-                                <button onClick={() => downloadExample('pie')} className="btn btn-secondary btn-sm">
-                                    <Download size={16} />
-                                    Pie Chart
-                                </button>
-                                <button onClick={() => downloadExample('radar')} className="btn btn-secondary btn-sm">
-                                    <Download size={16} />
-                                    Radar Chart
-                                </button>
-                                <button onClick={() => downloadExample('text')} className="btn btn-secondary btn-sm">
-                                    <Download size={16} />
-                                    Text KPIs
-                                </button>
+                                {templateButtons.map(({ type, label }) => (
+                                    <button key={type} onClick={() => downloadExample(type)} className="btn btn-secondary btn-sm">
+                                        <Download size={16} />
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
                         </details>
 
                         <div className="mt-4 p-3 bg-industrial-900/50 rounded-md border border-industrial-800">
                             <h4 className="text-xs font-semibold text-industrial-400 uppercase tracking-wider mb-2">Template Headers</h4>
                             <div className="flex flex-wrap gap-2">
-                                {['KPI Name', 'Subtitle', 'Value', 'Date', 'Notes', 'Chart Type', 'Section', 'Assignment'].map((header) => (
+                                {[
+                                    'KPI Name',
+                                    'Subtitle',
+                                    'Value',
+                                    'Date',
+                                    'Notes',
+                                    'Chart Type',
+                                    'Section',
+                                    'Assignment',
+                                    'Prefix',
+                                    'Suffix',
+                                    'Reverse Trend',
+                                    'Stroke Width',
+                                    'Stroke Color',
+                                    'Stroke Opacity',
+                                    'Show Legend',
+                                    'Show Grid Lines',
+                                    'Show Data Labels'
+                                ].map((header) => (
                                     <span key={header} className="px-2 py-1 bg-industrial-800 text-industrial-300 rounded text-xs font-mono border border-industrial-700">
                                         {header}
                                     </span>
@@ -271,10 +283,13 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                                             <span className="preview-badge">{kpi.visualizationType}</span>
                                         </div>
                                         <div className="preview-item-details">
-                                            <span>Value: {getDisplayValue(kpi.value)}</span>
+                                            <span>Value: {(kpi.prefix || '') + getDisplayValue(kpi.value) + (kpi.suffix || '')}</span>
                                             {kpi.chartType && <span>Chart: {kpi.chartType}</span>}
-                                            {kpi.trendValue !== undefined && <span>Trend: {kpi.trendValue}%</span>}
+                                            {kpi.trendValue !== undefined && <span>Trend: {kpi.trendValue}</span>}
                                             {kpi.dataPoints && <span>Data Points: {kpi.dataPoints.length}</span>}
+                                            {kpi.reverseTrend && <span>Reverse Trend</span>}
+                                            {kpi.chartSettings?.strokeColor && <span>Stroke: {kpi.chartSettings.strokeColor}</span>}
+                                            {kpi.chartSettings?.showLegend !== undefined && <span>Legend: {kpi.chartSettings.showLegend ? 'On' : 'Off'}</span>}
                                         </div>
                                     </div>
                                 ))}
