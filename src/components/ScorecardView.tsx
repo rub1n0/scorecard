@@ -15,12 +15,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import PageHeader from './PageHeader';
 import Modal from './Modal';
 import MetricVisibilityModal from './MetricVisibilityModal';
+import { v4 as uuidv4 } from 'uuid';
 
 
 
 interface ScorecardViewProps {
     scorecard: Scorecard;
 }
+
+const generateId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
 
 export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const router = useRouter();
@@ -113,7 +116,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         const newSections: Section[] = [];
         for (const sectionName of sectionNames) {
             if (!sectionNameToId.has(sectionName)) {
-                const newSectionId = crypto.randomUUID();
+                const newSectionId = generateId();
                 const newSection: Section = {
                     id: newSectionId,
                     name: sectionName,
@@ -201,7 +204,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                 const existingSections = scorecard.sections || [];
                 const newSections = backup.sections.map((s: Section) => ({
                     ...s,
-                    id: crypto.randomUUID(), // Generate new IDs
+                    id: generateId(), // Generate new IDs
                     order: existingSections.length + backup.sections.indexOf(s)
                 }));
 
