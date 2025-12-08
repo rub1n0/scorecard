@@ -30,23 +30,10 @@ export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisi
         [scorecard.sections]
     );
 
-    const kpis = useMemo(() => {
-        const sectionOrder = new Map<string | null, number>();
-        orderedSections.forEach((section, idx) => sectionOrder.set(section.id, idx));
-        sectionOrder.set(null, orderedSections.length);
-
-        return [...scorecard.kpis].sort((a, b) => {
-            const aSection = sectionOrder.get(a.sectionId || null) ?? 0;
-            const bSection = sectionOrder.get(b.sectionId || null) ?? 0;
-            if (aSection !== bSection) return aSection - bSection;
-
-            const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
-            const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
-            if (aOrder !== bOrder) return aOrder - bOrder;
-
-            return a.name.localeCompare(b.name);
-        });
-    }, [orderedSections, scorecard.kpis]);
+    const kpis = useMemo(
+        () => [...scorecard.kpis].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+        [scorecard.kpis]
+    );
 
     const handleToggle = async (kpiId: string, nextVisible: boolean) => {
         setError(null);

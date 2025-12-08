@@ -26,7 +26,6 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
     );
     const [chartType, setChartType] = useState<ChartType>(kpi?.chartType || 'line');
     const [trendValue] = useState(kpi?.trendValue?.toString() || '0');
-    const [dataPoints, setDataPoints] = useState<DataPoint[]>(kpi?.dataPoints || []);
 
     // Chart Settings State
     const [strokeWidth, setStrokeWidth] = useState(kpi?.chartSettings?.strokeWidth ?? 2);
@@ -42,6 +41,29 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
 
     // Default color palette (same as KPITile.tsx)
     const defaultColors = useMemo(() => ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'], []);
+
+    // Hydrate datapoints from persisted array or fall back to value map so history shows up
+    const rawDataPoints = useMemo<DataPoint[]>(() => {
+        const existing = (kpi?.dataPoints || []).map(dp => ({ ...dp }));
+        if (existing.length > 0) return existing;
+
+        const entries = Object.entries(kpi?.value || {});
+        if (entries.length === 0) return [];
+
+        // Prefer non-zero keys (historical entries). If only "0" exists, use KPI date as label.
+        const nonZero = entries.filter(([key]) => key !== '0');
+        const toUse = nonZero.length > 0 ? nonZero : entries;
+        const fallbackDate = kpi?.date
+            ? new Date(kpi.date).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0];
+
+        return toUse.map(([key, val]) => ({
+            date: key === '0' ? fallbackDate : key,
+            value: typeof val === 'number' ? val : parseFloat(String(val)) || 0,
+        }));
+    }, [kpi]);
+
+    const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
 
     // Helper function to normalize dates to YYYY-MM-DD format for HTML date inputs
     const normalizeDateForInput = (dateString: string): string => {
@@ -61,42 +83,45 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
 
     // Populate missing colors and sort data points when editing
     useEffect(() => {
-        if (kpi?.dataPoints) {
-            // Sort descending (newest first)
-            const sorted = [...kpi.dataPoints].sort((a, b) => {
-                const dateA = new Date(a.date).getTime();
-                const dateB = new Date(b.date).getTime();
-                // If dates are valid, sort by them
-                if (!isNaN(dateA) && !isNaN(dateB)) {
-                    return dateB - dateA;
-                }
-                // Otherwise maintain original order
-                return 0;
-            });
-
-            const needsColors = sorted.some(dp => !dp.color);
-            const needsDateNormalization = sorted.some(dp => {
-                // Check if this looks like a date (not a category)
-                const parsed = new Date(dp.date);
-                return !isNaN(parsed.getTime()) && dp.date !== parsed.toISOString().split('T')[0];
-            });
-
-            if (needsColors || needsDateNormalization) {
-                const updatedPoints = sorted.map((dp, index) => ({
-                    ...dp,
-                    // Normalize date only if it's actually a date (for time-series charts)
-                    date: (visualizationType === 'number' ||
-                        (visualizationType === 'chart' && ['line', 'area'].includes(chartType)))
-                        ? normalizeDateForInput(dp.date)
-                        : dp.date,
-                    color: dp.color || defaultColors[index % defaultColors.length]
-                }));
-                setDataPoints(updatedPoints);
-            } else {
-                setDataPoints(sorted);
-            }
+        // Sort descending (newest first) and normalize where needed
+        if (rawDataPoints.length === 0) {
+            setDataPoints([]);
+            return;
         }
-    }, [kpi, visualizationType, chartType, defaultColors]);
+
+        const sorted = [...rawDataPoints].sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            // If dates are valid, sort by them
+            if (!isNaN(dateA) && !isNaN(dateB)) {
+                return dateB - dateA;
+            }
+            // Otherwise maintain original order
+            return 0;
+        });
+
+        const needsColors = sorted.some(dp => !dp.color);
+        const needsDateNormalization = sorted.some(dp => {
+            // Check if this looks like a date (not a category)
+            const parsed = new Date(dp.date);
+            return !isNaN(parsed.getTime()) && dp.date !== parsed.toISOString().split('T')[0];
+        });
+
+        if (needsColors || needsDateNormalization) {
+            const updatedPoints = sorted.map((dp, index) => ({
+                ...dp,
+                // Normalize date only if it's actually a date (for time-series charts)
+                date: (visualizationType === 'number' ||
+                    (visualizationType === 'chart' && ['line', 'area'].includes(chartType)))
+                    ? normalizeDateForInput(dp.date)
+                    : dp.date,
+                color: dp.color || defaultColors[index % defaultColors.length]
+            }));
+            setDataPoints(updatedPoints);
+        } else {
+            setDataPoints(sorted);
+        }
+    }, [rawDataPoints, visualizationType, chartType, defaultColors]);
 
 
     const handleAddDataPoint = () => {

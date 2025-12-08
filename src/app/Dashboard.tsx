@@ -5,7 +5,7 @@ import { useScorecards } from '@/context/ScorecardContext';
 import ScorecardCard from '@/components/ScorecardCard';
 import ScorecardForm from '@/components/ScorecardForm';
 import PageHeader from '@/components/PageHeader';
-import { Plus, BarChart3, LayoutDashboard, ChevronDown, UserCog, ClipboardList, PanelLeft } from 'lucide-react';
+import { Plus, BarChart3, LayoutDashboard, ChevronDown, UserCog, ClipboardList, PanelLeft, Database } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
@@ -79,6 +79,16 @@ export default function Dashboard() {
                                         >
                                             <UserCog size={14} />
                                             Users
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                router.push('/database');
+                                                setShowNavMenu(false);
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                        >
+                                            <Database size={14} />
+                                            Database
                                         </button>
                                     </div>
                                 </div>
