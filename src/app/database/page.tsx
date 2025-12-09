@@ -16,6 +16,13 @@ type AssignmentRow = {
     scorecard?: { id: string; name: string };
     section?: { id: string; name: string | null };
 };
+type MetricRow = KPI & {
+    scorecardName: string;
+    sectionName: string;
+    dataPointCount: number;
+    valueKeyCount: number;
+    latestDataPoint?: { date: string; value: number | number[]; valueArray?: number[]; color?: string };
+};
 
 async function fetchJSON<T>(url: string): Promise<T> {
     const res = await fetch(url, { cache: 'no-store' });
@@ -177,18 +184,24 @@ export default function DatabasePage() {
         }
     };
 
-    const metrics = useMemo(() => {
+    const metrics = useMemo<MetricRow[]>(() => {
         const sectionsById = new Map<string, string>();
         sections.forEach(s => sectionsById.set(s.id, s.name || ''));
 
         return scorecards.flatMap(sc =>
-            (sc.kpis || []).map((kpi: KPI) => ({
-                ...kpi,
-                scorecardName: sc.name,
-                sectionName: kpi.sectionId ? (sc.sections?.find(s => s.id === kpi.sectionId)?.name || sectionsById.get(kpi.sectionId) || 'General') : 'General',
-                dataPointCount: kpi.dataPoints?.length || 0,
-                valueKeyCount: Object.keys(kpi.value || {}).length,
-            }))
+            (sc.kpis || []).map((kpi: KPI) => {
+                const dataPoints = kpi.dataPoints || [];
+                const latestDataPoint = dataPoints.length ? dataPoints[dataPoints.length - 1] : undefined;
+
+                return {
+                    ...kpi,
+                    scorecardName: sc.name,
+                    sectionName: kpi.sectionId ? (sc.sections?.find(s => s.id === kpi.sectionId)?.name || sectionsById.get(kpi.sectionId) || 'General') : 'General',
+                    dataPointCount: dataPoints.length,
+                    valueKeyCount: Object.keys(kpi.value || {}).length,
+                    latestDataPoint,
+                };
+            })
         );
     }, [scorecards, sections]);
 
@@ -202,6 +215,23 @@ export default function DatabasePage() {
         ],
         [assignments.length, metrics.length, scorecards.length, sections.length, users.length]
     );
+
+    const formatValue = (kpi: MetricRow) => {
+        if (kpi.latestDataPoint) {
+            const v = Array.isArray(kpi.latestDataPoint.value) ? kpi.latestDataPoint.value : kpi.latestDataPoint.valueArray;
+            if (Array.isArray(v)) return `${kpi.prefix || ''}${v.join(', ')}${kpi.suffix || ''}`;
+        }
+        const primary = kpi.value?.["0"] ?? Object.values(kpi.value || {})[0];
+        if (primary === undefined) return '—';
+        return `${kpi.prefix || ''}${primary}${kpi.suffix || ''}`;
+    };
+
+    const formatDataPointSummary = (kpi: MetricRow) => {
+        if (!kpi.latestDataPoint) return `${kpi.dataPointCount} total`;
+        const { date, value, valueArray } = kpi.latestDataPoint;
+        const rendered = Array.isArray(value) ? value.join(', ') : (Array.isArray(valueArray) ? valueArray.join(', ') : value);
+        return `${kpi.dataPointCount} total • Latest ${date}: ${rendered}`;
+    };
 
     return (
         <div className="min-h-screen bg-industrial-950">
@@ -386,8 +416,10 @@ export default function DatabasePage() {
                                     <th className="px-4 py-3 text-left">Scorecard</th>
                                     <th className="px-4 py-3 text-left">Section</th>
                                     <th className="px-4 py-3 text-left">Type</th>
-                                    <th className="px-4 py-3 text-left">Values</th>
+                                    <th className="px-4 py-3 text-left">Assignment</th>
+                                    <th className="px-4 py-3 text-left">Latest Value</th>
                                     <th className="px-4 py-3 text-left">Data Points</th>
+                                    <th className="px-4 py-3 text-left">Visual</th>
                                     <th className="px-4 py-3 text-left">Updated</th>
                                 </tr>
                             </thead>
@@ -395,16 +427,22 @@ export default function DatabasePage() {
                                 {metrics.slice(0, 50).map(kpi => (
                                     <tr key={kpi.id} className="hover:bg-industrial-900/30">
                                         <td className="px-4 py-3">
-                                            <div className="font-semibold text-industrial-100">{kpi.name}</div>
+                                            <div className="font-semibold text-industrial-100">{kpi.kpiName || kpi.name}</div>
                                             <div className="text-xs text-industrial-500">{kpi.subtitle || '—'}</div>
                                         </td>
                                         <td className="px-4 py-3 text-industrial-200">{kpi.scorecardName}</td>
                                         <td className="px-4 py-3 text-industrial-200">{kpi.sectionName}</td>
                                         <td className="px-4 py-3 text-industrial-300">
                                             {kpi.visualizationType}{kpi.chartType ? ` • ${kpi.chartType}` : ''}
+                                            {kpi.reverseTrend ? ' • reverse trend' : ''}
                                         </td>
-                                        <td className="px-4 py-3 text-industrial-200">{kpi.valueKeyCount}</td>
-                                        <td className="px-4 py-3 text-industrial-200">{kpi.dataPointCount}</td>
+                                        <td className="px-4 py-3 text-industrial-200">{kpi.assignment || '—'}</td>
+                                        <td className="px-4 py-3 text-industrial-200">{formatValue(kpi)}</td>
+                                        <td className="px-4 py-3 text-industrial-200">{formatDataPointSummary(kpi)}</td>
+                                        <td className="px-4 py-3 text-industrial-200 text-xs">
+                                            <div>Stroke: {kpi.strokeColor || '—'} {kpi.strokeWidth ? `(${kpi.strokeWidth}px)` : ''}</div>
+                                            <div>Legend: {kpi.showLegend ? 'On' : 'Off'} • Grid: {kpi.showGridlines ? 'On' : 'Off'} • Labels: {kpi.showDataLabels ? 'On' : 'Off'}</div>
+                                        </td>
                                         <td className="px-4 py-3 text-industrial-400 text-xs">
                                             {kpi.date ? new Date(kpi.date).toLocaleString() : '—'}
                                         </td>
@@ -412,7 +450,7 @@ export default function DatabasePage() {
                                 ))}
                                 {metrics.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-6 text-center text-industrial-500 text-sm">
+                                        <td colSpan={8} className="px-4 py-6 text-center text-industrial-500 text-sm">
                                             {loading ? 'Loading metrics…' : 'No metrics found.'}
                                         </td>
                                     </tr>
