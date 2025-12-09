@@ -460,13 +460,16 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
 
         // For Number KPIs with only one value, ensure it's stored as "0"
         if (visualizationType === 'number' && Object.keys(valueRecord).length === 0 && dataPoints.length > 0) {
-            valueRecord["0"] = dataPoints[dataPoints.length - 1].value;
+            const lastVal = dataPoints[dataPoints.length - 1].value;
+            valueRecord["0"] = Array.isArray(lastVal) ? (lastVal[0] ?? 0) : lastVal;
         }
 
         // Calculate trend for number KPIs
         if (visualizationType === 'number' && dataPoints.length >= 2) {
-            const last = dataPoints[dataPoints.length - 1].value;
-            const prev = dataPoints[dataPoints.length - 2].value;
+            const lastVal = dataPoints[dataPoints.length - 1].value;
+            const prevVal = dataPoints[dataPoints.length - 2].value;
+            const last = Array.isArray(lastVal) ? (lastVal[0] ?? 0) : lastVal;
+            const prev = Array.isArray(prevVal) ? (prevVal[0] ?? 0) : prevVal;
             trendValue = last - prev;
         }
 

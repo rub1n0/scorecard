@@ -1,4 +1,4 @@
-import { ChartSettings, ChartType } from '@/types';
+import { ChartSettings, ChartType, LabeledValue } from '@/types';
 
 const MULTI_VALUE_TYPES = new Set<ChartType | string>(['radar', 'bar', 'column', 'pie', 'donut', 'radialBar']);
 
@@ -43,10 +43,15 @@ export const normalizeDateOnly = (value?: string | Date): string => {
  * Normalize a raw value into a number or array of numbers based on chart type.
  * For multi-value chart types, arrays are enforced even if a single number is provided.
  */
-export const normalizeValueForChartType = (chartType: string | null | undefined, raw: unknown): number | number[] => {
+export const normalizeValueForChartType = (chartType: string | null | undefined, raw: unknown): number | number[] | LabeledValue[] => {
     const multi = isMultiValueChartType(chartType);
 
     if (multi) {
+        // preserve labeled values if present
+        if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null && 'label' in raw[0] && 'value' in raw[0]) {
+            return raw as LabeledValue[];
+        }
+
         if (Array.isArray(raw)) {
             const values = raw.map(toFiniteNumber).filter((n): n is number => n !== null);
             return values.length ? values : [0];
@@ -79,18 +84,32 @@ export const mapDataPointValue = (chartType: string | null | undefined, rawDate:
     const date = normalizeDateOnly(typeof rawDate === 'string' || rawDate instanceof Date ? rawDate : undefined);
 
     if (Array.isArray(normalizedValue)) {
-        const aggregate = normalizedValue.reduce((sum, val) => sum + val, 0);
+        // Handle LabeledValue array
+        if (normalizedValue.length > 0 && typeof normalizedValue[0] === 'object' && 'value' in (normalizedValue[0] as any)) {
+            const labeled = normalizedValue as LabeledValue[];
+            const aggregate = labeled.reduce((sum, item) => sum + item.value, 0);
+            return {
+                date,
+                value: aggregate,
+                valueArray: labeled.map(item => item.value),
+                labeledValues: labeled,
+                color: color || undefined,
+            };
+        }
+
+        // Handle number array
+        const aggregate = (normalizedValue as number[]).reduce((sum, val) => sum + val, 0);
         return {
             date,
             value: aggregate,
-            valueArray: normalizedValue,
+            valueArray: normalizedValue as number[],
             color: color || undefined,
         };
     }
 
     return {
         date,
-        value: normalizedValue,
+        value: normalizedValue as number,
         color: color || undefined,
     };
 };

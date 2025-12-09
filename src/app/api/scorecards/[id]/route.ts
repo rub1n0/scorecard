@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import {
     assignments,
@@ -214,7 +214,32 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     await tx.insert(metrics).values(metricValues);
 
                     for (const m of metricValues) {
-                        const kpi = body.kpis.find((k: any) => k.id === m.id || k.id === m.name);
+                        const kpi = body.kpis.find((k: any) => k.id === m.id);
+
+                        // Insert dataPoints for ALL metrics (before assignee check)
+                        const points = (kpi?.dataPoints || []).map((dp: any) => {
+                            const normalizedDate = normalizeDateOnly(dp.date);
+                            const value = normalizeValueForChartType(kpi?.chartType || m.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
+                            return {
+                                metricId: m.id,
+                                date: new Date(`${normalizedDate}T00:00:00.000Z`),
+                                value,
+                                color: dp.color || null,
+                            };
+                        });
+                        if (points.length) {
+                            await tx
+                                .insert(metricDataPoints)
+                                .values(points)
+                                .onDuplicateKeyUpdate({
+                                    set: {
+                                        value: sql`VALUES(value)`,
+                                        color: sql`VALUES(color)`,
+                                    },
+                                });
+                        }
+
+                        // Handle assignees (only if present)
                         const assigneesList: string[] = Array.from(new Set([...(kpi?.assignees || []), kpi?.assignee].filter(Boolean)));
                         if (assigneesList.length === 0) continue;
 
@@ -245,28 +270,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                                 assignmentId,
                                 userId,
                             });
-                        }
-
-                        const points = (kpi?.dataPoints || []).map((dp: any) => {
-                            const normalizedDate = normalizeDateOnly(dp.date);
-                            const value = normalizeValueForChartType(kpi.chartType || m.chartType, dp.valueArray ?? dp.value);
-                            return {
-                                metricId: m.id,
-                                date: new Date(`${normalizedDate}T00:00:00.000Z`),
-                                value,
-                                color: dp.color || null,
-                            };
-                        });
-                        if (points.length) {
-                            await tx
-                                .insert(metricDataPoints)
-                                .values(points)
-                                .onDuplicateKeyUpdate({
-                                    set: {
-                                        value: sql`VALUES(value)`,
-                                        color: sql`VALUES(color)`,
-                                    },
-                                });
                         }
                     }
                 }

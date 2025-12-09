@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import { metricDataPoints, metrics } from '../../../../../../db/schema';
 import { normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
+import { LabeledValue } from '@/types';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
 
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         const chartType = body?.chartType ?? metric.chartType ?? null;
         const normalizedDate = normalizeDateOnly(dateInput);
-        const normalizedValue = normalizeValueForChartType(chartType, body.value);
+        const normalizedValue = normalizeValueForChartType(chartType, body.labeledValues ?? body.value);
         const color = body?.color ?? null;
         const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
 
@@ -38,18 +39,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 },
             });
 
-        const valueRecord = Array.isArray(normalizedValue)
-            ? normalizedValue.reduce<Record<string, number>>((acc, val, idx) => {
-                acc[String(idx)] = val;
-                return acc;
-            }, {})
-            : { "0": normalizedValue as number };
+        let valueRecord: Record<string, number>;
+        let latestVal: number;
+
+        if (Array.isArray(normalizedValue)) {
+            if (normalizedValue.length > 0 && typeof normalizedValue[0] === 'object' && 'value' in (normalizedValue[0] as any)) {
+                // LabeledValue[]
+                const labeled = normalizedValue as LabeledValue[];
+                valueRecord = labeled.reduce<Record<string, number>>((acc, item, idx) => {
+                    acc[item.label || String(idx)] = item.value;
+                    return acc;
+                }, {});
+                latestVal = labeled.reduce((sum, item) => sum + item.value, 0);
+            } else {
+                // number[]
+                const nums = normalizedValue as number[];
+                valueRecord = nums.reduce<Record<string, number>>((acc, val, idx) => {
+                    acc[String(idx)] = val;
+                    return acc;
+                }, {});
+                latestVal = nums[0] ?? 0;
+            }
+        } else {
+            valueRecord = { "0": normalizedValue as number };
+            latestVal = normalizedValue as number;
+        }
 
         await db
             .update(metrics)
             .set({
                 valueJson: valueRecord,
-                latestValue: Array.isArray(normalizedValue) ? normalizedValue[0] ?? 0 : (normalizedValue as number),
+                latestValue: latestVal,
                 date: dateValue,
                 updatedAt: new Date(),
             })

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { KPI, DataPoint } from '@/types';
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import ColorPicker from './ColorPicker';
@@ -20,6 +20,12 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
 
     // Default color palette
     const defaultColors = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
+
+    // Determine if this is a multi-value chart type
+    const isMultiValueChart = useMemo(
+        () => kpi.visualizationType === 'chart' && ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(kpi.chartType || ''),
+        [kpi.visualizationType, kpi.chartType]
+    );
 
     // Helper function to normalize dates to YYYY-MM-DD format
     const normalizeDate = (dateStr: string): string => {
@@ -83,10 +89,16 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             }
         }
 
-        const newPoint: DataPoint = {
-            date: defaultLabel,
-            value: 0,
-        };
+        const latestPoint = dataPoints.length > 0 ? dataPoints[0] : null;
+        const inheritedLabeledValues = latestPoint?.labeledValues
+            ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
+            : [{ label: 'Value 1', value: 0 }];
+
+        const newDataPointColor = latestPoint?.color || (columnConfig.showColor ? defaultColors[dataPoints.length % defaultColors.length] : undefined);
+
+        const newPoint: DataPoint = isMultiValueChart
+            ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues, color: newDataPointColor }
+            : { date: defaultLabel, value: 0 };
 
         // Add color for chart types that use it
         if (columnConfig.showColor) {
@@ -98,6 +110,54 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         );
 
         setDataPoints(updatedPoints);
+    };
+
+    // Handler for updating a single value in a multi-value data point
+    const handleUpdateMultiValue = (dpIndex: number, valueIndex: number, field: 'label' | 'value' | 'color', newValue: string) => {
+        const updated = [...dataPoints];
+        const dp = updated[dpIndex];
+        const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [{ label: 'Value 1', value: 0 }];
+
+        if (field === 'label') {
+            currentLabeled[valueIndex] = { ...currentLabeled[valueIndex], label: newValue };
+        } else if (field === 'color') {
+            currentLabeled[valueIndex] = { ...currentLabeled[valueIndex], color: newValue };
+        } else {
+            const numValue = parseFloat(newValue) || 0;
+            currentLabeled[valueIndex] = { ...currentLabeled[valueIndex], value: numValue };
+        }
+
+        updated[dpIndex].labeledValues = currentLabeled;
+        updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
+        updated[dpIndex].value = currentLabeled.map(lv => lv.value);
+        setDataPoints(updated);
+    };
+
+    // Handler to add a new value to a multi-value data point
+    const handleAddMultiValue = (dpIndex: number) => {
+        const updated = [...dataPoints];
+        const dp = updated[dpIndex];
+        const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [];
+        const newIndex = currentLabeled.length + 1;
+        currentLabeled.push({ label: `Value ${newIndex}`, value: 0 });
+        updated[dpIndex].labeledValues = currentLabeled;
+        updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
+        updated[dpIndex].value = currentLabeled.map(lv => lv.value);
+        setDataPoints(updated);
+    };
+
+    // Handler to remove a value from a multi-value data point
+    const handleRemoveMultiValue = (dpIndex: number, valueIndex: number) => {
+        const updated = [...dataPoints];
+        const dp = updated[dpIndex];
+        const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [{ label: 'Value 1', value: 0 }];
+        if (currentLabeled.length > 1) {
+            currentLabeled.splice(valueIndex, 1);
+            updated[dpIndex].labeledValues = currentLabeled;
+            updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
+            updated[dpIndex].value = currentLabeled.map(lv => lv.value);
+            setDataPoints(updated);
+        }
     };
 
     const handleUpdateDataPoint = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
@@ -131,14 +191,16 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             // Build the value Record structure
             let valueRecord: Record<string, number | string> = {};
             let finalTrend = kpi.trendValue || 0;
+            // Helper to extract a single number from a value that might be an array
+            const extractNumber = (v: number | number[]): number => Array.isArray(v) ? (v[0] ?? 0) : v;
 
             if (kpi.visualizationType === 'number' && sortedPoints.length > 0) {
                 const lastPoint = sortedPoints[sortedPoints.length - 1];
-                valueRecord = { "0": lastPoint.value };
+                valueRecord = { "0": extractNumber(lastPoint.value) };
 
                 if (sortedPoints.length >= 2) {
                     const prevPoint = sortedPoints[sortedPoints.length - 2];
-                    finalTrend = lastPoint.value - prevPoint.value;
+                    finalTrend = extractNumber(lastPoint.value) - extractNumber(prevPoint.value);
                 }
             } else if (kpi.visualizationType === 'text') {
                 // Text KPIs keep their existing value
@@ -146,7 +208,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             } else if (kpi.visualizationType === 'chart') {
                 // Chart KPIs build from dataPoints
                 sortedPoints.forEach(dp => {
-                    valueRecord[dp.date] = dp.value;
+                    valueRecord[dp.date] = extractNumber(dp.value);
                 });
             }
 
@@ -221,48 +283,134 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                     </td>
                                 </tr>
                             ) : (
-                                (showAllDataPoints ? dataPoints : dataPoints.slice(-10)).map((point, index) => (
-                                    <tr key={index} className="hover:bg-industrial-800/30 transition-colors">
-                                        <td className="px-4 py-2">
-                                            <input
-                                                type={columnConfig.dateLabel === 'Date' ? "date" : "text"}
-                                                className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
-                                                value={point.date}
-                                                onChange={(e) => handleUpdateDataPoint(index, 'date', e.target.value)}
-                                                placeholder={columnConfig.dateLabel}
-                                            />
-                                        </td>
-                                        {columnConfig.showValue && (
+                                (showAllDataPoints ? dataPoints : dataPoints.slice(-10)).map((point, index) => {
+                                    const valueArray = Array.isArray(point.value) ? point.value : (point.valueArray || [typeof point.value === 'number' ? point.value : 0]);
+
+                                    // For multi-value charts, show expanded row with individual value inputs
+                                    if (isMultiValueChart) {
+                                        return (
+                                            <tr key={index} className="hover:bg-industrial-800/30 transition-colors">
+                                                <td className="px-4 py-3" colSpan={columnConfig.showColor ? 4 : 3}>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <input
+                                                            type="text"
+                                                            className="bg-transparent border border-industrial-700 rounded px-2 py-1 text-industrial-200 flex-1"
+                                                            value={point.date}
+                                                            onChange={(e) => handleUpdateDataPoint(index, 'date', e.target.value)}
+                                                            placeholder={kpi.chartType === 'radar' ? 'Dimension Name' : 'Category Name'}
+                                                        />
+                                                        {columnConfig.showColor && (
+                                                            <ColorPicker
+                                                                value={point.color || '#3b82f6'}
+                                                                onChange={(color) => handleUpdateDataPoint(index, 'color', color)}
+                                                                align="left"
+                                                            />
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveDataPoint(index)}
+                                                            className="text-industrial-500 hover:text-red-400 transition-colors"
+                                                            title="Remove category"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <span className="text-xs text-industrial-400 uppercase">Values (Label : Value)</span>
+                                                        {(point.labeledValues || [{ label: 'Value 1', value: Array.isArray(point.value) ? point.value[0] ?? 0 : point.value as number }]).map((lv, vIdx) => (
+                                                            <div key={vIdx} className="flex items-center gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    className="bg-industrial-800 border border-industrial-700 rounded px-2 py-1 text-industrial-200 flex-1"
+                                                                    value={lv.label}
+                                                                    onChange={(e) => handleUpdateMultiValue(index, vIdx, 'label', e.target.value)}
+                                                                    placeholder={`Label ${vIdx + 1}`}
+                                                                />
+                                                                <span className="text-industrial-500">:</span>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    className="bg-industrial-800 border border-industrial-700 rounded px-2 py-1 w-24 text-center text-industrial-200 font-mono"
+                                                                    value={lv.value}
+                                                                    onChange={(e) => handleUpdateMultiValue(index, vIdx, 'value', e.target.value)}
+                                                                    placeholder="0"
+                                                                />
+                                                                <ColorPicker
+                                                                    value={lv.color || '#3b82f6'}
+                                                                    onChange={(color) => handleUpdateMultiValue(index, vIdx, 'color', color)}
+                                                                    align="right"
+                                                                />
+                                                                {(point.labeledValues?.length || 1) > 1 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveMultiValue(index, vIdx)}
+                                                                        className="text-industrial-500 hover:text-red-400 p-1"
+                                                                        title="Remove value"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddMultiValue(index)}
+                                                            className="btn btn-secondary btn-sm"
+                                                            title="Add value"
+                                                        >
+                                                            <Plus size={14} />
+                                                            Add Value
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
+                                    // Standard single-value row
+                                    return (
+                                        <tr key={index} className="hover:bg-industrial-800/30 transition-colors">
                                             <td className="px-4 py-2">
                                                 <input
-                                                    type="number"
-                                                    step="any"
-                                                    className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
-                                                    value={point.value}
-                                                    onChange={(e) => handleUpdateDataPoint(index, 'value', e.target.value)}
+                                                    type={columnConfig.dateLabel === 'Date' ? "date" : "text"}
+                                                    className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
+                                                    value={point.date}
+                                                    onChange={(e) => handleUpdateDataPoint(index, 'date', e.target.value)}
+                                                    placeholder={columnConfig.dateLabel}
                                                 />
                                             </td>
-                                        )}
-                                        {columnConfig.showColor && (
-                                            <td className="px-4 py-2">
-                                                <ColorPicker
-                                                    value={point.color || '#3b82f6'}
-                                                    onChange={(color) => handleUpdateDataPoint(index, 'color', color)}
-                                                    align="left"
-                                                />
+                                            {columnConfig.showValue && (
+                                                <td className="px-4 py-2">
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
+                                                        value={Array.isArray(point.value) ? (point.value[0] ?? 0) : point.value}
+                                                        onChange={(e) => handleUpdateDataPoint(index, 'value', e.target.value)}
+                                                    />
+                                                </td>
+                                            )}
+                                            {columnConfig.showColor && (
+                                                <td className="px-4 py-2">
+                                                    <ColorPicker
+                                                        value={point.color || '#3b82f6'}
+                                                        onChange={(color) => handleUpdateDataPoint(index, 'color', color)}
+                                                        align="left"
+                                                    />
+                                                </td>
+                                            )}
+                                            <td className="px-4 py-2 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveDataPoint(index)}
+                                                    className="text-industrial-500 hover:text-red-400 transition-colors"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
                                             </td>
-                                        )}
-                                        <td className="px-4 py-2 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveDataPoint(index)}
-                                                className="text-industrial-500 hover:text-red-400 transition-colors"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

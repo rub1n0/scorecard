@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import {
     assignments,
@@ -240,15 +240,14 @@ export async function PUT(req: NextRequest) {
                             true,
                         showDataLabels: chartSettingsCols.showDataLabels ?? (kpi.chartSettings?.showDataLabels ?? false),
                         trendValue: kpi.trendValue ?? null,
-                        latestValue: kpi.latestValue ?? null,
-                        valueJson: kpi.value || kpi.valueJson || {},
+                        valueJson: kpi.value || {},
                         notes: kpi.notes || null,
                         chartSettings: kpi.chartSettings || null,
                         order: kpi.order ?? idx,
                         lastUpdatedBy: kpi.lastUpdatedBy || null,
                         visible: kpi.visible ?? true,
-                        createdAt: now,
-                        updatedAt: now,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
                     };
                 });
 
@@ -256,7 +255,33 @@ export async function PUT(req: NextRequest) {
                     await tx.insert(metrics).values(metricValues);
 
                     for (const m of metricValues) {
-                        const assigneesList: string[] = Array.from(new Set([...(body.kpis.find((k: any) => (k.id || m.id) === m.id)?.assignees || []), body.kpis.find((k: any) => (k.id || m.id) === m.id)?.assignee].filter(Boolean)));
+                        const kpiSource = body.kpis.find((k: any) => (k.id || m.id) === m.id);
+
+                        // Insert dataPoints for ALL metrics (before assignee check)
+                        const points = (kpiSource?.dataPoints || []).map((dp: any) => {
+                            const normalizedDate = normalizeDateOnly(dp.date);
+                            const value = normalizeValueForChartType(kpiSource?.chartType || m.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
+                            return {
+                                metricId: m.id,
+                                date: new Date(`${normalizedDate}T00:00:00.000Z`),
+                                value,
+                                color: dp.color || null,
+                            };
+                        });
+                        if (points.length) {
+                            await tx
+                                .insert(metricDataPoints)
+                                .values(points)
+                                .onDuplicateKeyUpdate({
+                                    set: {
+                                        value: sql`VALUES(value)`,
+                                        color: sql`VALUES(color)`,
+                                    },
+                                });
+                        }
+
+                        // Handle assignees (only if present)
+                        const assigneesList: string[] = Array.from(new Set([...(kpiSource?.assignees || []), kpiSource?.assignee].filter(Boolean)));
                         if (assigneesList.length === 0) continue;
 
                         const assignmentId = crypto.randomUUID();
@@ -286,29 +311,6 @@ export async function PUT(req: NextRequest) {
                                 assignmentId,
                                 userId,
                             });
-                        }
-
-                        const kpiSource = body.kpis.find((k: any) => (k.id || m.id) === m.id);
-                        const points = (kpiSource?.dataPoints || []).map((dp: any) => {
-                            const normalizedDate = normalizeDateOnly(dp.date);
-                            const value = normalizeValueForChartType(kpiSource?.chartType || m.chartType, dp.valueArray ?? dp.value);
-                            return {
-                                metricId: m.id,
-                                date: new Date(`${normalizedDate}T00:00:00.000Z`),
-                                value,
-                                color: dp.color || null,
-                            };
-                        });
-                        if (points.length) {
-                            await tx
-                                .insert(metricDataPoints)
-                                .values(points)
-                                .onDuplicateKeyUpdate({
-                                    set: {
-                                        value: sql`VALUES(value)`,
-                                        color: sql`VALUES(color)`,
-                                    },
-                                });
                         }
                     }
                 }

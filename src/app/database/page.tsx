@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { Database, Layers, ListChecks, RefreshCw, Table2, Users } from 'lucide-react';
-import { KPI, Scorecard, Section } from '@/types';
+import { KPI, Scorecard } from '@/types';
 import { useRouter } from 'next/navigation';
 
 type DbUser = { id: string; name: string | null; email: string | null };
@@ -58,7 +58,7 @@ export default function DatabasePage() {
                 fetchJSON<Scorecard[]>('/api/scorecards'),
                 fetchJSON<AssignmentRow[]>('/api/assignments'),
                 fetchJSON<DbUser[]>('/api/users'),
-                fetchJSON<Section[]>('/api/sections'),
+                fetchJSON<DbSection[]>('/api/sections'),
             ]);
             setScorecards(sc);
             setAssignments(asg);

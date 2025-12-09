@@ -12,10 +12,18 @@ export type ChartType =
     | 'scatter'
     | 'heatmap';
 
+// Labeled value for multi-value chart types (bar, pie, donut, radar, radialBar)
+export interface LabeledValue {
+    label: string;
+    value: number;
+    color?: string;
+}
+
 export interface DataPoint {
     date: string;
     value: number | number[];
     valueArray?: number[]; // preserves raw array values for multi-value metrics
+    labeledValues?: LabeledValue[]; // labeled key:value pairs for multi-value charts
     color?: string;
 }
 

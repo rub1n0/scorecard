@@ -36,14 +36,24 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     const isChart = kpi.visualizationType === 'chart';
     type ValueEntry = { key: string; value: number | string };
 
+    // Helper to normalize array values to single number
+    const normalizeValue = (v: number | string | number[] | undefined): number | string => {
+        if (Array.isArray(v)) return v[0] ?? 0;
+        return v ?? 0;
+    };
+
     const initialEntries: ValueEntry[] = useMemo(() => {
         if (isChart) {
-            const base: ValueEntry[] = historyPoints.length
+            const base: { key: string; value: number | string | number[] }[] = historyPoints.length
                 ? historyPoints.map(({ date, value }) => ({ key: date, value }))
                 : Object.entries(kpi.value || {}).map(([key, val]) => ({ key, value: val as number | string }));
             return base.map(dp => ({
                 key: dp.key || 'Value',
-                value: typeof dp.value === 'number' ? dp.value : Number(dp.value) || 0
+                value: typeof dp.value === 'number'
+                    ? dp.value
+                    : Array.isArray(dp.value)
+                        ? (dp.value[0] ?? 0)
+                        : Number(dp.value) || 0
             }));
         }
         if (kpi.visualizationType === 'text') {
@@ -53,7 +63,7 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
         const numeric = kpi.value?.['0'];
         const firstVal = typeof numeric === 'number'
             ? numeric
-            : (latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
+            : normalizeValue(latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
         return [{ key: '0', value: firstVal }];
     }, [isChart, historyPoints, kpi.value, kpi.visualizationType, latestPoint?.value]);
 

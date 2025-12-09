@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { KPI, VisualizationType, ChartType, DataPoint } from '@/types';
+import { KPI, VisualizationType, ChartType, DataPoint, LabeledValue } from '@/types';
 import { Plus, Trash2 } from 'lucide-react';
 import ColorPicker from './ColorPicker';
 import Modal from './Modal';
@@ -136,8 +136,13 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
             }
         }
 
+        const latestPoint = dataPoints.length > 0 ? dataPoints[0] : null;
+        const inheritedLabeledValues = latestPoint?.labeledValues
+            ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
+            : [{ label: 'Value 1', value: 0 }];
+
         const newPoint: DataPoint = isMultiValueChart
-            ? { date: defaultLabel, value: [0], valueArray: [0] }
+            ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues }
             : { date: defaultLabel, value: 0 };
 
         const updatedPoints = [...dataPoints, newPoint].sort((a, b) =>
@@ -170,6 +175,55 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         setDataPoints(updated);
     };
 
+    // Handler for updating a single value in a multi-value data point
+    const handleUpdateMultiValue = (dpIndex: number, valueIndex: number, field: 'label' | 'value' | 'color', newValue: string) => {
+        const updated = [...dataPoints];
+        const dp = updated[dpIndex];
+        const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [{ label: 'Value 1', value: 0 }];
+
+        if (field === 'label') {
+            currentLabeled[valueIndex] = { ...currentLabeled[valueIndex], label: newValue };
+        } else if (field === 'color') {
+            currentLabeled[valueIndex] = { ...currentLabeled[valueIndex], color: newValue };
+        } else {
+            const numValue = parseFloat(newValue) || 0;
+            currentLabeled[valueIndex] = { ...currentLabeled[valueIndex], value: numValue };
+        }
+
+        updated[dpIndex].labeledValues = currentLabeled;
+        // Also update valueArray for backward compatibility
+        updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
+        updated[dpIndex].value = currentLabeled.map(lv => lv.value);
+        setDataPoints(updated);
+    };
+
+    // Handler to add a new value to a multi-value data point
+    const handleAddMultiValue = (dpIndex: number) => {
+        const updated = [...dataPoints];
+        const dp = updated[dpIndex];
+        const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [];
+        const newIndex = currentLabeled.length + 1;
+        currentLabeled.push({ label: `Value ${newIndex}`, value: 0 });
+        updated[dpIndex].labeledValues = currentLabeled;
+        updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
+        updated[dpIndex].value = currentLabeled.map(lv => lv.value);
+        setDataPoints(updated);
+    };
+
+    // Handler to remove a value from a multi-value data point
+    const handleRemoveMultiValue = (dpIndex: number, valueIndex: number) => {
+        const updated = [...dataPoints];
+        const dp = updated[dpIndex];
+        const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [{ label: 'Value 1', value: 0 }];
+        if (currentLabeled.length > 1) {
+            currentLabeled.splice(valueIndex, 1);
+            updated[dpIndex].labeledValues = currentLabeled;
+            updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
+            updated[dpIndex].value = currentLabeled.map(lv => lv.value);
+            setDataPoints(updated);
+        }
+    };
+
     const handleRemoveDataPoint = (index: number) => {
         setDataPoints(dataPoints.filter((_, i) => i !== index));
     };
@@ -182,14 +236,17 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
 
         // For number type, derive value and trend from data points
         if (visualizationType === 'number' && dataPoints.length > 0) {
+            // Helper to extract a single number from a value that might be an array
+            const extractNumber = (v: number | number[]): number => Array.isArray(v) ? (v[0] ?? 0) : v;
+
             // Sort by date to ensure chronological order
             const sortedPoints = [...dataPoints].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             const lastPoint = sortedPoints[sortedPoints.length - 1];
-            finalValue = lastPoint.value;
+            finalValue = extractNumber(lastPoint.value);
 
             if (sortedPoints.length >= 2) {
                 const prevPoint = sortedPoints[sortedPoints.length - 2];
-                finalTrend = lastPoint.value - prevPoint.value;
+                finalTrend = extractNumber(lastPoint.value) - extractNumber(prevPoint.value);
             } else {
                 finalTrend = 0;
             }
@@ -217,16 +274,18 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         } else if (visualizationType === 'chart') {
             // Chart KPIs build value from dataPoints
             const isCategorical = ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(chartType);
+            // Helper to extract a single number from a value that might be an array
+            const extractValue = (v: number | number[]): number => Array.isArray(v) ? (v[0] ?? 0) : v;
 
             if (isCategorical) {
                 // Categorical charts: category -> value mapping
                 sortedDataPoints.forEach(dp => {
-                    valueRecord[dp.date] = dp.value; // date field holds category name
+                    valueRecord[dp.date] = extractValue(dp.value); // date field holds category name
                 });
             } else {
                 // Time-series charts: use date -> value mapping
                 sortedDataPoints.forEach(dp => {
-                    valueRecord[dp.date] = dp.value;
+                    valueRecord[dp.date] = extractValue(dp.value);
                 });
             }
         }
@@ -538,34 +597,110 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                             </div>
 
                             {dataPoints.length > 0 ? (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {(() => {
                                         const displayedPoints = showAllDataPoints ? dataPoints : dataPoints.slice(-10);
                                         const startIndex = showAllDataPoints ? 0 : Math.max(0, dataPoints.length - 10);
                                         return displayedPoints.map((dp, sliceIndex) => {
                                             const actualIndex = startIndex + sliceIndex;
+                                            const valueArray = Array.isArray(dp.value) ? dp.value : (dp.valueArray || [typeof dp.value === 'number' ? dp.value : 0]);
+
+                                            // For multi-value charts, show expanded input section
+                                            if (isMultiValueChart) {
+                                                return (
+                                                    <div key={actualIndex} className="bg-industrial-900/50 rounded-lg p-3 border border-industrial-800">
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <input
+                                                                type="text"
+                                                                className="input flex-1"
+                                                                value={dp.date}
+                                                                onChange={(e) => handleUpdateDataPoint(actualIndex, 'date', e.target.value)}
+                                                                placeholder={chartType === 'radar' ? 'Dimension Name' : 'Category Name'}
+                                                            />
+                                                            {labels.length === 3 && (
+                                                                <ColorPicker
+                                                                    value={dp.color || '#3b82f6'}
+                                                                    onChange={(color) => handleUpdateDataPoint(actualIndex, 'color', color)}
+                                                                    align="right"
+                                                                />
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveDataPoint(actualIndex)}
+                                                                className="btn btn-icon btn-danger"
+                                                                title="Remove category"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <div className="text-xs font-mono text-industrial-400 uppercase">Values (Label : Value)</div>
+                                                            <div className="space-y-2">
+                                                                {(dp.labeledValues || [{ label: 'Value 1', value: Array.isArray(dp.value) ? dp.value[0] ?? 0 : dp.value as number }]).map((lv, vIdx) => (
+                                                                    <div key={vIdx} className="flex items-center gap-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="input flex-1"
+                                                                            value={lv.label}
+                                                                            onChange={(e) => handleUpdateMultiValue(actualIndex, vIdx, 'label', e.target.value)}
+                                                                            placeholder={`Label ${vIdx + 1}`}
+                                                                        />
+                                                                        <span className="text-industrial-500">:</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            className="input w-24 text-center"
+                                                                            value={lv.value}
+                                                                            onChange={(e) => handleUpdateMultiValue(actualIndex, vIdx, 'value', e.target.value)}
+                                                                            placeholder="0"
+                                                                        />
+                                                                        <ColorPicker
+                                                                            value={lv.color || '#3b82f6'}
+                                                                            onChange={(color) => handleUpdateMultiValue(actualIndex, vIdx, 'color', color)}
+                                                                            align="right"
+                                                                        />
+                                                                        {(dp.labeledValues?.length || 1) > 1 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleRemoveMultiValue(actualIndex, vIdx)}
+                                                                                className="text-industrial-500 hover:text-red-400 p-1"
+                                                                                title="Remove value"
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleAddMultiValue(actualIndex)}
+                                                                    className="btn btn-secondary btn-sm"
+                                                                    title="Add value"
+                                                                >
+                                                                    <Plus size={12} />
+                                                                    Add Value
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Standard single-value layout for line/area/number
                                             return (
                                                 <div key={actualIndex} className={`grid ${gridCols} gap-2 items-center`}>
                                                     <input
-                                                        type={visualizationType === 'chart' && (chartType === 'pie' || chartType === 'donut' || chartType === 'radar' || chartType === 'bar' || chartType === 'radialBar') ? 'text' : 'date'}
+                                                        type="date"
                                                         className="input"
                                                         value={dp.date}
                                                         onChange={(e) => handleUpdateDataPoint(actualIndex, 'date', e.target.value)}
                                                         placeholder={labels[0]}
                                                     />
                                                     <input
-                                                        type={isMultiValueChart ? 'text' : 'number'}
-                                                        step={isMultiValueChart ? undefined : "0.01"}
+                                                        type="number"
+                                                        step="0.01"
                                                         className="input"
-                                                        value={
-                                                            isMultiValueChart
-                                                                ? Array.isArray(dp.value)
-                                                                    ? dp.value.join(', ')
-                                                                    : Array.isArray(dp.valueArray)
-                                                                        ? dp.valueArray.join(', ')
-                                                                        : dp.value?.toString() || ''
-                                                                : dp.value as number
-                                                        }
+                                                        value={dp.value as number}
                                                         onChange={(e) => handleUpdateDataPoint(actualIndex, 'value', e.target.value)}
                                                         placeholder={labels[1]}
                                                     />
@@ -602,7 +737,7 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                                 </div>
                             ) : (
                                 <p className="text-muted" style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                                    No data points configured.
+                                    No data points configured. Click ADD POINT to create {isMultiValueChart ? 'a category' : 'a data point'}.
                                 </p>
                             )}
                         </div>

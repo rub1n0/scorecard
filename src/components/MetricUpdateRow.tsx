@@ -14,10 +14,16 @@ type ValueEntry = { key: string; value: number | string };
 export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     const isChart = kpi.visualizationType === 'chart';
 
+    // Helper to normalize array values to single number
+    const normalizeValue = (v: number | string | number[] | undefined): number | string => {
+        if (Array.isArray(v)) return v[0] ?? 0;
+        return v ?? 0;
+    };
+
     const historyPoints = useMemo(() => {
         const fromDataPoints = (kpi.dataPoints || []).map(dp => ({
             key: dp.date,
-            value: dp.value,
+            value: normalizeValue(dp.value),
         }));
 
         if (fromDataPoints.length > 0) {
@@ -51,7 +57,9 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
         const numeric = kpi.value?.['0'];
         const firstVal = typeof numeric === 'number'
             ? numeric
-            : (latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
+            : (typeof latestPoint?.value === 'number'
+                ? latestPoint.value
+                : Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
         return [{ key: '0', value: firstVal }];
     }, [isChart, historyPoints, kpi.value, kpi.visualizationType, latestPoint?.value]);
 

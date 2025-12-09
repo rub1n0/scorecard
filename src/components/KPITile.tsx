@@ -191,7 +191,22 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 const values = normalizeArrayValues((arrayPoint.valueArray as Array<number | string>) ?? (arrayPoint.value as Array<number | string>));
 
                 if (values.length > 0) {
-                    const categories = values.map((_, idx) => `Value ${idx + 1}`);
+                    let categories = values.map((_, idx) => `Value ${idx + 1}`);
+                    let distinctColors: string[] | undefined;
+
+                    // Use labeledValues for categories if available
+                    if (arrayPoint.labeledValues && arrayPoint.labeledValues.length > 0) {
+                        // Ensure lengths match or just use labels
+                        if (arrayPoint.labeledValues.length === values.length) {
+                            categories = arrayPoint.labeledValues.map(lv => lv.label);
+                            if (arrayPoint.labeledValues.some(lv => !!lv.color)) {
+                                // Only apply distinct colors for supported types (Radar doesn't support distributed colors well)
+                                if (['bar', 'pie', 'donut', 'radialBar'].includes(chartType)) {
+                                    distinctColors = arrayPoint.labeledValues.map(lv => lv.color || '#5094af');
+                                }
+                            }
+                        }
+                    }
                     const fillOptions: any = {
                         type: 'solid',
                         opacity: (chartType === 'bar' || chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar')
@@ -227,7 +242,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                             y: { formatter: (val: number) => val.toLocaleString() },
                             marker: { show: true },
                         },
-                        colors: ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'],
+                        colors: distinctColors || ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'],
                         fill: fillOptions,
                     };
 
@@ -284,7 +299,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                             },
                         };
                         chartOptions.legend = { show: kpi.chartSettings?.showLegend ?? false };
-                        chartOptions.colors = kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : chartOptions.colors;
+                        chartOptions.colors = (kpi.chartSettings?.strokeColor && !distinctColors) ? [kpi.chartSettings.strokeColor] : chartOptions.colors;
                     } else if (chartType === 'radar') {
                         chartOptions.xaxis = {
                             categories,
@@ -664,10 +679,10 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
             {/* Header */}
             <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-2xl font-semibold text-industrial-200 mb-0.5 truncate uppercase tracking-wide">{kpi.name}</h3>
                     {kpi.subtitle && (
                         <p className="text-sm text-industrial-400 mb-1 truncate">{kpi.subtitle}</p>
                     )}
+                    <h3 className="text-2xl font-semibold text-industrial-200 mb-0.5 truncate uppercase tracking-wide">{kpi.name}</h3>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {kpi.updateToken && (

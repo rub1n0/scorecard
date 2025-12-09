@@ -116,8 +116,7 @@ export async function POST(req: NextRequest) {
                     showGridlines: chartSettingsCols.showGridlines ?? showGridlinesFromSettings ?? true,
                     showDataLabels: chartSettingsCols.showDataLabels ?? (kpi.chartSettings?.showDataLabels ?? false),
                     trendValue: kpi.trendValue ?? null,
-                    latestValue: kpi.latestValue ?? null,
-                    valueJson: kpi.value || kpi.valueJson || {},
+                    valueJson: kpi.value || {},
                     notes: kpi.notes || null,
                     chartSettings: kpi.chartSettings || null,
                     order: kpi.order ?? null,
@@ -157,24 +156,24 @@ export async function POST(req: NextRequest) {
                     : [{ date: kpi.date || now.toISOString(), value: kpi.value }];
 
                 // Deduplicate datapoints by normalized date and prefer the most recent date instance
-                const dpByDate = new Map<string, { date: string; value: unknown; color?: string | null; valueArray?: unknown }>();
+                const dpByDate = new Map<string, { date: string; value: unknown; color?: string | null; valueArray?: unknown; labeledValues?: unknown }>();
                 for (const dpRaw of datapoints) {
-                    const dp = dpRaw as { date?: string; value?: unknown; color?: string | null; valueArray?: unknown };
+                    const dp = dpRaw as { date?: string; value?: unknown; color?: string | null; valueArray?: unknown; labeledValues?: unknown };
                     const normalizedDate = normalizeDateOnly(dp.date as string);
                     const existing = dpByDate.get(normalizedDate);
                     if (!existing) {
-                        dpByDate.set(normalizedDate, { ...dp, date: normalizedDate });
+                        dpByDate.set(normalizedDate, { date: normalizedDate, value: dp.value, color: dp.color, valueArray: dp.valueArray, labeledValues: dp.labeledValues });
                     } else {
                         const currentTs = new Date(existing.date).getTime();
                         const candidateTs = new Date(normalizedDate).getTime();
                         if (candidateTs >= currentTs) {
-                            dpByDate.set(normalizedDate, { ...dp, date: normalizedDate });
+                            dpByDate.set(normalizedDate, { date: normalizedDate, value: dp.value, color: dp.color, valueArray: dp.valueArray, labeledValues: dp.labeledValues });
                         }
                     }
                 }
 
                 for (const dp of dpByDate.values()) {
-                    const value = normalizeValueForChartType(kpi.chartType, dp.valueArray ?? dp.value);
+                    const value = normalizeValueForChartType(kpi.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
                     const dateValue = new Date(`${dp.date}T00:00:00.000Z`);
 
                     await tx
