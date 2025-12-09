@@ -1,0 +1,27 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1700000000000,
+      "tag": "0000_initial",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1700000001000,
+      "tag": "0001_add_visible_to_metrics",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1700000002000,
+      "tag": "0002_redesigned_metrics",
+      "breakpoints": false
+    }
+  ]
+}

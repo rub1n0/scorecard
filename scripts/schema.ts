@@ -1,6 +1,7 @@
 import {
     boolean,
     datetime,
+    date,
     double,
     int,
     json,
@@ -37,7 +38,9 @@ export const metrics = mysqlTable('metrics', {
     scorecardId: varchar('scorecard_id', { length: 36 }).notNull(),
     sectionId: varchar('section_id', { length: 36 }),
     name: varchar('name', { length: 255 }).notNull(),
+    kpiName: varchar('kpi_name', { length: 255 }).notNull(),
     subtitle: varchar('subtitle', { length: 255 }),
+    assignment: varchar('assignment', { length: 255 }),
     visualizationType: varchar('visualization_type', { length: 32 }).notNull(),
     chartType: varchar('chart_type', { length: 32 }),
     reverseTrend: boolean('reverse_trend').default(false).notNull(),
@@ -45,6 +48,12 @@ export const metrics = mysqlTable('metrics', {
     date: datetime('date', { fsp: 3 }).notNull(),
     prefix: varchar('prefix', { length: 32 }),
     suffix: varchar('suffix', { length: 32 }),
+    strokeWidth: int('stroke_width'),
+    strokeColor: varchar('stroke_color', { length: 64 }),
+    strokeOpacity: double('stroke_opacity'),
+    showLegend: boolean('show_legend').default(true).notNull(),
+    showGridlines: boolean('show_gridlines').default(true).notNull(),
+    showDataLabels: boolean('show_data_labels').default(false).notNull(),
     trendValue: double('trend_value'),
     latestValue: double('latest_value'),
     valueJson: json('value_json'),
@@ -60,8 +69,8 @@ export const metrics = mysqlTable('metrics', {
 export const metricDataPoints = mysqlTable('metric_data_points', {
     id: serial('id').primaryKey(),
     metricId: varchar('metric_id', { length: 36 }).notNull(),
-    date: varchar('date', { length: 64 }).notNull(),
-    value: double('value').notNull(),
+    date: date('date').notNull(),
+    value: json('value').notNull(),
     color: varchar('color', { length: 32 }),
 });
 

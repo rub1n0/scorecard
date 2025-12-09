@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import { metricDataPoints, metricValues, metrics, scorecards, sections } from '../../../../../db/schema';
+import { buildChartSettings, extractChartSettingColumns, mapDataPointValue, normalizeDateOnly } from '@/utils/metricNormalization';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -20,14 +21,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
         const values = await db.select().from(metricValues).where(eq(metricValues.metricId, id));
-        const dataPoints = await db.select().from(metricDataPoints).where(eq(metricDataPoints.metricId, id));
+        const dataPoints = await db
+            .select()
+            .from(metricDataPoints)
+            .where(eq(metricDataPoints.metricId, id));
 
         return NextResponse.json({
             ...row.metric,
+            name: row.metric.kpiName || row.metric.name,
+            kpiName: row.metric.kpiName || row.metric.name,
+            chartSettings: buildChartSettings(row.metric),
             section: row.section || null,
             scorecard: row.scorecard || null,
             values,
-            dataPoints,
+            dataPoints: dataPoints.map((dp) => mapDataPointValue(row.metric.chartType, dp.date, dp.value, dp.color)),
         });
     } catch (error) {
         console.error('[metrics/:id][GET]', error);
@@ -39,7 +46,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        await db.update(metrics).set({ ...body, date: body?.date ? new Date(body.date) : undefined }).where(eq(metrics.id, id));
+        const chartSettings = extractChartSettingColumns(body?.chartSettings);
+        const updates: Partial<typeof metrics.$inferInsert> = {
+            chartSettings: body?.chartSettings ?? undefined,
+            subtitle: body?.subtitle ?? undefined,
+            notes: body?.notes ?? undefined,
+            chartType: body?.chartType ?? undefined,
+            visualizationType: body?.visualizationType ?? undefined,
+            assignment: body?.assignment ?? undefined,
+            reverseTrend: body?.reverseTrend !== undefined ? Boolean(body.reverseTrend) : undefined,
+            prefix: body?.prefix ?? undefined,
+            suffix: body?.suffix ?? undefined,
+            trendValue: body?.trendValue ?? undefined,
+            latestValue: body?.latestValue ?? undefined,
+            valueJson: body?.valueJson ?? body?.value ?? undefined,
+            order: body?.order ?? undefined,
+            lastUpdatedBy: body?.lastUpdatedBy ?? undefined,
+            visible: body?.visible ?? undefined,
+            date: body?.date ? new Date(normalizeDateOnly(body.date)) : undefined,
+            strokeWidth: chartSettings.strokeWidth ?? body?.strokeWidth ?? undefined,
+            strokeColor: chartSettings.strokeColor ?? body?.strokeColor ?? undefined,
+            strokeOpacity: chartSettings.strokeOpacity ?? body?.strokeOpacity ?? undefined,
+            showLegend: chartSettings.showLegend ?? body?.showLegend ?? undefined,
+            showGridlines: chartSettings.showGridlines ?? body?.showGridlines ?? undefined,
+            showDataLabels: chartSettings.showDataLabels ?? body?.showDataLabels ?? undefined,
+            updatedAt: new Date(),
+        };
+
+        if (body?.name || body?.kpiName) {
+            const name = body?.kpiName ?? body?.name;
+            updates.name = name;
+            updates.kpiName = name;
+        }
+
+        await db.update(metrics).set(updates).where(eq(metrics.id, id));
         const [row] = await db.select().from(metrics).where(eq(metrics.id, id));
         return row ? NextResponse.json(row) : NextResponse.json({ error: 'Not found' }, { status: 404 });
     } catch (error) {

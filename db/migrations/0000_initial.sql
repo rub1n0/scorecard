@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS scorecards (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   INDEX idx_scorecards_name (name)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS sections (
   id VARCHAR(36) PRIMARY KEY,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS sections (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   INDEX idx_sections_scorecard (scorecard_id)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS metrics (
   id VARCHAR(36) PRIMARY KEY,
@@ -47,6 +49,7 @@ CREATE TABLE IF NOT EXISTS metrics (
   INDEX idx_metrics_section (section_id),
   INDEX idx_metrics_name (name)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS metric_data_points (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,6 +59,7 @@ CREATE TABLE IF NOT EXISTS metric_data_points (
   color VARCHAR(32),
   INDEX idx_datapoints_metric (metric_id)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS metric_values (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -65,6 +69,7 @@ CREATE TABLE IF NOT EXISTS metric_values (
   text_value TEXT,
   UNIQUE KEY uniq_metric_value_key (metric_id, value_key)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS assignments (
   id VARCHAR(36) PRIMARY KEY,
@@ -74,6 +79,7 @@ CREATE TABLE IF NOT EXISTS assignments (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   INDEX idx_assignments_metric (metric_id)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) PRIMARY KEY,
@@ -83,6 +89,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   INDEX idx_users_email (email)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS assignment_assignees (
   id VARCHAR(36) PRIMARY KEY,
@@ -91,6 +98,7 @@ CREATE TABLE IF NOT EXISTS assignment_assignees (
   INDEX idx_assignment_users_assignment (assignment_id),
   INDEX idx_assignment_users_user (user_id)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS scorecard_assignee_tokens (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -99,9 +107,11 @@ CREATE TABLE IF NOT EXISTS scorecard_assignee_tokens (
   token VARCHAR(255) NOT NULL,
   UNIQUE KEY uniq_scorecard_email (scorecard_id, email)
 );
+--> statement-breakpoint
 
 -- Idempotent alters to add missing timestamp columns if tables already existed without them
 SET @db := DATABASE();
+--> statement-breakpoint
 
 -- sections.created_at
 SET @sql := (
@@ -111,7 +121,13 @@ SET @sql := (
     'ALTER TABLE sections ADD COLUMN created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- sections.updated_at
 SET @sql := (
@@ -121,7 +137,13 @@ SET @sql := (
     'ALTER TABLE sections ADD COLUMN updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- sections.opacity
 SET @sql := (
@@ -131,7 +153,13 @@ SET @sql := (
     'ALTER TABLE sections ADD COLUMN opacity DOUBLE DEFAULT 1'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- metrics.created_at
 SET @sql := (
@@ -141,7 +169,13 @@ SET @sql := (
     'ALTER TABLE metrics ADD COLUMN created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- metrics.updated_at
 SET @sql := (
@@ -151,7 +185,13 @@ SET @sql := (
     'ALTER TABLE metrics ADD COLUMN updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- assignments.created_at
 SET @sql := (
@@ -161,7 +201,13 @@ SET @sql := (
     'ALTER TABLE assignments ADD COLUMN created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- assignments.updated_at
 SET @sql := (
@@ -171,7 +217,13 @@ SET @sql := (
     'ALTER TABLE assignments ADD COLUMN updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- users.created_at
 SET @sql := (
@@ -181,7 +233,13 @@ SET @sql := (
     'ALTER TABLE users ADD COLUMN created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
 
 -- users.updated_at
 SET @sql := (
@@ -191,4 +249,9 @@ SET @sql := (
     'ALTER TABLE users ADD COLUMN updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)'
   )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--> statement-breakpoint
+PREPARE stmt FROM @sql;
+--> statement-breakpoint
+EXECUTE stmt;
+--> statement-breakpoint
+DEALLOCATE PREPARE stmt;

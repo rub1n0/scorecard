@@ -26,6 +26,10 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
     );
     const [chartType, setChartType] = useState<ChartType>(kpi?.chartType || 'line');
     const [trendValue] = useState(kpi?.trendValue?.toString() || '0');
+    const isMultiValueChart = useMemo(
+        () => ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(chartType),
+        [chartType]
+    );
 
     // Chart Settings State
     const [strokeWidth, setStrokeWidth] = useState(kpi?.chartSettings?.strokeWidth ?? 2);
@@ -92,11 +96,9 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         const sorted = [...rawDataPoints].sort((a, b) => {
             const dateA = new Date(a.date).getTime();
             const dateB = new Date(b.date).getTime();
-            // If dates are valid, sort by them
             if (!isNaN(dateA) && !isNaN(dateB)) {
                 return dateB - dateA;
             }
-            // Otherwise maintain original order
             return 0;
         });
 
@@ -110,7 +112,6 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         if (needsColors || needsDateNormalization) {
             const updatedPoints = sorted.map((dp, index) => ({
                 ...dp,
-                // Normalize date only if it's actually a date (for time-series charts)
                 date: (visualizationType === 'number' ||
                     (visualizationType === 'chart' && ['line', 'area'].includes(chartType)))
                     ? normalizeDateForInput(dp.date)
@@ -135,10 +136,9 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
             }
         }
 
-        const newPoint = {
-            date: defaultLabel,
-            value: 0,
-        };
+        const newPoint: DataPoint = isMultiValueChart
+            ? { date: defaultLabel, value: [0], valueArray: [0] }
+            : { date: defaultLabel, value: 0 };
 
         const updatedPoints = [...dataPoints, newPoint].sort((a, b) =>
             new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -152,7 +152,18 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
         if (field === 'date') {
             updated[index].date = newValue;
         } else if (field === 'value') {
-            updated[index].value = parseFloat(newValue) || 0;
+            if (isMultiValueChart) {
+                const parts = newValue
+                    .split(/[,\\s]+/)
+                    .map(p => p.trim())
+                    .filter(Boolean)
+                    .map(val => parseFloat(val))
+                    .filter(v => Number.isFinite(v));
+                updated[index].valueArray = parts.length ? parts : [0];
+                updated[index].value = parts.length ? parts : [0];
+            } else {
+                updated[index].value = parseFloat(newValue) || 0;
+            }
         } else if (field === 'color') {
             updated[index].color = newValue;
         }
@@ -543,10 +554,18 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                                                         placeholder={labels[0]}
                                                     />
                                                     <input
-                                                        type="number"
-                                                        step="0.01"
+                                                        type={isMultiValueChart ? 'text' : 'number'}
+                                                        step={isMultiValueChart ? undefined : "0.01"}
                                                         className="input"
-                                                        value={dp.value}
+                                                        value={
+                                                            isMultiValueChart
+                                                                ? Array.isArray(dp.value)
+                                                                    ? dp.value.join(', ')
+                                                                    : Array.isArray(dp.valueArray)
+                                                                        ? dp.valueArray.join(', ')
+                                                                        : dp.value?.toString() || ''
+                                                                : dp.value as number
+                                                        }
                                                         onChange={(e) => handleUpdateDataPoint(actualIndex, 'value', e.target.value)}
                                                         placeholder={labels[1]}
                                                     />

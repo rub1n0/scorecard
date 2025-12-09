@@ -178,13 +178,164 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
         if (kpi.visualizationType === 'chart' && kpi.dataPoints && kpi.dataPoints.length > 0) {
             const chartType = kpi.chartType || 'line';
+            const dataPoints = kpi.dataPoints;
 
-            // Validate and sanitize data points - filter out invalid values
-            const validDataPoints = kpi.dataPoints.filter(dp => {
-                // Ensure value is a valid finite number
-                const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
-                return !isNaN(val) && isFinite(val) && dp.date;
+            const normalizeArrayValues = (vals?: Array<number | string>) =>
+                (vals || [])
+                    .map(v => (typeof v === 'number' ? v : parseFloat(v)))
+                    .filter((v): v is number => Number.isFinite(v));
+
+            // Multi-value datapoints (stored as arrays) support for categorical charts
+            const arrayPoint = [...dataPoints].reverse().find(dp => Array.isArray(dp.value) || Array.isArray(dp.valueArray));
+            if (arrayPoint) {
+                const values = normalizeArrayValues((arrayPoint.valueArray as Array<number | string>) ?? (arrayPoint.value as Array<number | string>));
+
+                if (values.length > 0) {
+                    const categories = values.map((_, idx) => `Value ${idx + 1}`);
+                    const fillOptions: any = {
+                        type: 'solid',
+                        opacity: (chartType === 'bar' || chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar')
+                            ? 1.0
+                            : Math.max(0.2, kpi.chartSettings?.strokeOpacity ? kpi.chartSettings.strokeOpacity * 0.2 : 0.2),
+                    };
+
+                    const chartOptions: any = {
+                        chart: {
+                            type: chartType,
+                            background: 'transparent',
+                            foreColor: '#71717a',
+                            toolbar: { show: false },
+                            animations: { enabled: true, speed: 800 },
+                            fontFamily: 'monospace',
+                        },
+                        theme: { mode: 'dark', palette: 'palette1' },
+                        dataLabels: { enabled: kpi.chartSettings?.showDataLabels ?? false },
+                        stroke: {
+                            curve: 'smooth',
+                            width: kpi.chartSettings?.strokeWidth ?? 2,
+                            opacity: kpi.chartSettings?.strokeOpacity ?? 1.0,
+                            colors: kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : undefined,
+                        },
+                        grid: {
+                            borderColor: '#27272a',
+                            xaxis: { lines: { show: kpi.chartSettings?.showGridLines ?? false } },
+                            yaxis: { lines: { show: kpi.chartSettings?.showGridLines ?? true } },
+                        },
+                        tooltip: {
+                            theme: 'dark',
+                            style: { fontSize: '12px', fontFamily: 'monospace' },
+                            y: { formatter: (val: number) => val.toLocaleString() },
+                            marker: { show: true },
+                        },
+                        colors: ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'],
+                        fill: fillOptions,
+                    };
+
+                    if (chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar') {
+                        chartOptions.labels = categories;
+                        chartOptions.legend = {
+                            show: kpi.chartSettings?.showLegend ?? true,
+                            position: 'bottom',
+                            fontSize: '12px',
+                            fontFamily: 'monospace',
+                            labels: { colors: '#d4d4d8' },
+                        };
+                        chartOptions.stroke = {
+                            show: true,
+                            width: kpi.chartSettings?.strokeWidth ?? 2,
+                            colors: kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : ['#18181b'],
+                        };
+                        chartOptions.fill = {
+                            type: 'solid',
+                            opacity: (kpi.chartSettings?.strokeOpacity ?? 1.0) * 0.75,
+                        };
+                        if (chartType === 'donut') {
+                            chartOptions.plotOptions = {
+                                pie: {
+                                    donut: {
+                                        size: '65%',
+                                        labels: {
+                                            show: true,
+                                            name: { show: true, fontSize: '14px', fontFamily: 'monospace', color: '#a1a1aa' },
+                                            value: { show: true, fontSize: '20px', fontFamily: 'monospace', fontWeight: 'bold', color: '#f4f4f5' },
+                                            total: {
+                                                show: true,
+                                                label: 'Total',
+                                                fontSize: '12px',
+                                                fontFamily: 'monospace',
+                                                color: '#71717a',
+                                                formatter: (w: any) => w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toFixed(0),
+                                            },
+                                        },
+                                    },
+                                },
+                            };
+                        }
+                    } else if (chartType === 'bar') {
+                        chartOptions.xaxis = {
+                            categories,
+                            labels: {
+                                style: { colors: Array(categories.length).fill('#71717a'), fontSize: '10px', fontFamily: 'monospace' },
+                            },
+                        };
+                        chartOptions.plotOptions = {
+                            bar: {
+                                distributed: true,
+                            },
+                        };
+                        chartOptions.legend = { show: kpi.chartSettings?.showLegend ?? false };
+                        chartOptions.colors = kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : chartOptions.colors;
+                    } else if (chartType === 'radar') {
+                        chartOptions.xaxis = {
+                            categories,
+                            labels: {
+                                style: { colors: Array(categories.length).fill('#a1a1aa'), fontSize: '10px', fontFamily: 'monospace' },
+                            },
+                        };
+                        chartOptions.yaxis = { show: false };
+                        chartOptions.markers = { size: 3 };
+                    }
+
+                    const chartHeight = chartType === 'radar' || chartType === 'pie' || chartType === 'donut' ? 320 : 280;
+                    return (
+                        <div className="kpi-chart-display -ml-2">
+                            <ChartErrorBoundary>
+                                <Chart
+                                    options={chartOptions}
+                                    series={
+                                        chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar'
+                                            ? values
+                                            : [{ name: kpi.name, data: values }]
+                                    }
+                                    type={chartType === 'column' ? 'bar' : chartType as any}
+                                    height={chartHeight}
+                                />
+                            </ChartErrorBoundary>
+                        </div>
+                    );
+                }
+            }
+
+            // Validate and sanitize data points - filter out invalid values (supporting both scalar and array values)
+            const withNumeric = dataPoints.map(dp => {
+                const pick = () => {
+                    if (typeof dp.value === 'number') return dp.value;
+                    if (Array.isArray(dp.value)) {
+                        const first = dp.value.find(v => Number.isFinite(typeof v === 'number' ? v : parseFloat(v as any)));
+                        return first !== undefined ? (typeof first === 'number' ? first : parseFloat(first as any)) : undefined;
+                    }
+                    if (Array.isArray(dp.valueArray)) {
+                        const first = dp.valueArray.find(v => Number.isFinite(typeof v === 'number' ? v : parseFloat(v as any)));
+                        return first !== undefined ? (typeof first === 'number' ? first : parseFloat(first as any)) : undefined;
+                    }
+                    const parsed = parseFloat(dp.value as any);
+                    return Number.isFinite(parsed) ? parsed : undefined;
+                };
+                const numericValue = pick();
+                return { ...dp, numericValue };
             });
+
+            const validDataPoints = withNumeric.filter(dp => dp.numericValue !== undefined && !isNaN(dp.numericValue) && isFinite(dp.numericValue) && dp.date);
 
             // If no valid data points remain, show error message
             if (validDataPoints.length === 0) {
@@ -248,7 +399,6 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         ? validDataPoints.map(dp => {
                             try {
                                 const parsedDate = new Date(dp.date);
-                                // Check if date is valid
                                 if (!isNaN(parsedDate.getTime())) {
                                     return parsedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                 }
@@ -463,17 +613,11 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                             options={chartOptions}
                             series={
                                 chartType === 'pie' || chartType === 'donut'
-                                    ? validDataPoints.map(dp => {
-                                        const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
-                                        return val;
-                                    })
+                                    ? validDataPoints.map(dp => dp.numericValue as number)
                                     : [
                                         {
                                             name: kpi.name,
-                                            data: validDataPoints.map(dp => {
-                                                const val = typeof dp.value === 'number' ? dp.value : parseFloat(dp.value as any);
-                                                return val;
-                                            }),
+                                            data: validDataPoints.map(dp => dp.numericValue as number),
                                         },
                                     ]
                             }

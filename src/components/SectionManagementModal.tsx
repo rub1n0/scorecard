@@ -24,6 +24,7 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
     const [isCreatingSection, setIsCreatingSection] = useState(false);
     const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+    const [pendingSectionEdits, setPendingSectionEdits] = useState<Record<string, Partial<Section>>>({});
     const [newSectionName, setNewSectionName] = useState('');
     const [newSectionColor, setNewSectionColor] = useState('verdigris');
     const [newSectionOpacity, setNewSectionOpacity] = useState(1);
@@ -180,50 +181,87 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                             >
                                 {editingSectionId === section.id ? (
                                     <div className="space-y-3">
-                                        <input
-                                            type="text"
-                                            value={section.name}
-                                            onChange={(e) =>
-                                                handleUpdateSection(section.id, { name: e.target.value })
-                                            }
-                                            className="input text-sm"
-                                            placeholder="Section name"
-                                        />
-                                        <div className="flex gap-2">
-                                            {AVAILABLE_COLORS.map((color) => (
-                                                <button
-                                                    key={color.name}
-                                                    onClick={() =>
-                                                        handleUpdateSection(section.id, { color: color.name })
+                                        {(() => {
+                                            const draft = pendingSectionEdits[section.id] || {
+                                                name: section.name,
+                                                color: section.color,
+                                                opacity: section.opacity ?? 1,
+                                            };
+                                            return (
+                                                <>
+                                                <input
+                                                    type="text"
+                                                    value={draft.name}
+                                                    onChange={(e) =>
+                                                        setPendingSectionEdits(prev => ({
+                                                            ...prev,
+                                                            [section.id]: {
+                                                                ...draft,
+                                                                name: e.target.value
+                                                            }
+                                                        }))
                                                     }
-                                                    className={`w-8 h-8 rounded border-2 transition-all ${section.color === color.name
-                                                        ? 'border-white scale-110'
-                                                        : 'border-transparent'
-                                                        }`}
-                                                    style={{ backgroundColor: color.value }}
-                                                    title={color.label}
+                                                    className="input text-sm"
+                                                    placeholder="Section name"
                                                 />
-                                            ))}
-                                        </div>
-                                        <div className="mt-2">
-                                            <label className="text-xs text-industrial-400 block mb-1">Opacity: {Math.round((section.opacity ?? 1) * 100)}%</label>
-                                            <input
-                                                type="range"
-                                                min="0.1"
-                                                max="1"
-                                                step="0.1"
-                                                value={section.opacity ?? 1}
-                                                onChange={(e) => handleUpdateSection(section.id, { opacity: parseFloat(e.target.value) })}
-                                                className="w-full accent-industrial-500"
-                                            />
-                                        </div>
-                                        <button
-                                            onClick={() => setEditingSectionId(null)}
-                                            className="btn btn-secondary btn-sm w-full mt-2"
-                                        >
-                                            <Check size={14} />
-                                            Done
-                                        </button>
+                                                <div className="flex gap-2">
+                                                    {AVAILABLE_COLORS.map((color) => (
+                                                        <button
+                                                            key={color.name}
+                                                            onClick={() =>
+                                                                setPendingSectionEdits(prev => ({
+                                                                    ...prev,
+                                                                    [section.id]: {
+                                                                        ...draft,
+                                                                        color: color.name
+                                                                    }
+                                                                }))
+                                                            }
+                                                            className={`w-8 h-8 rounded border-2 transition-all ${draft.color === color.name
+                                                                ? 'border-white scale-110'
+                                                                : 'border-transparent'
+                                                                }`}
+                                                            style={{ backgroundColor: color.value }}
+                                                            title={color.label}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <div className="mt-2">
+                                                    <label className="text-xs text-industrial-400 block mb-1">Opacity: {Math.round((draft.opacity ?? 1) * 100)}%</label>
+                                                    <input
+                                                        type="range"
+                                                        min="0.1"
+                                                        max="1"
+                                                        step="0.1"
+                                                        value={draft.opacity ?? 1}
+                                                        onChange={(e) => setPendingSectionEdits(prev => ({
+                                                            ...prev,
+                                                            [section.id]: {
+                                                                ...draft,
+                                                                opacity: parseFloat(e.target.value)
+                                                            }
+                                                        }))}
+                                                        className="w-full accent-industrial-500"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={async () => {
+                                                        await handleUpdateSection(section.id, draft);
+                                                        setEditingSectionId(null);
+                                                        setPendingSectionEdits(prev => {
+                                                            const next = { ...prev };
+                                                            delete next[section.id];
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className="btn btn-secondary btn-sm w-full mt-2"
+                                                >
+                                                    <Check size={14} />
+                                                    Done
+                                                </button>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 ) : (
                                     <div
@@ -269,6 +307,14 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        setPendingSectionEdits(prev => ({
+                                                            ...prev,
+                                                            [section.id]: {
+                                                                name: section.name,
+                                                                color: section.color,
+                                                                opacity: section.opacity ?? 1,
+                                                            }
+                                                        }));
                                                         setEditingSectionId(section.id);
                                                     }}
                                                     className="btn-icon p-1"

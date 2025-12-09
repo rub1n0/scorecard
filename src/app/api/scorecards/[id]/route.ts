@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import {
@@ -12,6 +13,7 @@ import {
     sections,
     users,
 } from '../../../../../db/schema';
+import { buildChartSettings, extractChartSettingColumns, mapDataPointValue, normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
 
 const buildScorecard = async (id: string) => {
     const [sc] = await db.select().from(scorecards).where(eq(scorecards.id, id));
@@ -52,32 +54,44 @@ const buildScorecard = async (id: string) => {
     const assigneesMap: Record<string, string> = {};
     tokens.forEach(t => { assigneesMap[t.email] = t.token; });
 
-    const kpis = metricRows.map(m => ({
-        id: m.id,
-        name: m.name,
-        subtitle: m.subtitle || undefined,
-        visualizationType: m.visualizationType as any,
-        chartType: m.chartType || undefined,
-        reverseTrend: m.reverseTrend,
-        updateToken: m.updateToken || undefined,
-        date: m.date ? new Date(m.date).toISOString() : new Date().toISOString(),
-        prefix: m.prefix || undefined,
-        suffix: m.suffix || undefined,
-        trendValue: m.trendValue ?? undefined,
-        value: (m.valueJson as any) || {},
-        notes: m.notes || undefined,
-        chartSettings: (m.chartSettings as any) || undefined,
-        order: m.order ?? undefined,
-        lastUpdatedBy: m.lastUpdatedBy || undefined,
-        sectionId: m.sectionId || undefined,
-        visible: m.visible ?? true,
-        assignees: assigneesByMetric.get(m.id) || [],
-        dataPoints: (dataPointsByMetric.get(m.id) || []).map(dp => ({
-            date: dp.date,
-            value: dp.value,
-            color: dp.color || undefined,
-        })),
-    }));
+    const kpis = metricRows.map(m => {
+        const chartSettings = buildChartSettings(m);
+        const dataPointsForMetric = dataPointsByMetric.get(m.id) || [];
+
+        return {
+            id: m.id,
+            name: m.kpiName || m.name,
+            kpiName: m.kpiName || m.name,
+            subtitle: m.subtitle || undefined,
+            visualizationType: m.visualizationType as any,
+            chartType: m.chartType || undefined,
+            reverseTrend: m.reverseTrend,
+            updateToken: m.updateToken || undefined,
+            assignment: m.assignment || undefined,
+            date: m.date ? new Date(m.date).toISOString() : new Date().toISOString(),
+            prefix: m.prefix || undefined,
+            suffix: m.suffix || undefined,
+            trendValue: m.trendValue ?? undefined,
+            value: (m.valueJson as any) || {},
+            notes: m.notes || undefined,
+            chartSettings,
+            strokeWidth: m.strokeWidth ?? chartSettings.strokeWidth,
+            strokeColor: m.strokeColor ?? chartSettings.strokeColor,
+            strokeOpacity: m.strokeOpacity ?? chartSettings.strokeOpacity,
+            showLegend: typeof m.showLegend === 'number' ? Boolean(m.showLegend) : m.showLegend ?? chartSettings.showLegend,
+            showGridlines:
+                typeof m.showGridlines === 'number'
+                    ? Boolean(m.showGridlines)
+                    : m.showGridlines ?? (chartSettings as any).showGridLines ?? (chartSettings as any).showGridlines,
+            showDataLabels: typeof m.showDataLabels === 'number' ? Boolean(m.showDataLabels) : m.showDataLabels ?? chartSettings.showDataLabels,
+            order: m.order ?? undefined,
+            lastUpdatedBy: m.lastUpdatedBy || undefined,
+            sectionId: m.sectionId || undefined,
+            visible: m.visible ?? true,
+            assignees: assigneesByMetric.get(m.id) || [],
+            dataPoints: dataPointsForMetric.map(dp => mapDataPointValue(m.chartType, dp.date, dp.value, dp.color)),
+        };
+    });
 
     return {
         id: sc.id,
@@ -152,30 +166,49 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     await tx.delete(metrics).where(eq(metrics.scorecardId, id));
                 }
 
-                const metricValues = body.kpis.map((kpi: any, idx: number) => ({
-                    id: kpi.id,
-                    scorecardId: id,
-                    sectionId: kpi.sectionId || null,
-                    name: kpi.name,
-                    subtitle: kpi.subtitle || null,
-                    visualizationType: kpi.visualizationType || 'number',
-                    chartType: kpi.chartType || null,
-                    reverseTrend: Boolean(kpi.reverseTrend),
-                    updateToken: kpi.updateToken || null,
-                    date: kpi.date ? new Date(kpi.date) : now,
-                    prefix: kpi.prefix || null,
-                    suffix: kpi.suffix || null,
-                    trendValue: kpi.trendValue ?? null,
-                    latestValue: kpi.latestValue ?? null,
-                    valueJson: kpi.value || kpi.valueJson || {},
-                    notes: kpi.notes || null,
-                    chartSettings: kpi.chartSettings || null,
-                    order: kpi.order ?? idx,
-                    lastUpdatedBy: kpi.lastUpdatedBy || null,
-                    visible: kpi.visible ?? true,
-                    createdAt: now,
-                    updatedAt: now,
-                }));
+                const metricValues = body.kpis.map((kpi: any, idx: number) => {
+                    const chartSettingsCols = extractChartSettingColumns(kpi.chartSettings);
+                    const normalizedDate = normalizeDateOnly(kpi.date);
+                    const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
+                    const name = kpi.name || kpi.kpiName || `KPI ${idx + 1}`;
+
+                    return {
+                        id: kpi.id || crypto.randomUUID(),
+                        scorecardId: id,
+                        sectionId: kpi.sectionId || null,
+                        name,
+                        kpiName: kpi.kpiName || name,
+                        subtitle: kpi.subtitle || null,
+                        assignment: kpi.assignment || null,
+                        visualizationType: kpi.visualizationType || 'number',
+                        chartType: kpi.chartType || null,
+                        reverseTrend: Boolean(kpi.reverseTrend),
+                        updateToken: kpi.updateToken || null,
+                        date: dateValue,
+                        prefix: kpi.prefix || null,
+                        suffix: kpi.suffix || null,
+                        strokeWidth: chartSettingsCols.strokeWidth ?? null,
+                        strokeColor: chartSettingsCols.strokeColor ?? null,
+                        strokeOpacity: chartSettingsCols.strokeOpacity ?? null,
+                        showLegend: chartSettingsCols.showLegend ?? (kpi.chartSettings?.showLegend ?? true),
+                        showGridlines:
+                            chartSettingsCols.showGridlines ??
+                            (kpi.chartSettings as any)?.showGridLines ??
+                            (kpi.chartSettings as any)?.showGridlines ??
+                            true,
+                        showDataLabels: chartSettingsCols.showDataLabels ?? (kpi.chartSettings?.showDataLabels ?? false),
+                        trendValue: kpi.trendValue ?? null,
+                        latestValue: kpi.latestValue ?? null,
+                        valueJson: kpi.value || kpi.valueJson || {},
+                        notes: kpi.notes || null,
+                        chartSettings: kpi.chartSettings || null,
+                        order: kpi.order ?? idx,
+                        lastUpdatedBy: kpi.lastUpdatedBy || null,
+                        visible: kpi.visible ?? true,
+                        createdAt: now,
+                        updatedAt: now,
+                    };
+                });
 
                 if (metricValues.length) {
                     await tx.insert(metrics).values(metricValues);
@@ -214,14 +247,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                             });
                         }
 
-                        const points = (kpi?.dataPoints || []).map((dp: any) => ({
-                            metricId: m.id,
-                            date: dp.date,
-                            value: Number(dp.value) || 0,
-                            color: dp.color || null,
-                        }));
+                        const points = (kpi?.dataPoints || []).map((dp: any) => {
+                            const normalizedDate = normalizeDateOnly(dp.date);
+                            const value = normalizeValueForChartType(kpi.chartType || m.chartType, dp.valueArray ?? dp.value);
+                            return {
+                                metricId: m.id,
+                                date: new Date(`${normalizedDate}T00:00:00.000Z`),
+                                value,
+                                color: dp.color || null,
+                            };
+                        });
                         if (points.length) {
-                            await tx.insert(metricDataPoints).values(points);
+                            await tx
+                                .insert(metricDataPoints)
+                                .values(points)
+                                .onDuplicateKeyUpdate({
+                                    set: {
+                                        value: sql`VALUES(value)`,
+                                        color: sql`VALUES(color)`,
+                                    },
+                                });
                         }
                     }
                 }

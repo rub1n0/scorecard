@@ -4,13 +4,15 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { parseCSV, generateExampleCSV, ParsedKPI } from '@/utils/csvParser';
 import { getDisplayValue } from '@/utils/kpiValueUtils'; // Added this import
+import { KPI } from '@/types';
 
 interface CSVImportProps {
     onImport: (kpis: ParsedKPI[]) => void;
     onCancel: () => void;
+    existingKPIs: KPI[];
 }
 
-export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
+export default function CSVImport({ onImport, onCancel, existingKPIs }: CSVImportProps) {
     type ExampleType = Parameters<typeof generateExampleCSV>[0];
     const [dragActive, setDragActive] = useState(false);
     const [parsedKPIs, setParsedKPIs] = useState<ParsedKPI[]>([]);
@@ -218,6 +220,13 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                     {parsedKPIs.length > 0 && (() => {
                         const sections = new Set<string>();
                         const assignees = new Set<string>();
+                        const normalizeName = (value?: string) => (value || '').trim().toLowerCase();
+                        const existingByName = new Map(
+                            existingKPIs.map(kpi => [normalizeName(kpi.name || kpi.kpiName), kpi] as const)
+                        );
+                        let existingCount = 0;
+                        let existingVisible = 0;
+                        let existingHidden = 0;
 
                         parsedKPIs.forEach(kpi => {
                             if (kpi.sectionName) sections.add(kpi.sectionName);
@@ -227,15 +236,34 @@ export default function CSVImport({ onImport, onCancel }: CSVImportProps) {
                             ].filter(Boolean);
 
                             kpiAssignees.forEach(a => assignees.add(a));
+
+                            const match = existingByName.get(normalizeName(kpi.name || kpi.kpiName));
+                            if (match) {
+                                existingCount += 1;
+                                if (match.visible === false) {
+                                    existingHidden += 1;
+                                } else {
+                                    existingVisible += 1;
+                                }
+                            }
                         });
 
                         return (
                             <div className="bg-industrial-900/30 rounded-lg border border-industrial-800 p-4 mb-4">
                                 <h3 className="text-sm font-semibold text-industrial-200 mb-3">Import Summary</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                                     <div>
                                         <div className="text-industrial-500 uppercase tracking-wider mb-1">KPIs</div>
                                         <div className="text-2xl font-bold text-industrial-100">{parsedKPIs.length}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-industrial-500 uppercase tracking-wider mb-1">Already in Scorecard</div>
+                                        <div className="text-2xl font-bold text-industrial-100">{existingCount}</div>
+                                        <div className="mt-1 text-industrial-500">
+                                            <span className="text-verdigris-300 font-semibold">{existingVisible}</span> visible
+                                            <span className="mx-1 text-industrial-700">•</span>
+                                            <span className="text-industrial-300 font-semibold">{existingHidden}</span> hidden
+                                        </div>
                                     </div>
                                     <div>
                                         <div className="text-industrial-500 uppercase tracking-wider mb-1">Sections</div>

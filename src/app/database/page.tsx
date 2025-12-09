@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { Database, Layers, ListChecks, RefreshCw, Table2, Users } from 'lucide-react';
 import { KPI, Scorecard, Section } from '@/types';
+import { useRouter } from 'next/navigation';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DbSection = { id: string; name: string | null; scorecardId: string; displayOrder?: number | null; color?: string | null; opacity?: number | null };
@@ -22,6 +23,7 @@ type MetricRow = KPI & {
     dataPointCount: number;
     valueKeyCount: number;
     latestDataPoint?: { date: string; value: number | number[]; valueArray?: number[]; color?: string };
+    dataPoints: KPI['dataPoints'];
 };
 
 async function fetchJSON<T>(url: string): Promise<T> {
@@ -33,6 +35,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
 }
 
 export default function DatabasePage() {
+    const router = useRouter();
     const [scorecards, setScorecards] = useState<Scorecard[]>([]);
     const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
     const [users, setUsers] = useState<DbUser[]>([]);
@@ -200,6 +203,7 @@ export default function DatabasePage() {
                     dataPointCount: dataPoints.length,
                     valueKeyCount: Object.keys(kpi.value || {}).length,
                     latestDataPoint,
+                    dataPoints,
                 };
             })
         );
@@ -227,15 +231,23 @@ export default function DatabasePage() {
     };
 
     const formatDataPointSummary = (kpi: MetricRow) => {
-        if (!kpi.latestDataPoint) return `${kpi.dataPointCount} total`;
-        const { date, value, valueArray } = kpi.latestDataPoint;
-        const rendered = Array.isArray(value) ? value.join(', ') : (Array.isArray(valueArray) ? valueArray.join(', ') : value);
-        return `${kpi.dataPointCount} total • Latest ${date}: ${rendered}`;
+        if (!kpi.dataPoints || kpi.dataPoints.length === 0) return 'No datapoints';
+        const list = kpi.dataPoints.slice(-3).map((dp) => {
+            const rendered = Array.isArray(dp.value)
+                ? dp.value.join(', ')
+                : Array.isArray(dp.valueArray)
+                    ? dp.valueArray.join(', ')
+                    : dp.value;
+            return `${dp.date}: ${rendered}`;
+        });
+        const suffix = kpi.dataPoints.length > 3 ? `… (+${kpi.dataPoints.length - 3} more)` : '';
+        return `${list.join(' • ')} ${suffix}`.trim();
     };
 
     return (
         <div className="min-h-screen bg-industrial-950">
             <PageHeader
+                onBack={() => router.push('/')}
                 title="Database View"
                 subtitle="Live data pulled from API endpoints"
                 label="DATA OPS"

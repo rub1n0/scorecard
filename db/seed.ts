@@ -70,7 +70,9 @@ async function seed() {
                 scorecardId,
                 sectionId,
                 name: 'KPI001',
+                kpiName: 'KPI001',
                 subtitle: 'Sample Metric',
+                assignment: null,
                 visualizationType: 'number',
                 reverseTrend: false,
                 date: new Date(),
@@ -79,10 +81,14 @@ async function seed() {
                 valueJson: { "0": 120 },
                 notes: 'Seeded metric',
                 chartSettings: { showLegend: false },
+                showLegend: false,
+                showGridlines: true,
+                showDataLabels: false,
                 visible: true,
             })
             .onDuplicateKeyUpdate({
                 set: {
+                    kpiName: sql`VALUES(kpi_name)`,
                     sectionId,
                     subtitle: sql`VALUES(subtitle)`,
                     visualizationType: sql`VALUES(visualization_type)`,
@@ -92,15 +98,18 @@ async function seed() {
                     valueJson: sql`VALUES(value_json)`,
                     notes: sql`VALUES(notes)`,
                     chartSettings: sql`VALUES(chart_settings)`,
+                    showLegend: sql`VALUES(show_legend)`,
+                    showGridlines: sql`VALUES(show_gridlines)`,
+                    showDataLabels: sql`VALUES(show_data_labels)`,
                 },
             });
 
         await tx
             .insert(metricDataPoints)
             .values([
-                { metricId, date: '2024-12-01', value: 110, color: '#5094af' },
-                { metricId, date: '2024-12-08', value: 115, color: '#36c9b8' },
-                { metricId, date: '2024-12-15', value: 120, color: '#dea821' },
+                { metricId, date: new Date('2024-12-01T00:00:00.000Z'), value: 110, color: '#5094af' },
+                { metricId, date: new Date('2024-12-08T00:00:00.000Z'), value: 115, color: '#36c9b8' },
+                { metricId, date: new Date('2024-12-15T00:00:00.000Z'), value: 120, color: '#dea821' },
             ])
             .onDuplicateKeyUpdate({
                 set: {

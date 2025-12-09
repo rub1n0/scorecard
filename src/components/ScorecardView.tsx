@@ -91,65 +91,83 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     };
 
     const handleCSVImport = async (kpis: ParsedKPI[]) => {
-        // Extract unique section names from KPIs
-        const sectionNames = new Set<string>();
-        kpis.forEach(kpi => {
-            if (kpi.sectionName) {
-                sectionNames.add(kpi.sectionName);
+        try {
+            // Extract unique section names from KPIs
+            const sectionNames = new Set<string>();
+            kpis.forEach(kpi => {
+                if (kpi.sectionName) {
+                    sectionNames.add(kpi.sectionName);
+                }
+            });
+
+            // Create sections that don't exist and build a name->id map
+            const sectionNameToId = new Map<string, string>();
+
+            // Add existing sections to the map
+            const existingSections = scorecard.sections || [];
+            existingSections.forEach(section => {
+                sectionNameToId.set(section.name, section.id);
+            });
+
+            // Define colors for new sections (cycle through available colors)
+            const availableColors = ['verdigris', 'tuscan-sun', 'sandy-brown', 'burnt-peach', 'charcoal-blue'];
+            let colorIndex = existingSections.length % availableColors.length;
+
+            // Prepare new sections
+            const newSections: Section[] = [];
+            for (const sectionName of sectionNames) {
+                if (!sectionNameToId.has(sectionName)) {
+                    const newSectionId = generateId();
+                    const newSection: Section = {
+                        id: newSectionId,
+                        name: sectionName,
+                        color: availableColors[colorIndex],
+                        order: existingSections.length + newSections.length,
+                    };
+                    newSections.push(newSection);
+                    sectionNameToId.set(sectionName, newSectionId);
+                    colorIndex = (colorIndex + 1) % availableColors.length;
+                }
             }
-        });
 
-        // Create sections that don't exist and build a name->id map
-        const sectionNameToId = new Map<string, string>();
+            // Batch update sections if needed
+            if (newSections.length > 0) {
+                const allSections = [...existingSections, ...newSections];
+                await updateScorecard(scorecard.id, { sections: allSections });
+                await refreshScorecards();
+            }
 
-        // Add existing sections to the map
-        const existingSections = scorecard.sections || [];
-        existingSections.forEach(section => {
-            sectionNameToId.set(section.name, section.id);
-        });
+            // Map KPIs to their sections and prepare for import
+            const kpisWithSections = kpis.map(kpi => {
+                const { sectionName, ...kpiData } = kpi;
+                const sectionId = sectionName ? sectionNameToId.get(sectionName) : undefined;
 
-        // Define colors for new sections (cycle through available colors)
-        const availableColors = ['verdigris', 'tuscan-sun', 'sandy-brown', 'burnt-peach', 'charcoal-blue'];
-        let colorIndex = existingSections.length % availableColors.length;
-
-        // Prepare new sections
-        const newSections: Section[] = [];
-        for (const sectionName of sectionNames) {
-            if (!sectionNameToId.has(sectionName)) {
-                const newSectionId = generateId();
-                const newSection: Section = {
-                    id: newSectionId,
-                    name: sectionName,
-                    color: availableColors[colorIndex],
-                    order: existingSections.length + newSections.length,
+                return {
+                    ...kpiData,
+                    sectionId,
+                    sectionName,
                 };
-                newSections.push(newSection);
-                sectionNameToId.set(sectionName, newSectionId);
-                colorIndex = (colorIndex + 1) % availableColors.length;
+            });
+
+            const response = await fetch('/api/metrics/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scorecardId: scorecard.id,
+                    metrics: kpisWithSections,
+                }),
+            });
+
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                throw new Error(body.error || 'Failed to import CSV');
             }
-        }
 
-        // Batch update sections if needed
-        if (newSections.length > 0) {
-            const allSections = [...existingSections, ...newSections];
-            await updateScorecard(scorecard.id, { sections: allSections });
             await refreshScorecards();
+            setShowCSVImport(false);
+        } catch (error) {
+            alert(`Failed to import CSV: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-
-        // Map KPIs to their sections and prepare for import
-        const kpisWithSections = kpis.map(kpi => {
-            const { sectionName, ...kpiData } = kpi;
-            const sectionId = sectionName ? sectionNameToId.get(sectionName) : undefined;
-
-            return {
-                ...kpiData,
-                sectionId,
-            };
-        });
-
-        // Import the KPIs with section assignments
-        await addKPIs(scorecard.id, kpisWithSections);
-        setShowCSVImport(false);
     };
 
     const handleExportBackup = () => {
@@ -485,20 +503,17 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                     {showHeader && (
                                         <div className="mb-6">
                                             {section && (
-                                                <div
-                                                    className="h-24 rounded mb-4 flex items-center px-6"
-                                                    style={{
-                                                        backgroundColor: getColorVariable(section.color),
-                                                        opacity: section.opacity ?? 1
-                                                    }}
-                                                >
-                                                    <h2 className="text-4xl font-bold text-industrial-950 uppercase tracking-wider">
+                                                <div className="h-24 rounded mb-4 flex items-center bg-transparent">
+                                                    <h2
+                                                        className="text-7xl font-extrabold uppercase tracking-wider"
+                                                        style={{ color: getColorVariable(section.color) }}
+                                                    >
                                                         {section.name}
                                                     </h2>
                                                 </div>
                                             )}
                                             {!section && (
-                                                <h2 className="text-lg font-bold text-industrial-200 uppercase tracking-wider mb-4">
+                                                <h2 className="text-2xl font-bold text-industrial-200 uppercase tracking-wider mb-4">
                                                     General
                                                 </h2>
                                             )}
@@ -553,6 +568,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                 <CSVImport
                     onImport={handleCSVImport}
                     onCancel={() => setShowCSVImport(false)}
+                    existingKPIs={scorecard.kpis}
                 />
             )}
 

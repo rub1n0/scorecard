@@ -14,7 +14,8 @@ export type ChartType =
 
 export interface DataPoint {
     date: string;
-    value: number;
+    value: number | number[];
+    valueArray?: number[]; // preserves raw array values for multi-value metrics
     color?: string;
 }
 
@@ -38,7 +39,9 @@ export interface Section {
 export interface KPI {
     id: string;
     name: string;
+    kpiName?: string; // normalized KPI name stored in the database
     subtitle?: string; // Optional subtitle displayed under the name
+    assignment?: string; // Optional assignment/owner string
     value: Record<string, number | string>; // Stores key:value pairs. Single values as {"0": value}, categories as {category: value}
     date: string;
     notes?: string;
@@ -57,6 +60,12 @@ export interface KPI {
     prefix?: string; // Optional prefix for number display (e.g., "$", "€")
     suffix?: string; // Optional suffix for number display (e.g., "%", "ms", "GB")
     visible?: boolean; // Controls whether the metric is shown on the scorecard
+    strokeWidth?: number;
+    strokeColor?: string;
+    strokeOpacity?: number;
+    showLegend?: boolean;
+    showGridlines?: boolean;
+    showDataLabels?: boolean;
 }
 
 export interface Scorecard {
