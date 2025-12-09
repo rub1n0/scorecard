@@ -379,9 +379,9 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                             <ChevronDown size={16} />
                         </button>
 
-            {showManageDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-10 animate-fade-in">
-                    <div className="py-1">
+                        {showManageDropdown && (
+                            <div className="absolute right-0 mt-2 w-56 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-10 animate-fade-in">
+                                <div className="py-1">
                                     <button
                                         onClick={() => {
                                             setShowManageDropdown(false);
@@ -559,6 +559,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
             {showKPIForm && (
                 <KPIForm
                     kpi={editingKPI}
+                    sections={scorecard.sections}
                     onSave={editingKPI ? handleUpdateKPI : handleAddKPI}
                     onCancel={handleCloseForm}
                 />

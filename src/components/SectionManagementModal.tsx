@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Scorecard, Section } from '@/types';
 import { useScorecards } from '@/context/ScorecardContext';
-import { Plus, Trash2, ChevronUp, ChevronDown, Edit2, Check } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown, Edit2, Check, Eye, EyeOff } from 'lucide-react';
 import Modal from './Modal';
 
 interface SectionManagementModalProps {
@@ -20,7 +20,7 @@ const AVAILABLE_COLORS = [
 ];
 
 export default function SectionManagementModal({ scorecard, onClose }: SectionManagementModalProps) {
-    const { addSection, updateSection, deleteSection, assignKPIToSection, reorderKPIsInSection, reorderSections } = useScorecards();
+    const { addSection, updateSection, deleteSection, assignKPIToSection, reorderKPIsInSection, reorderSections, updateKPI } = useScorecards();
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
     const [isCreatingSection, setIsCreatingSection] = useState(false);
     const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -101,6 +101,30 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
             selectedSectionId,
             reorderedKPIs.map(kpi => kpi.id)
         );
+    };
+
+    const handleToggleVisibility = async (kpiId: string, currentVisible: boolean) => {
+        const nextVisible = !currentVisible;
+
+        // Optimistic update
+        await updateKPI(scorecard.id, kpiId, { visible: nextVisible });
+
+        // If hiding, move to bottom of section
+        if (!nextVisible && selectedSectionId) {
+            const reorderedKPIs = [...sectionKPIs];
+            const kpiIndex = reorderedKPIs.findIndex(k => k.id === kpiId);
+
+            if (kpiIndex !== -1 && kpiIndex < reorderedKPIs.length - 1) {
+                const [kpi] = reorderedKPIs.splice(kpiIndex, 1);
+                reorderedKPIs.push(kpi);
+
+                await reorderKPIsInSection(
+                    scorecard.id,
+                    selectedSectionId,
+                    reorderedKPIs.map(k => k.id)
+                );
+            }
+        }
     };
 
     const handleMoveSection = async (sectionId: string, direction: 'up' | 'down') => {
@@ -189,76 +213,76 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                                             };
                                             return (
                                                 <>
-                                                <input
-                                                    type="text"
-                                                    value={draft.name}
-                                                    onChange={(e) =>
-                                                        setPendingSectionEdits(prev => ({
-                                                            ...prev,
-                                                            [section.id]: {
-                                                                ...draft,
-                                                                name: e.target.value
-                                                            }
-                                                        }))
-                                                    }
-                                                    className="input text-sm"
-                                                    placeholder="Section name"
-                                                />
-                                                <div className="flex gap-2">
-                                                    {AVAILABLE_COLORS.map((color) => (
-                                                        <button
-                                                            key={color.name}
-                                                            onClick={() =>
-                                                                setPendingSectionEdits(prev => ({
-                                                                    ...prev,
-                                                                    [section.id]: {
-                                                                        ...draft,
-                                                                        color: color.name
-                                                                    }
-                                                                }))
-                                                            }
-                                                            className={`w-8 h-8 rounded border-2 transition-all ${draft.color === color.name
-                                                                ? 'border-white scale-110'
-                                                                : 'border-transparent'
-                                                                }`}
-                                                            style={{ backgroundColor: color.value }}
-                                                            title={color.label}
-                                                        />
-                                                    ))}
-                                                </div>
-                                                <div className="mt-2">
-                                                    <label className="text-xs text-industrial-400 block mb-1">Opacity: {Math.round((draft.opacity ?? 1) * 100)}%</label>
                                                     <input
-                                                        type="range"
-                                                        min="0.1"
-                                                        max="1"
-                                                        step="0.1"
-                                                        value={draft.opacity ?? 1}
-                                                        onChange={(e) => setPendingSectionEdits(prev => ({
-                                                            ...prev,
-                                                            [section.id]: {
-                                                                ...draft,
-                                                                opacity: parseFloat(e.target.value)
-                                                            }
-                                                        }))}
-                                                        className="w-full accent-industrial-500"
+                                                        type="text"
+                                                        value={draft.name}
+                                                        onChange={(e) =>
+                                                            setPendingSectionEdits(prev => ({
+                                                                ...prev,
+                                                                [section.id]: {
+                                                                    ...draft,
+                                                                    name: e.target.value
+                                                                }
+                                                            }))
+                                                        }
+                                                        className="input text-sm"
+                                                        placeholder="Section name"
                                                     />
-                                                </div>
-                                                <button
-                                                    onClick={async () => {
-                                                        await handleUpdateSection(section.id, draft);
-                                                        setEditingSectionId(null);
-                                                        setPendingSectionEdits(prev => {
-                                                            const next = { ...prev };
-                                                            delete next[section.id];
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    className="btn btn-secondary btn-sm w-full mt-2"
-                                                >
-                                                    <Check size={14} />
-                                                    Done
-                                                </button>
+                                                    <div className="flex gap-2">
+                                                        {AVAILABLE_COLORS.map((color) => (
+                                                            <button
+                                                                key={color.name}
+                                                                onClick={() =>
+                                                                    setPendingSectionEdits(prev => ({
+                                                                        ...prev,
+                                                                        [section.id]: {
+                                                                            ...draft,
+                                                                            color: color.name
+                                                                        }
+                                                                    }))
+                                                                }
+                                                                className={`w-8 h-8 rounded border-2 transition-all ${draft.color === color.name
+                                                                    ? 'border-white scale-110'
+                                                                    : 'border-transparent'
+                                                                    }`}
+                                                                style={{ backgroundColor: color.value }}
+                                                                title={color.label}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    <div className="mt-2">
+                                                        <label className="text-xs text-industrial-400 block mb-1">Opacity: {Math.round((draft.opacity ?? 1) * 100)}%</label>
+                                                        <input
+                                                            type="range"
+                                                            min="0.1"
+                                                            max="1"
+                                                            step="0.1"
+                                                            value={draft.opacity ?? 1}
+                                                            onChange={(e) => setPendingSectionEdits(prev => ({
+                                                                ...prev,
+                                                                [section.id]: {
+                                                                    ...draft,
+                                                                    opacity: parseFloat(e.target.value)
+                                                                }
+                                                            }))}
+                                                            className="w-full accent-industrial-500"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={async () => {
+                                                            await handleUpdateSection(section.id, draft);
+                                                            setEditingSectionId(null);
+                                                            setPendingSectionEdits(prev => {
+                                                                const next = { ...prev };
+                                                                delete next[section.id];
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="btn btn-secondary btn-sm w-full mt-2"
+                                                    >
+                                                        <Check size={14} />
+                                                        Done
+                                                    </button>
                                                 </>
                                             );
                                         })()}
@@ -475,9 +499,23 @@ export default function SectionManagementModal({ scorecard, onClose }: SectionMa
                                                     <ChevronDown size={14} />
                                                 </button>
                                             </div>
-                                            <span className="text-sm text-industrial-200 font-mono flex-1">
-                                                {kpi.name}
-                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-mono truncate ${kpi.visible === false ? 'text-industrial-500' : 'text-industrial-200'}`}>
+                                                        {kpi.name}
+                                                    </span>
+                                                    {kpi.visible === false && (
+                                                        <span className="text-[10px] text-industrial-500 border border-industrial-800 px-1 rounded">Hidden</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleToggleVisibility(kpi.id, kpi.visible !== false)}
+                                                className={`btn-icon p-1.5 ${kpi.visible === false ? 'text-industrial-600 hover:text-industrial-400' : 'text-industrial-400 hover:text-verdigris-400'}`}
+                                                title={kpi.visible !== false ? "Hide metric" : "Show metric"}
+                                            >
+                                                {kpi.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                            </button>
                                             <button
                                                 onClick={() => handleAssignKPI(kpi.id, null)}
                                                 className="btn btn-secondary btn-sm text-xs"

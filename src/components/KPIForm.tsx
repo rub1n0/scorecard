@@ -2,19 +2,22 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { KPI, VisualizationType, ChartType, DataPoint, LabeledValue } from '@/types';
+import { KPI, VisualizationType, ChartType, DataPoint, LabeledValue, Section } from '@/types';
 import { Plus, Trash2 } from 'lucide-react';
 import ColorPicker from './ColorPicker';
 import Modal from './Modal';
 
 interface KPIFormProps {
     kpi?: KPI;
+    sections?: Section[];
     onSave: (kpi: Omit<KPI, 'id'>) => void;
     onCancel: () => void;
 }
 
-export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
+export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFormProps) {
     const [name, setName] = useState(kpi?.name || '');
+    const [sectionId, setSectionId] = useState<string | null>(kpi?.sectionId || null);
+    const [visible, setVisible] = useState(kpi?.visible !== false);
     const [subtitle, setSubtitle] = useState(kpi?.subtitle || '');
     const [value, setValue] = useState(kpi?.value.toString() || '');
     const [date, setDate] = useState(
@@ -290,15 +293,18 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
             }
         }
 
+
+
         const kpiData: Omit<KPI, 'id'> = {
             name,
+            kpiName: name, // Normalized name could be generated here if needed
             subtitle: subtitle || undefined,
-            value: valueRecord,
+            value: valueRecord, // Assuming valueRecord is the correct final value
             date,
             notes: notes || undefined,
             visualizationType,
             chartType: visualizationType === 'chart' ? chartType : undefined,
-            trendValue: visualizationType === 'number' ? finalTrend : undefined,
+            trendValue: visualizationType === 'number' ? finalTrend : undefined, // Assuming trendValue is a state variable
             chartSettings: (visualizationType === 'chart' || visualizationType === 'number') ? {
                 strokeWidth,
                 strokeColor,
@@ -307,7 +313,9 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                 showGridLines,
                 showDataLabels,
             } : undefined,
-            dataPoints: visualizationType !== 'text' ? sortedDataPoints : undefined,
+            dataPoints: visualizationType !== 'text' ? sortedDataPoints : undefined, // Assuming sortedDataPoints is the correct final dataPoints
+            sectionId: sectionId || undefined,
+            visible,
             reverseTrend,
             prefix: prefix || undefined,
             suffix: suffix || undefined,
@@ -324,17 +332,48 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
             className="kpi-form-modal"
         >
             <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label className="form-label">Metric Name</label>
-                    <input
-                        type="text"
-                        className="input"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                        placeholder="e.g., SYSTEM LOAD"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="form-label">Metric Name</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="input"
+                            placeholder="e.g. Monthly Revenue"
+                            autoFocus
+                        />
+                    </div>
+                    <div>
+                        <label className="form-label">Section</label>
+                        <select
+                            value={sectionId || ''}
+                            onChange={(e) => setSectionId(e.target.value || null)}
+                            className="select w-full"
+                        >
+                            <option value="">Unassigned</option>
+                            {sections?.map((section) => (
+                                <option key={section.id} value={section.id}>
+                                    {section.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
+
+                <div className="flex items-center gap-2 mb-4">
+                    <input
+                        type="checkbox"
+                        checked={visible}
+                        onChange={(e) => setVisible(e.target.checked)}
+                        className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                        id="kpi-visible"
+                    />
+                    <label htmlFor="kpi-visible" className="text-sm text-industrial-200 cursor-pointer">
+                        Visible on Scorecard
+                    </label>
+                </div>
+
                 <div className="form-group">
                     <label className="form-label">Subtitle (Optional)</label>
                     <input
@@ -744,6 +783,6 @@ export default function KPIForm({ kpi, onSave, onCancel }: KPIFormProps) {
                     );
                 })()}
             </form>
-        </Modal>
+        </Modal >
     );
 }
