@@ -43,7 +43,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const [showDataLabels, setShowDataLabels] = useState(kpi?.chartSettings?.showDataLabels ?? true);
     const [reverseTrend, setReverseTrend] = useState(kpi?.reverseTrend ?? false);
     const [prefix, setPrefix] = useState(kpi?.prefix || '');
+    const [prefixOpacity, setPrefixOpacity] = useState(kpi?.prefixOpacity ?? 0.50);
     const [suffix, setSuffix] = useState(kpi?.suffix || '');
+    const [suffixOpacity, setSuffixOpacity] = useState(kpi?.suffixOpacity ?? 0.50);
 
     // Default color palette (same as KPITile.tsx)
     const defaultColors = useMemo(() => ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'], []);
@@ -139,9 +141,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         }
 
         const latestPoint = dataPoints.length > 0 ? dataPoints[0] : null;
-    const inheritedLabeledValues: LabeledValue[] = latestPoint?.labeledValues
-        ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
-        : [{ label: 'Value 1', value: 0 }];
+        const inheritedLabeledValues: LabeledValue[] = latestPoint?.labeledValues
+            ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
+            : [{ label: 'Value 1', value: 0 }];
 
         const newPoint: DataPoint = isMultiValueChart
             ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues }
@@ -316,8 +318,10 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             sectionId: sectionId || undefined,
             visible,
             reverseTrend,
-            prefix: prefix || undefined,
-            suffix: suffix || undefined,
+            prefix: prefix,
+            prefixOpacity,
+            suffix: suffix,
+            suffixOpacity,
         };
 
         onSave(kpiData);
@@ -386,26 +390,60 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
 
                 <div className="form-row">
                     <div className="form-group">
-                        <label className="form-label">Prefix (Optional)</label>
-                        <input
-                            type="text"
-                            className="input"
-                            value={prefix}
-                            onChange={(e) => setPrefix(e.target.value)}
-                            placeholder="e.g., $, €"
-                            maxLength={5}
-                        />
+                        <label className="form-label flex justify-between">
+                            <span>Prefix (Optional)</span>
+                            <span className="text-xs text-industrial-500 font-mono">Opacity: {Math.round(prefixOpacity * 100)}%</span>
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                className="input flex-1"
+                                value={prefix}
+                                onChange={(e) => setPrefix(e.target.value)}
+                                placeholder="e.g., $, €"
+                                maxLength={5}
+                            />
+                            <div className="w-24 flex items-center">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    className="w-full accent-industrial-500"
+                                    value={prefixOpacity}
+                                    onChange={(e) => setPrefixOpacity(parseFloat(e.target.value))}
+                                    title="Prefix Opacity"
+                                />
+                            </div>
+                        </div>
                     </div>
                     <div className="form-group">
-                        <label className="form-label">Suffix (Optional)</label>
-                        <input
-                            type="text"
-                            className="input"
-                            value={suffix}
-                            onChange={(e) => setSuffix(e.target.value)}
-                            placeholder="e.g., %, ms, GB"
-                            maxLength={10}
-                        />
+                        <label className="form-label flex justify-between">
+                            <span>Suffix (Optional)</span>
+                            <span className="text-xs text-industrial-500 font-mono">Opacity: {Math.round(suffixOpacity * 100)}%</span>
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                className="input flex-1"
+                                value={suffix}
+                                onChange={(e) => setSuffix(e.target.value)}
+                                placeholder="e.g., %, ms, GB"
+                                maxLength={10}
+                            />
+                            <div className="w-24 flex items-center">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    className="w-full accent-industrial-500"
+                                    value={suffixOpacity}
+                                    onChange={(e) => setSuffixOpacity(parseFloat(e.target.value))}
+                                    title="Suffix Opacity"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -637,122 +675,122 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             {dataPoints.length > 0 ? (
                                 <div className="space-y-3">
                                     {dataPoints.map((dp, actualIndex) => {
-                                            // For multi-value charts, show expanded input section
-                                            if (isMultiValueChart) {
-                                                return (
-                                                    <div key={actualIndex} className="bg-industrial-900/50 rounded-lg p-3 border border-industrial-800">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <input
-                                                                type="text"
-                                                                className="input flex-1"
-                                                                value={dp.date}
-                                                                onChange={(e) => handleUpdateDataPoint(actualIndex, 'date', e.target.value)}
-                                                                placeholder={chartType === 'radar' ? 'Dimension Name' : 'Category Name'}
+                                        // For multi-value charts, show expanded input section
+                                        if (isMultiValueChart) {
+                                            return (
+                                                <div key={actualIndex} className="bg-industrial-900/50 rounded-lg p-3 border border-industrial-800">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <input
+                                                            type="text"
+                                                            className="input flex-1"
+                                                            value={dp.date}
+                                                            onChange={(e) => handleUpdateDataPoint(actualIndex, 'date', e.target.value)}
+                                                            placeholder={chartType === 'radar' ? 'Dimension Name' : 'Category Name'}
+                                                        />
+                                                        {labels.length === 3 && (
+                                                            <ColorPicker
+                                                                value={dp.color || '#3b82f6'}
+                                                                onChange={(color) => handleUpdateDataPoint(actualIndex, 'color', color)}
+                                                                align="right"
                                                             />
-                                                            {labels.length === 3 && (
-                                                                <ColorPicker
-                                                                    value={dp.color || '#3b82f6'}
-                                                                    onChange={(color) => handleUpdateDataPoint(actualIndex, 'color', color)}
-                                                                    align="right"
-                                                                />
-                                                            )}
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveDataPoint(actualIndex)}
+                                                            className="btn btn-icon btn-danger"
+                                                            title="Remove category"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs font-mono text-industrial-400 uppercase">Values (Label : Value)</div>
+                                                        <div className="space-y-2">
+                                                            {(dp.labeledValues || [{ label: 'Value 1', value: Array.isArray(dp.value) ? dp.value[0] ?? 0 : dp.value as number }]).map((lv, vIdx) => (
+                                                                <div key={vIdx} className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="text"
+                                                                        className="input flex-1"
+                                                                        value={lv.label}
+                                                                        onChange={(e) => handleUpdateMultiValue(actualIndex, vIdx, 'label', e.target.value)}
+                                                                        placeholder={`Label ${vIdx + 1}`}
+                                                                    />
+                                                                    <span className="text-industrial-500">:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        className="input w-24 text-center"
+                                                                        value={lv.value}
+                                                                        onChange={(e) => handleUpdateMultiValue(actualIndex, vIdx, 'value', e.target.value)}
+                                                                        placeholder="0"
+                                                                    />
+                                                                    <ColorPicker
+                                                                        value={lv.color || '#3b82f6'}
+                                                                        onChange={(color) => handleUpdateMultiValue(actualIndex, vIdx, 'color', color)}
+                                                                        align="right"
+                                                                    />
+                                                                    {(dp.labeledValues?.length || 1) > 1 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveMultiValue(actualIndex, vIdx)}
+                                                                            className="text-industrial-500 hover:text-red-400 p-1"
+                                                                            title="Remove value"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ))}
                                                             <button
                                                                 type="button"
-                                                                onClick={() => handleRemoveDataPoint(actualIndex)}
-                                                                className="btn btn-icon btn-danger"
-                                                                title="Remove category"
+                                                                onClick={() => handleAddMultiValue(actualIndex)}
+                                                                className="btn btn-secondary btn-sm"
+                                                                title="Add value"
                                                             >
-                                                                <Trash2 size={16} />
+                                                                <Plus size={12} />
+                                                                Add Value
                                                             </button>
                                                         </div>
-                                                        <div className="space-y-2">
-                                                            <div className="text-xs font-mono text-industrial-400 uppercase">Values (Label : Value)</div>
-                                                            <div className="space-y-2">
-                                                                {(dp.labeledValues || [{ label: 'Value 1', value: Array.isArray(dp.value) ? dp.value[0] ?? 0 : dp.value as number }]).map((lv, vIdx) => (
-                                                                    <div key={vIdx} className="flex items-center gap-2">
-                                                                        <input
-                                                                            type="text"
-                                                                            className="input flex-1"
-                                                                            value={lv.label}
-                                                                            onChange={(e) => handleUpdateMultiValue(actualIndex, vIdx, 'label', e.target.value)}
-                                                                            placeholder={`Label ${vIdx + 1}`}
-                                                                        />
-                                                                        <span className="text-industrial-500">:</span>
-                                                                        <input
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            className="input w-24 text-center"
-                                                                            value={lv.value}
-                                                                            onChange={(e) => handleUpdateMultiValue(actualIndex, vIdx, 'value', e.target.value)}
-                                                                            placeholder="0"
-                                                                        />
-                                                                        <ColorPicker
-                                                                            value={lv.color || '#3b82f6'}
-                                                                            onChange={(color) => handleUpdateMultiValue(actualIndex, vIdx, 'color', color)}
-                                                                            align="right"
-                                                                        />
-                                                                        {(dp.labeledValues?.length || 1) > 1 && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleRemoveMultiValue(actualIndex, vIdx)}
-                                                                                className="text-industrial-500 hover:text-red-400 p-1"
-                                                                                title="Remove value"
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleAddMultiValue(actualIndex)}
-                                                                    className="btn btn-secondary btn-sm"
-                                                                    title="Add value"
-                                                                >
-                                                                    <Plus size={12} />
-                                                                    Add Value
-                                                                </button>
-                                                            </div>
-                                                        </div>
                                                     </div>
-                                                );
-                                            }
-
-                                            // Standard single-value layout for line/area/number
-                                            return (
-                                                <div key={actualIndex} className={`grid ${gridCols} gap-2 items-center`}>
-                                                    <input
-                                                        type="date"
-                                                        className="input"
-                                                        value={dp.date}
-                                                        onChange={(e) => handleUpdateDataPoint(actualIndex, 'date', e.target.value)}
-                                                        placeholder={labels[0]}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="input"
-                                                        value={dp.value as number}
-                                                        onChange={(e) => handleUpdateDataPoint(actualIndex, 'value', e.target.value)}
-                                                        placeholder={labels[1]}
-                                                    />
-                                                    {labels.length === 3 && (
-                                                        <ColorPicker
-                                                            value={dp.color || '#3b82f6'}
-                                                            onChange={(color) => handleUpdateDataPoint(actualIndex, 'color', color)}
-                                                            align="right"
-                                                        />
-                                                    )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveDataPoint(actualIndex)}
-                                                        className="btn btn-icon btn-danger"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
                                                 </div>
                                             );
-                                        })}
+                                        }
+
+                                        // Standard single-value layout for line/area/number
+                                        return (
+                                            <div key={actualIndex} className={`grid ${gridCols} gap-2 items-center`}>
+                                                <input
+                                                    type="date"
+                                                    className="input"
+                                                    value={dp.date}
+                                                    onChange={(e) => handleUpdateDataPoint(actualIndex, 'date', e.target.value)}
+                                                    placeholder={labels[0]}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="input"
+                                                    value={dp.value as number}
+                                                    onChange={(e) => handleUpdateDataPoint(actualIndex, 'value', e.target.value)}
+                                                    placeholder={labels[1]}
+                                                />
+                                                {labels.length === 3 && (
+                                                    <ColorPicker
+                                                        value={dp.color || '#3b82f6'}
+                                                        onChange={(color) => handleUpdateDataPoint(actualIndex, 'color', color)}
+                                                        align="right"
+                                                    />
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveDataPoint(actualIndex)}
+                                                    className="btn btn-icon btn-danger"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <p className="text-muted" style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>

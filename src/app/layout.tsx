@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   title: "Scorecard Manager - Track Your KPIs",
   description: "Create and manage scorecards with interactive KPI visualizations and charts",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 };
 

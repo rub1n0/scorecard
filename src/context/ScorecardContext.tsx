@@ -296,7 +296,9 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             ...currentKPI,
             ...updates,
             prefix: updates.prefix ?? currentKPI.prefix,
+            prefixOpacity: updates.prefixOpacity ?? currentKPI.prefixOpacity,
             suffix: updates.suffix ?? currentKPI.suffix,
+            suffixOpacity: updates.suffixOpacity ?? currentKPI.suffixOpacity,
             metrics: updates.metrics ?? updates.dataPoints ?? currentKPI.metrics ?? currentKPI.dataPoints ?? [],
             dataPoints: updates.dataPoints ?? updates.metrics ?? currentKPI.dataPoints ?? currentKPI.metrics ?? [],
             chartType: updates.chartType ?? currentKPI.chartType,
@@ -498,7 +500,9 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 // Apply caller updates
                 ...updates,
                 prefix: updates.prefix ?? kpi.prefix,
+                prefixOpacity: updates.prefixOpacity ?? kpi.prefixOpacity,
                 suffix: updates.suffix ?? kpi.suffix,
+                suffixOpacity: updates.suffixOpacity ?? kpi.suffixOpacity,
                 // Ensure metrics/dataPoints are present for replacement
                 metrics: updates.metrics ?? updates.dataPoints ?? kpi.metrics ?? kpi.dataPoints ?? [],
                 dataPoints: updates.dataPoints ?? updates.metrics ?? kpi.dataPoints ?? kpi.metrics ?? [],

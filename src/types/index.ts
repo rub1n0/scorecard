@@ -70,7 +70,9 @@ export interface KPI {
     lastUpdatedBy?: string; // Email of user who made last update
     reverseTrend?: boolean; // If true, trending down is good (green) and up is bad (red)
     prefix?: string; // Optional prefix for number display (e.g., "$", "€")
+    prefixOpacity?: number; // Opacity of the prefix (0-1)
     suffix?: string; // Optional suffix for number display (e.g., "%", "ms", "GB")
+    suffixOpacity?: number; // Opacity of the suffix (0-1)
     visible?: boolean; // Controls whether the metric is shown on the scorecard
     strokeWidth?: number;
     strokeColor?: string;

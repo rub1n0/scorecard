@@ -454,7 +454,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => setShowManageDropdown(!showManageDropdown)}
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-secondary btn-sm"
                         >
                             <Settings size={16} />
                             Manage Scorecard
@@ -848,7 +848,7 @@ function LinksModal({
                                                         <button
                                                             type="button"
                                                             className="btn btn-xs btn-ghost"
-                                                        disabled={loading || actionLoading}
+                                                            disabled={loading || actionLoading}
                                                             onClick={() => handleRegenerateLink('assignee', row.email, row.email)}
                                                             title="Regenerate link"
                                                         >
@@ -861,7 +861,7 @@ function LinksModal({
                                                         <button
                                                             type="button"
                                                             className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
-                                                        disabled={loading || actionLoading || !row.token}
+                                                            disabled={loading || actionLoading || !row.token}
                                                             onClick={() => handleDeleteLink('assignee', row.email, row.email)}
                                                             title="Remove link"
                                                         >

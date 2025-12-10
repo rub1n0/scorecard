@@ -89,7 +89,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-baseline gap-1">
                                 {kpi.prefix && (
-                                    <span className="text-3xl font-semibold text-industrial-300 font-mono">
+                                    <span className="text-sm text-industrial-300 font-mono" style={{ opacity: kpi.prefixOpacity ?? 0.5 }}>
                                         {kpi.prefix}
                                     </span>
                                 )}
@@ -97,7 +97,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                     {formattedValue}
                                 </span>
                                 {kpi.suffix && (
-                                    <span className="text-3xl font-semibold text-industrial-300 font-mono">
+                                    <span className="text-sm text-industrial-300 font-mono" style={{ opacity: kpi.suffixOpacity ?? 0.5 }}>
                                         {kpi.suffix}
                                     </span>
                                 )}
