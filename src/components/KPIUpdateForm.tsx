@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { KPI, DataPoint } from '@/types';
+import { KPI, Metric } from '@/types';
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import ColorPicker from './ColorPicker';
 
@@ -12,11 +12,11 @@ interface KPIUpdateFormProps {
 
 export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
     const [notes, setNotes] = useState(kpi.notes || '');
-    const [dataPoints, setDataPoints] = useState<DataPoint[]>(kpi.dataPoints || []);
+    const [metrics, setMetrics] = useState<Metric[]>(kpi.metrics || kpi.dataPoints || []);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [showAllDataPoints, setShowAllDataPoints] = useState(false);
+    const [showAllMetrics, setShowAllMetrics] = useState(false);
 
     // Default color palette
     const defaultColors = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
@@ -42,11 +42,12 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         return dateStr;
     };
 
-    // Sort data points by date and normalize date format
+    // Sort metrics by date and normalize date format
     useEffect(() => {
-        if (kpi.dataPoints) {
+        const incoming = kpi.metrics || kpi.dataPoints;
+        if (incoming) {
             // Sort descending (newest first)
-            const sorted = [...kpi.dataPoints].sort((a, b) =>
+            const sorted = [...incoming].sort((a, b) =>
                 new Date(b.date).getTime() - new Date(a.date).getTime()
             );
             // Normalize dates to YYYY-MM-DD format for date inputs
@@ -54,7 +55,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 ...dp,
                 date: normalizeDate(dp.date)
             }));
-            setDataPoints(normalized);
+            setMetrics(normalized);
         }
     }, [kpi]);
 
@@ -78,7 +79,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
 
     const columnConfig = getColumnConfig();
 
-    const handleAddDataPoint = () => {
+    const handleAddMetric = () => {
         let defaultLabel = new Date().toISOString().split('T')[0];
 
         if (kpi.visualizationType === 'chart') {
@@ -89,32 +90,32 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             }
         }
 
-        const latestPoint = dataPoints.length > 0 ? dataPoints[0] : null;
+        const latestPoint = metrics.length > 0 ? metrics[0] : null;
         const inheritedLabeledValues = latestPoint?.labeledValues
             ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
             : [{ label: 'Value 1', value: 0 }];
 
-        const newDataPointColor = latestPoint?.color || (columnConfig.showColor ? defaultColors[dataPoints.length % defaultColors.length] : undefined);
+        const newMetricColor = latestPoint?.color || (columnConfig.showColor ? defaultColors[metrics.length % defaultColors.length] : undefined);
 
-        const newPoint: DataPoint = isMultiValueChart
-            ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues, color: newDataPointColor }
+        const newPoint: Metric = isMultiValueChart
+            ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues, color: newMetricColor }
             : { date: defaultLabel, value: 0 };
 
         // Add color for chart types that use it
         if (columnConfig.showColor) {
-            newPoint.color = defaultColors[dataPoints.length % defaultColors.length];
+            newPoint.color = defaultColors[metrics.length % defaultColors.length];
         }
 
-        const updatedPoints = [...dataPoints, newPoint].sort((a, b) =>
+        const updatedPoints = [...metrics, newPoint].sort((a, b) =>
             new Date(b.date).getTime() - new Date(a.date).getTime()
         );
 
-        setDataPoints(updatedPoints);
+        setMetrics(updatedPoints);
     };
 
     // Handler for updating a single value in a multi-value data point
     const handleUpdateMultiValue = (dpIndex: number, valueIndex: number, field: 'label' | 'value' | 'color', newValue: string) => {
-        const updated = [...dataPoints];
+        const updated = [...metrics];
         const dp = updated[dpIndex];
         const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [{ label: 'Value 1', value: 0 }];
 
@@ -130,12 +131,12 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         updated[dpIndex].labeledValues = currentLabeled;
         updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
         updated[dpIndex].value = currentLabeled.map(lv => lv.value);
-        setDataPoints(updated);
+        setMetrics(updated);
     };
 
     // Handler to add a new value to a multi-value data point
     const handleAddMultiValue = (dpIndex: number) => {
-        const updated = [...dataPoints];
+        const updated = [...metrics];
         const dp = updated[dpIndex];
         const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [];
         const newIndex = currentLabeled.length + 1;
@@ -143,12 +144,12 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         updated[dpIndex].labeledValues = currentLabeled;
         updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
         updated[dpIndex].value = currentLabeled.map(lv => lv.value);
-        setDataPoints(updated);
+        setMetrics(updated);
     };
 
     // Handler to remove a value from a multi-value data point
     const handleRemoveMultiValue = (dpIndex: number, valueIndex: number) => {
-        const updated = [...dataPoints];
+        const updated = [...metrics];
         const dp = updated[dpIndex];
         const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [{ label: 'Value 1', value: 0 }];
         if (currentLabeled.length > 1) {
@@ -156,12 +157,12 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             updated[dpIndex].labeledValues = currentLabeled;
             updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
             updated[dpIndex].value = currentLabeled.map(lv => lv.value);
-            setDataPoints(updated);
+            setMetrics(updated);
         }
     };
 
-    const handleUpdateDataPoint = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
-        const updated = [...dataPoints];
+    const handleUpdateMetric = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
+        const updated = [...metrics];
         if (field === 'date') {
             updated[index].date = newValue;
         } else if (field === 'value') {
@@ -169,11 +170,11 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         } else if (field === 'color') {
             updated[index].color = newValue;
         }
-        setDataPoints(updated);
+        setMetrics(updated);
     };
 
-    const handleRemoveDataPoint = (index: number) => {
-        setDataPoints(dataPoints.filter((_, i) => i !== index));
+    const handleRemoveMetric = (index: number) => {
+        setMetrics(metrics.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -184,7 +185,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
 
         try {
             // Sort data points
-            const sortedPoints = [...dataPoints].sort((a, b) =>
+            const sortedPoints = [...metrics].sort((a, b) =>
                 new Date(a.date).getTime() - new Date(b.date).getTime()
             );
 
@@ -206,7 +207,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 // Text KPIs keep their existing value
                 valueRecord = kpi.value;
             } else if (kpi.visualizationType === 'chart') {
-                // Chart KPIs build from dataPoints
+                // Chart KPIs build from metrics
                 sortedPoints.forEach(dp => {
                     valueRecord[dp.date] = extractNumber(dp.value);
                 });
@@ -216,6 +217,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 value: valueRecord,
                 trendValue: finalTrend,
                 notes: notes || undefined,
+                metrics: sortedPoints,
                 dataPoints: sortedPoints,
                 date: new Date().toISOString()
             });
@@ -257,11 +259,11 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                     </div>
                     <button
                         type="button"
-                        onClick={handleAddDataPoint}
+                        onClick={handleAddMetric}
                         className="btn btn-secondary btn-sm"
                     >
                         <Plus size={16} />
-                        Add Entry
+                        Add Metric
                     </button>
                 </div>
 
@@ -276,15 +278,14 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-industrial-800/50">
-                            {dataPoints.length === 0 ? (
+                            {metrics.length === 0 ? (
                                 <tr>
                                     <td colSpan={columnConfig.showColor ? 4 : columnConfig.showValue ? 3 : 2} className="px-4 py-8 text-center text-industrial-500 italic">
                                         No data points yet. Add one to start tracking.
                                     </td>
                                 </tr>
                             ) : (
-                                (showAllDataPoints ? dataPoints : dataPoints.slice(-10)).map((point, index) => {
-                                    const valueArray = Array.isArray(point.value) ? point.value : (point.valueArray || [typeof point.value === 'number' ? point.value : 0]);
+                                metrics.map((point, index) => {
 
                                     // For multi-value charts, show expanded row with individual value inputs
                                     if (isMultiValueChart) {
@@ -296,19 +297,19 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                             type="text"
                                                             className="bg-transparent border border-industrial-700 rounded px-2 py-1 text-industrial-200 flex-1"
                                                             value={point.date}
-                                                            onChange={(e) => handleUpdateDataPoint(index, 'date', e.target.value)}
+                                                            onChange={(e) => handleUpdateMetric(index, 'date', e.target.value)}
                                                             placeholder={kpi.chartType === 'radar' ? 'Dimension Name' : 'Category Name'}
                                                         />
                                                         {columnConfig.showColor && (
                                                             <ColorPicker
                                                                 value={point.color || '#3b82f6'}
-                                                                onChange={(color) => handleUpdateDataPoint(index, 'color', color)}
+                                                                onChange={(color) => handleUpdateMetric(index, 'color', color)}
                                                                 align="left"
                                                             />
                                                         )}
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleRemoveDataPoint(index)}
+                                                            onClick={() => handleRemoveMetric(index)}
                                                             className="text-industrial-500 hover:text-red-400 transition-colors"
                                                             title="Remove category"
                                                         >
@@ -375,7 +376,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                     type={columnConfig.dateLabel === 'Date' ? "date" : "text"}
                                                     className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
                                                     value={point.date}
-                                                    onChange={(e) => handleUpdateDataPoint(index, 'date', e.target.value)}
+                                                    onChange={(e) => handleUpdateMetric(index, 'date', e.target.value)}
                                                     placeholder={columnConfig.dateLabel}
                                                 />
                                             </td>
@@ -386,7 +387,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                         step="any"
                                                         className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
                                                         value={Array.isArray(point.value) ? (point.value[0] ?? 0) : point.value}
-                                                        onChange={(e) => handleUpdateDataPoint(index, 'value', e.target.value)}
+                                                        onChange={(e) => handleUpdateMetric(index, 'value', e.target.value)}
                                                     />
                                                 </td>
                                             )}
@@ -394,7 +395,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                 <td className="px-4 py-2">
                                                     <ColorPicker
                                                         value={point.color || '#3b82f6'}
-                                                        onChange={(color) => handleUpdateDataPoint(index, 'color', color)}
+                                                        onChange={(color) => handleUpdateMetric(index, 'color', color)}
                                                         align="left"
                                                     />
                                                 </td>
@@ -402,7 +403,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                             <td className="px-4 py-2 text-right">
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleRemoveDataPoint(index)}
+                                                    onClick={() => handleRemoveMetric(index)}
                                                     className="text-industrial-500 hover:text-red-400 transition-colors"
                                                 >
                                                     <Trash2 size={14} />
@@ -415,17 +416,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                         </tbody>
                     </table>
 
-                    {dataPoints.length > 10 && (
-                        <div className="flex justify-center p-4 border-t border-industrial-800">
-                            <button
-                                type="button"
-                                onClick={() => setShowAllDataPoints(!showAllDataPoints)}
-                                className="btn btn-secondary btn-sm"
-                            >
-                                {showAllDataPoints ? 'Show Less' : `Show All (${dataPoints.length} points)`}
-                            </button>
-                        </div>
-                    )}
+                    {/* Show-all toggle removed; always render all points */}
                 </div>
             </div>
 

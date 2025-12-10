@@ -6,9 +6,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import {
     assignments,
     assignmentAssignees,
-    metricDataPoints,
-    metricValues,
-    metrics,
+    metrics as metricEntries,
+    kpiValues,
+    kpis,
     scorecards,
     sections,
     users,
@@ -35,7 +35,7 @@ const deterministicId = (seed: string) => crypto.createHash('sha256').update(see
 async function seed() {
     const scorecardId = deterministicId('sample-scorecard');
     const sectionId = deterministicId('sample-section');
-    const metricId = deterministicId('sample-metric');
+    const kpiId = deterministicId('sample-kpi');
     const assignmentId = deterministicId('sample-assignment');
     const userId = deterministicId('sample-user');
 
@@ -64,9 +64,9 @@ async function seed() {
             });
 
         await tx
-            .insert(metrics)
+            .insert(kpis)
             .values({
-                id: metricId,
+                id: kpiId,
                 scorecardId,
                 sectionId,
                 name: 'KPI001',
@@ -105,11 +105,11 @@ async function seed() {
             });
 
         await tx
-            .insert(metricDataPoints)
+            .insert(metricEntries)
             .values([
-                { metricId, date: new Date('2024-12-01T00:00:00.000Z'), value: 110, color: '#5094af' },
-                { metricId, date: new Date('2024-12-08T00:00:00.000Z'), value: 115, color: '#36c9b8' },
-                { metricId, date: new Date('2024-12-15T00:00:00.000Z'), value: 120, color: '#dea821' },
+                { kpiId, date: new Date('2024-12-01T00:00:00.000Z'), value: 110, color: '#5094af' },
+                { kpiId, date: new Date('2024-12-08T00:00:00.000Z'), value: 115, color: '#36c9b8' },
+                { kpiId, date: new Date('2024-12-15T00:00:00.000Z'), value: 120, color: '#dea821' },
             ])
             .onDuplicateKeyUpdate({
                 set: {
@@ -119,8 +119,8 @@ async function seed() {
             });
 
         await tx
-            .insert(metricValues)
-            .values({ metricId, valueKey: '0', numericValue: 120 })
+            .insert(kpiValues)
+            .values({ kpiId, valueKey: '0', numericValue: 120 })
             .onDuplicateKeyUpdate({
                 set: { numericValue: sql`VALUES(numeric_value)` },
             });
@@ -134,7 +134,7 @@ async function seed() {
 
         await tx
             .insert(assignments)
-            .values({ id: assignmentId, metricId, sectionId })
+            .values({ id: assignmentId, kpiId, sectionId })
             .onDuplicateKeyUpdate({
                 set: { sectionId },
             });

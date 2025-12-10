@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/mysql';
-import { assignments, assignmentAssignees, metrics, scorecards, sections, users } from '../../../../../db/schema';
+import { assignments, assignmentAssignees, kpis, scorecards, sections, users } from '../../../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 const notFound = NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -12,12 +12,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         const [assignment] = await db.select().from(assignments).where(eq(assignments.id, id));
         if (!assignment) return notFound;
 
-        const [metricRow] = await db
-            .select({ metric: metrics, section: sections, scorecard: scorecards })
-            .from(metrics)
-            .leftJoin(sections, eq(metrics.sectionId, sections.id))
-            .leftJoin(scorecards, eq(metrics.scorecardId, scorecards.id))
-            .where(eq(metrics.id, assignment.metricId));
+        const [kpiRow] = await db
+            .select({ kpi: kpis, section: sections, scorecard: scorecards })
+            .from(kpis)
+            .leftJoin(sections, eq(kpis.sectionId, sections.id))
+            .leftJoin(scorecards, eq(kpis.scorecardId, scorecards.id))
+            .where(eq(kpis.id, assignment.kpiId));
 
         const assignees = await db
             .select({ user: users })
@@ -27,9 +27,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
         return NextResponse.json({
             ...assignment,
-            metric: metricRow?.metric || null,
-            section: metricRow?.section || null,
-            scorecard: metricRow?.scorecard || null,
+            kpi: kpiRow?.kpi || null,
+            section: kpiRow?.section || null,
+            scorecard: kpiRow?.scorecard || null,
             assignees: assignees.map(a => a.user).filter(Boolean),
         });
     } catch (error) {

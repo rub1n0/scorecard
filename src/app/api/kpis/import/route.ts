@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
-import { metrics, metricDataPoints, scorecards, sections } from '../../../../../db/schema';
+import { kpis, metrics, scorecards, sections } from '../../../../../db/schema';
 import { normalizeDateOnly, normalizeValueForChartType, extractChartSettingColumns } from '@/utils/metricNormalization';
 import { parseCSV, ParsedKPI } from '@/utils/csvParser';
 import { ChartSettings } from '@/types';
@@ -10,7 +10,7 @@ import { ChartSettings } from '@/types';
 const badRequest = (message: string, detail?: unknown) =>
     NextResponse.json({ error: message, detail }, { status: 400 });
 
-const metricKey = (kpiName: string, sectionId: string | null) => `${kpiName.trim().toLowerCase()}|${sectionId || 'NULL'}`;
+const kpiKey = (kpiName: string, sectionId: string | null) => `${kpiName.trim().toLowerCase()}|${sectionId || 'NULL'}`;
 
 export async function POST(req: NextRequest) {
     try {
@@ -28,10 +28,12 @@ export async function POST(req: NextRequest) {
                 return badRequest('Failed to parse CSV', parsedResult.errors);
             }
             parsed = parsedResult.kpis;
+        } else if (Array.isArray(body?.kpis)) {
+            parsed = body.kpis as ParsedKPI[];
         } else if (Array.isArray(body?.metrics)) {
-            parsed = body.metrics as ParsedKPI[];
+            parsed = body.metrics as ParsedKPI[]; // Legacy key support
         } else {
-            return badRequest('Provide either csv (string) or metrics (ParsedKPI[]) in the request body');
+            return badRequest('Provide either csv (string) or kpis (ParsedKPI[]) in the request body');
         }
 
         const now = new Date();
@@ -68,16 +70,16 @@ export async function POST(req: NextRequest) {
                 await tx.insert(sections).values(newSectionRows);
             }
 
-            // Load metrics to dedupe by kpiName + section
-            const existingMetrics = await tx.select().from(metrics).where(eq(metrics.scorecardId, scorecardId));
-            const metricByKey = new Map<string, typeof metrics.$inferSelect>();
-            existingMetrics.forEach((m) => {
-                metricByKey.set(metricKey(m.kpiName || m.name, m.sectionId || null), m);
+            // Load KPIs to dedupe by kpiName + section
+            const existingKpis = await tx.select().from(kpis).where(eq(kpis.scorecardId, scorecardId));
+            const kpiByKey = new Map<string, typeof kpis.$inferSelect>();
+            existingKpis.forEach((row) => {
+                kpiByKey.set(kpiKey(row.kpiName || row.name, row.sectionId || null), row);
             });
 
-            let metricsCreated = 0;
-            let metricsUpdated = 0;
-            let datapointsUpserted = 0;
+            let kpisCreated = 0;
+            let kpisUpdated = 0;
+            let metricsUpserted = 0;
 
             for (const kpi of parsed) {
                 const kpiName = (kpi.name || '').trim();
@@ -87,8 +89,8 @@ export async function POST(req: NextRequest) {
                     ? sectionByKey.get(kpi.sectionName.trim().toLowerCase())?.id || null
                     : kpi.sectionId || null;
 
-                const key = metricKey(kpiName, sectionId);
-                const existingMetric = metricByKey.get(key);
+                const key = kpiKey(kpiName, sectionId);
+                const existingKpi = kpiByKey.get(key);
 
                 const chartSettingsCols = extractChartSettingColumns(kpi.chartSettings);
                 const showGridlinesFromSettings =
@@ -121,43 +123,45 @@ export async function POST(req: NextRequest) {
                     chartSettings: kpi.chartSettings || null,
                     order: kpi.order ?? null,
                     lastUpdatedBy: kpi.lastUpdatedBy || null,
-                    visible: kpi.visible ?? existingMetric?.visible ?? true,
+                    visible: kpi.visible ?? existingKpi?.visible ?? true,
                     updatedAt: now,
                 };
 
-                let metricId = existingMetric?.id;
-                if (existingMetric) {
+                let kpiId = existingKpi?.id;
+                if (existingKpi) {
                     await tx
-                        .update(metrics)
+                        .update(kpis)
                         .set(baseDefinition)
                         .where(
                             and(
-                                eq(metrics.scorecardId, scorecardId),
-                                eq(metrics.kpiName, kpiName),
-                                sectionId ? eq(metrics.sectionId, sectionId) : isNull(metrics.sectionId)
+                                eq(kpis.scorecardId, scorecardId),
+                                eq(kpis.kpiName, kpiName),
+                                sectionId ? eq(kpis.sectionId, sectionId) : isNull(kpis.sectionId)
                             )
                         );
-                    metricsUpdated += 1;
+                    kpisUpdated += 1;
                 } else {
-                    metricId = crypto.randomUUID();
-                    await tx.insert(metrics).values({
+                    kpiId = crypto.randomUUID();
+                    await tx.insert(kpis).values({
                         ...baseDefinition,
-                        id: metricId,
+                        id: kpiId,
                         createdAt: now,
                     });
-                    metricsCreated += 1;
-                    metricByKey.set(key, { ...baseDefinition, id: metricId } as typeof metrics.$inferSelect);
+                    kpisCreated += 1;
+                    kpiByKey.set(key, { ...baseDefinition, id: kpiId } as typeof kpis.$inferSelect);
                 }
 
-                if (!metricId) continue;
+                if (!kpiId) continue;
 
-                const datapoints = kpi.dataPoints && kpi.dataPoints.length
-                    ? kpi.dataPoints
-                    : [{ date: kpi.date || now.toISOString(), value: kpi.value }];
+                const metricEntries = Array.isArray(kpi.metrics) && kpi.metrics.length
+                    ? kpi.metrics
+                    : Array.isArray(kpi.dataPoints) && kpi.dataPoints.length
+                        ? kpi.dataPoints
+                        : [{ date: kpi.date || now.toISOString(), value: kpi.value }];
 
-                // Deduplicate datapoints by normalized date and prefer the most recent date instance
+                // Deduplicate metrics by normalized date and prefer the most recent date instance
                 const dpByDate = new Map<string, { date: string; value: unknown; color?: string | null; valueArray?: unknown; labeledValues?: unknown }>();
-                for (const dpRaw of datapoints) {
+                for (const dpRaw of metricEntries) {
                     const dp = dpRaw as { date?: string; value?: unknown; color?: string | null; valueArray?: unknown; labeledValues?: unknown };
                     const normalizedDate = normalizeDateOnly(dp.date as string);
                     const existing = dpByDate.get(normalizedDate);
@@ -177,9 +181,9 @@ export async function POST(req: NextRequest) {
                     const dateValue = new Date(`${dp.date}T00:00:00.000Z`);
 
                     await tx
-                        .insert(metricDataPoints)
+                        .insert(metrics)
                         .values({
-                            metricId,
+                            kpiId,
                             date: dateValue,
                             value,
                             color: dp.color ?? null,
@@ -191,11 +195,11 @@ export async function POST(req: NextRequest) {
                             },
                         });
 
-                    datapointsUpserted += 1;
+                    metricsUpserted += 1;
                 }
             }
 
-            return { metricsCreated, metricsUpdated, datapointsUpserted, sectionsCreated: newSectionRows.length };
+            return { kpisCreated, kpisUpdated, metricsUpserted, sectionsCreated: newSectionRows.length };
         });
 
         return NextResponse.json({
@@ -203,7 +207,7 @@ export async function POST(req: NextRequest) {
             ...result,
         });
     } catch (error) {
-        console.error('[metrics/import][POST]', error);
-        return NextResponse.json({ error: 'Failed to import metrics' }, { status: 500 });
+        console.error('[kpis/import][POST]', error);
+        return NextResponse.json({ error: 'Failed to import KPIs' }, { status: 500 });
     }
 }

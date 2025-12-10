@@ -4,14 +4,14 @@ import React, { useMemo, useState } from 'react';
 import { KPI } from '@/types';
 import { Save } from 'lucide-react';
 
-type MetricUpdateRowProps = {
+type KPIUpdateRowProps = {
     kpi: KPI;
     onUpdate: (updates: Partial<KPI>) => Promise<void>;
 };
 
 type ValueEntry = { key: string; value: number | string };
 
-export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
+export default function KPIUpdateRow({ kpi, onUpdate }: KPIUpdateRowProps) {
     const isChart = kpi.visualizationType === 'chart';
 
     // Helper to normalize array values to single number
@@ -21,13 +21,13 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
     };
 
     const historyPoints = useMemo(() => {
-        const fromDataPoints = (kpi.dataPoints || []).map(dp => ({
+        const fromMetrics = (kpi.metrics || kpi.dataPoints || []).map(dp => ({
             key: dp.date,
             value: normalizeValue(dp.value),
         }));
 
-        if (fromDataPoints.length > 0) {
-            return fromDataPoints.sort((a, b) => new Date(b.key).getTime() - new Date(a.key).getTime());
+        if (fromMetrics.length > 0) {
+            return fromMetrics.sort((a, b) => new Date(b.key).getTime() - new Date(a.key).getTime());
         }
 
         const fromValue = Object.entries(kpi.value || {}).map(([key, val]) => ({
@@ -36,7 +36,7 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
         }));
 
         return fromValue.sort((a, b) => new Date(b.key).getTime() - new Date(a.key).getTime());
-    }, [kpi.dataPoints, kpi.value]);
+    }, [kpi.metrics, kpi.dataPoints, kpi.value]);
 
     const latestPoint = historyPoints[0];
 
@@ -83,6 +83,7 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
             }));
             return {
                 value: valueRecord,
+                metrics: dataPoints,
                 dataPoints,
                 notes: notes || undefined,
                 date: date ? new Date(date).toISOString() : new Date().toISOString(),
@@ -104,13 +105,15 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
             value: { '0': safeNum },
             trendValue: safeNum,
             notes: notes || undefined,
+            metrics: [{ date: date ? new Date(date).toISOString() : new Date().toISOString(), value: safeNum }],
+            dataPoints: [{ date: date ? new Date(date).toISOString() : new Date().toISOString(), value: safeNum }],
             date: date ? new Date(date).toISOString() : new Date().toISOString(),
         };
     };
 
     const submit = async () => {
         if (!kpi.updateToken) {
-            setError('Missing update token for this metric.');
+            setError('Missing update token for this KPI.');
             return;
         }
         setSaving(true);
@@ -127,6 +130,9 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
         }
     };
 
+    const subtitleText = kpi.subtitle || '—';
+    const truncatedSubtitle = subtitleText.length > 25 ? `${subtitleText.slice(0, 25)}...` : subtitleText;
+
     return (
         <tr className="align-top">
             <td className="px-3 py-2">
@@ -135,11 +141,9 @@ export default function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps)
             <td className="px-3 py-2">
                 <div
                     className="text-xs text-industrial-500 whitespace-nowrap overflow-hidden text-ellipsis w-[160px]"
-                    title={kpi.subtitle || '—'}
+                    title={subtitleText}
                 >
-                    {(kpi.subtitle || '—').length > 25
-                        ? `${(kpi.subtitle || '—').slice(0, 25)}...`
-                        : (kpi.subtitle || '—')}
+                    {truncatedSubtitle}
                 </div>
             </td>
             <td className="px-3 py-2">

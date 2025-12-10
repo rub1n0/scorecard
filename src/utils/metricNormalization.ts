@@ -2,6 +2,18 @@ import { ChartSettings, ChartType, LabeledValue } from '@/types';
 
 const MULTI_VALUE_TYPES = new Set<ChartType | string>(['radar', 'bar', 'column', 'pie', 'donut', 'radialBar']);
 
+const isLabeledValue = (value: unknown): value is LabeledValue => {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    const candidate = value as Partial<LabeledValue>;
+    return (
+        typeof candidate.value === 'number' &&
+        'label' in candidate &&
+        typeof candidate.label === 'string'
+    );
+};
+
 const toFiniteNumber = (input: unknown): number | null => {
     const num = typeof input === 'number' ? input : Number(input);
     return Number.isFinite(num) ? num : null;
@@ -48,7 +60,7 @@ export const normalizeValueForChartType = (chartType: string | null | undefined,
 
     if (multi) {
         // preserve labeled values if present
-        if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null && 'label' in raw[0] && 'value' in raw[0]) {
+        if (Array.isArray(raw) && raw.length > 0 && isLabeledValue(raw[0])) {
             return raw as LabeledValue[];
         }
 
@@ -79,13 +91,13 @@ export const normalizeValueForChartType = (chartType: string | null | undefined,
 
 export const serializeValueForStorage = (chartType: string | null | undefined, raw: unknown) => normalizeValueForChartType(chartType, raw);
 
-export const mapDataPointValue = (chartType: string | null | undefined, rawDate: unknown, rawValue: unknown, color?: string | null) => {
+export const mapMetricValue = (chartType: string | null | undefined, rawDate: unknown, rawValue: unknown, color?: string | null) => {
     const normalizedValue = normalizeValueForChartType(chartType, rawValue);
     const date = normalizeDateOnly(typeof rawDate === 'string' || rawDate instanceof Date ? rawDate : undefined);
 
     if (Array.isArray(normalizedValue)) {
         // Handle LabeledValue array
-        if (normalizedValue.length > 0 && typeof normalizedValue[0] === 'object' && 'value' in (normalizedValue[0] as any)) {
+        if (normalizedValue.length > 0 && isLabeledValue(normalizedValue[0])) {
             const labeled = normalizedValue as LabeledValue[];
             const aggregate = labeled.reduce((sum, item) => sum + item.value, 0);
             return {

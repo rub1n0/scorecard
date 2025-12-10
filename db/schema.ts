@@ -30,7 +30,7 @@ export const scorecards = mysqlTable(
     })
 );
 
-// Sections (referenced by metrics.sectionId)
+// Sections (referenced by kpis.sectionId)
 export const sections = mysqlTable(
     'sections',
     {
@@ -48,9 +48,9 @@ export const sections = mysqlTable(
     })
 );
 
-// Metrics (KPIs)
-export const metrics = mysqlTable(
-    'metrics',
+// KPIs
+export const kpis = mysqlTable(
+    'kpis',
     {
         id: varchar('id', { length: 36 }).primaryKey(),
         scorecardId: varchar('scorecard_id', { length: 36 }).notNull(),
@@ -84,41 +84,41 @@ export const metrics = mysqlTable(
         updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
     },
     (table) => ({
-        scorecardIdx: index('idx_metrics_scorecard').on(table.scorecardId),
-        sectionIdx: index('idx_metrics_section').on(table.sectionId),
-        nameIdx: index('idx_metrics_name').on(table.name),
-        kpiSectionUnique: uniqueIndex('uniq_metric_kpi_section').on(table.kpiName, table.sectionId),
+        scorecardIdx: index('idx_kpis_scorecard').on(table.scorecardId),
+        sectionIdx: index('idx_kpis_section').on(table.sectionId),
+        nameIdx: index('idx_kpis_name').on(table.name),
+        kpiSectionUnique: uniqueIndex('uniq_kpi_section').on(table.kpiName, table.sectionId),
     })
 );
 
-// Metric datapoints (flattened KPI.dataPoints[])
-export const metricDataPoints = mysqlTable(
-    'metric_data_points',
+// Metrics captured for each KPI (formerly datapoints)
+export const metrics = mysqlTable(
+    'metrics',
     {
         id: serial('id').primaryKey(),
-        metricId: varchar('metric_id', { length: 36 }).notNull(),
+        kpiId: varchar('kpi_id', { length: 36 }).notNull(),
         date: date('date').notNull(),
         value: json('value').notNull(),
         color: varchar('color', { length: 32 }),
     },
     (table) => ({
-        metricIdx: index('idx_datapoints_metric').on(table.metricId),
-        uniqMetricDate: uniqueIndex('uniq_metric_date').on(table.metricId, table.date),
+        kpiIdx: index('idx_metrics_kpi').on(table.kpiId),
+        uniqKpiDate: uniqueIndex('uniq_metric_kpi_date').on(table.kpiId, table.date),
     })
 );
 
-// Metric values (key/value pairs from KPI.value)
-export const metricValues = mysqlTable(
-    'metric_values',
+// KPI values (key/value pairs from KPI.value)
+export const kpiValues = mysqlTable(
+    'kpi_values',
     {
         id: serial('id').primaryKey(),
-        metricId: varchar('metric_id', { length: 36 }).notNull(),
+        kpiId: varchar('kpi_id', { length: 36 }).notNull(),
         valueKey: varchar('value_key', { length: 255 }).notNull(),
         numericValue: double('numeric_value'),
         textValue: text('text_value'),
     },
     (table) => ({
-        uniqueMetricKey: uniqueIndex('uniq_metric_value_key').on(table.metricId, table.valueKey),
+        uniqueKpiKey: uniqueIndex('uniq_kpi_value_key').on(table.kpiId, table.valueKey),
     })
 );
 
@@ -127,13 +127,13 @@ export const assignments = mysqlTable(
     'assignments',
     {
         id: varchar('id', { length: 36 }).primaryKey(),
-        metricId: varchar('metric_id', { length: 36 }).notNull(),
+        kpiId: varchar('kpi_id', { length: 36 }).notNull(),
         sectionId: varchar('section_id', { length: 36 }),
         createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
     },
     (table) => ({
-        metricIdx: index('idx_assignments_metric').on(table.metricId),
+        kpiIdx: index('idx_assignments_kpi').on(table.kpiId),
     })
 );
 

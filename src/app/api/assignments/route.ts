@@ -5,7 +5,7 @@ import { db } from '@/lib/mysql';
 import {
     assignments,
     assignmentAssignees,
-    metrics,
+    kpis,
     sections,
     scorecards,
     users,
@@ -33,27 +33,27 @@ async function loadAssignments(ids?: string[]) {
         assigneesByAssignment.set(row.assignmentId, list);
     });
 
-    const metricIds = base.map(a => a.metricId);
-    const metricsRows = metricIds.length
+    const kpiIds = base.map(a => a.kpiId);
+    const kpiRows = kpiIds.length
         ? await db
-            .select({ metric: metrics, section: sections, scorecard: scorecards })
-            .from(metrics)
-            .leftJoin(sections, eq(metrics.sectionId, sections.id))
-            .leftJoin(scorecards, eq(metrics.scorecardId, scorecards.id))
-            .where(inArray(metrics.id, metricIds))
+            .select({ kpi: kpis, section: sections, scorecard: scorecards })
+            .from(kpis)
+            .leftJoin(sections, eq(kpis.sectionId, sections.id))
+            .leftJoin(scorecards, eq(kpis.scorecardId, scorecards.id))
+            .where(inArray(kpis.id, kpiIds))
         : [];
 
-    const metricsById = new Map<string, typeof metricsRows[number]>();
-    metricsRows.forEach(row => metricsById.set(row.metric.id, row));
+    const kpisById = new Map<string, typeof kpiRows[number]>();
+    kpiRows.forEach(row => kpisById.set(row.kpi.id, row));
 
     return base.map((assignment) => {
         const assigneeRows = assigneesByAssignment.get(assignment.id) || [];
-        const metricRow = metricsById.get(assignment.metricId);
+        const kpiRow = kpisById.get(assignment.kpiId);
         return {
             ...assignment,
-            metric: metricRow?.metric || null,
-            section: metricRow?.section || null,
-            scorecard: metricRow?.scorecard || null,
+            kpi: kpiRow?.kpi || null,
+            section: kpiRow?.section || null,
+            scorecard: kpiRow?.scorecard || null,
             assignees: assigneeRows.map(r => r.user).filter(Boolean),
         };
     });
@@ -72,8 +72,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const metricId = body?.metricId as string;
-        if (!metricId) return badRequest('metricId is required');
+        const kpiId = body?.kpiId as string;
+        if (!kpiId) return badRequest('kpiId is required');
         const sectionId = body?.sectionId ?? null;
         const assigneeIds = Array.isArray(body?.assigneeIds) ? body.assigneeIds.filter(Boolean) : [];
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         await db.transaction(async (tx) => {
             await tx.insert(assignments).values({
                 id,
-                metricId,
+                kpiId,
                 sectionId,
                 createdAt: now,
                 updatedAt: now,

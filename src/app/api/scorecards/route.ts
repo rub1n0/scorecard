@@ -6,53 +6,53 @@ import { db } from '@/lib/mysql';
 import {
     assignments,
     assignmentAssignees,
+    kpis,
     metrics,
-    metricDataPoints,
     scorecardAssigneeTokens,
     scorecards,
     sections,
     users,
 } from '../../../../db/schema';
-import { buildChartSettings, extractChartSettingColumns, mapDataPointValue, normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
+import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
 
 const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
     const sectionRows = await db.select().from(sections).where(eq(sections.scorecardId, sc.id)).orderBy(sections.displayOrder);
-    const metricRows = await db.select().from(metrics).where(eq(metrics.scorecardId, sc.id));
-    const metricIds = metricRows.map(m => m.id);
-    const dataPoints = metricIds.length
-        ? await db.select().from(metricDataPoints).where(inArray(metricDataPoints.metricId, metricIds))
+    const kpiRows = await db.select().from(kpis).where(eq(kpis.scorecardId, sc.id));
+    const kpiIds = kpiRows.map(k => k.id);
+    const metricRows = kpiIds.length
+        ? await db.select().from(metrics).where(inArray(metrics.kpiId, kpiIds))
         : [];
-    const dataPointsByMetric = new Map<string, typeof dataPoints>();
-    dataPoints.forEach(dp => {
-        const list = dataPointsByMetric.get(dp.metricId) || [];
-        list.push(dp);
-        dataPointsByMetric.set(dp.metricId, list);
+    const metricsByKpi = new Map<string, typeof metricRows>();
+    metricRows.forEach(mt => {
+        const list = metricsByKpi.get(mt.kpiId) || [];
+        list.push(mt);
+        metricsByKpi.set(mt.kpiId, list);
     });
 
-    const assignmentRows = metricIds.length
+    const assignmentRows = kpiIds.length
         ? await db
             .select({
                 assignment: assignments,
                 assignmentId: assignments.id,
-                metricId: assignments.metricId,
+                kpiId: assignments.kpiId,
                 user: users,
             })
             .from(assignments)
             .leftJoin(assignmentAssignees, eq(assignments.id, assignmentAssignees.assignmentId))
             .leftJoin(users, eq(assignmentAssignees.userId, users.id))
-            .where(inArray(assignments.metricId, metricIds))
+            .where(inArray(assignments.kpiId, kpiIds))
         : [];
 
-    const assigneesByMetric = new Map<string, string[]>();
+    const assigneesByKpi = new Map<string, string[]>();
     assignmentRows.forEach(row => {
-        const key = row.metricId;
-        const list = assigneesByMetric.get(key) || [];
+        const key = row.kpiId;
+        const list = assigneesByKpi.get(key) || [];
         if (row.user) {
             list.push(row.user.email || row.user.name || '');
         }
-        assigneesByMetric.set(key, list.filter(Boolean));
+        assigneesByKpi.set(key, list.filter(Boolean));
     });
 
     const tokens = await db
@@ -65,42 +65,43 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
         assigneesMap[t.email] = t.token;
     });
 
-    const kpis = metricRows.map(m => {
-        const chartSettings = buildChartSettings(m);
-        const dataPointsForMetric = dataPointsByMetric.get(m.id) || [];
+    const kpisPayload = kpiRows.map(kpi => {
+        const chartSettings = buildChartSettings(kpi);
+        const metricEntries = metricsByKpi.get(kpi.id) || [];
 
         return {
-            id: m.id,
-            name: m.kpiName || m.name,
-            kpiName: m.kpiName || m.name,
-            subtitle: m.subtitle || undefined,
-            visualizationType: m.visualizationType as any,
-            chartType: m.chartType || undefined,
-            reverseTrend: m.reverseTrend,
-            updateToken: m.updateToken || undefined,
-            assignment: m.assignment || undefined,
-            date: m.date ? new Date(m.date).toISOString() : new Date().toISOString(),
-            prefix: m.prefix || undefined,
-            suffix: m.suffix || undefined,
-            trendValue: m.trendValue ?? undefined,
-            value: (m.valueJson as any) || {},
-            notes: m.notes || undefined,
+            id: kpi.id,
+            name: kpi.kpiName || kpi.name,
+            kpiName: kpi.kpiName || kpi.name,
+            subtitle: kpi.subtitle || undefined,
+            visualizationType: kpi.visualizationType as any,
+            chartType: kpi.chartType || undefined,
+            reverseTrend: kpi.reverseTrend,
+            updateToken: kpi.updateToken || undefined,
+            assignment: kpi.assignment || undefined,
+            date: kpi.date ? new Date(kpi.date).toISOString() : new Date().toISOString(),
+            prefix: kpi.prefix || undefined,
+            suffix: kpi.suffix || undefined,
+            trendValue: kpi.trendValue ?? undefined,
+            value: (kpi.valueJson as any) || {},
+            notes: kpi.notes || undefined,
             chartSettings,
-            strokeWidth: m.strokeWidth ?? chartSettings.strokeWidth,
-            strokeColor: m.strokeColor ?? chartSettings.strokeColor,
-            strokeOpacity: m.strokeOpacity ?? chartSettings.strokeOpacity,
-            showLegend: typeof m.showLegend === 'number' ? Boolean(m.showLegend) : m.showLegend ?? chartSettings.showLegend,
+            strokeWidth: kpi.strokeWidth ?? chartSettings.strokeWidth,
+            strokeColor: kpi.strokeColor ?? chartSettings.strokeColor,
+            strokeOpacity: kpi.strokeOpacity ?? chartSettings.strokeOpacity,
+            showLegend: typeof kpi.showLegend === 'number' ? Boolean(kpi.showLegend) : kpi.showLegend ?? chartSettings.showLegend,
             showGridlines:
-                typeof m.showGridlines === 'number'
-                    ? Boolean(m.showGridlines)
-                    : m.showGridlines ?? (chartSettings as any).showGridLines ?? (chartSettings as any).showGridlines,
-            showDataLabels: typeof m.showDataLabels === 'number' ? Boolean(m.showDataLabels) : m.showDataLabels ?? chartSettings.showDataLabels,
-            order: m.order ?? undefined,
-            lastUpdatedBy: m.lastUpdatedBy || undefined,
-            sectionId: m.sectionId || undefined,
-            visible: m.visible ?? true,
-            assignees: assigneesByMetric.get(m.id) || [],
-            dataPoints: dataPointsForMetric.map(dp => mapDataPointValue(m.chartType, dp.date, dp.value, dp.color)),
+                typeof kpi.showGridlines === 'number'
+                    ? Boolean(kpi.showGridlines)
+                    : kpi.showGridlines ?? (chartSettings as any).showGridLines ?? (chartSettings as any).showGridlines,
+            showDataLabels: typeof kpi.showDataLabels === 'number' ? Boolean(kpi.showDataLabels) : kpi.showDataLabels ?? chartSettings.showDataLabels,
+            order: kpi.order ?? undefined,
+            lastUpdatedBy: kpi.lastUpdatedBy || undefined,
+            sectionId: kpi.sectionId || undefined,
+            visible: kpi.visible ?? true,
+            assignees: assigneesByKpi.get(kpi.id) || [],
+            metrics: metricEntries.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color)),
+            dataPoints: metricEntries.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color)),
         };
     });
 
@@ -108,7 +109,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
         id: sc.id,
         name: sc.name,
         description: sc.description || '',
-        kpis,
+        kpis: kpisPayload,
         sections: sectionRows.map(s => ({
             id: s.id,
             name: s.name || '',
@@ -197,18 +198,18 @@ export async function PUT(req: NextRequest) {
             }
 
             if (Array.isArray(body?.kpis)) {
-                const metricIds = (await tx.select({ id: metrics.id }).from(metrics).where(eq(metrics.scorecardId, id))).map(m => m.id);
-                if (metricIds.length) {
-                    const assignmentIds = (await tx.select({ id: assignments.id }).from(assignments).where(inArray(assignments.metricId, metricIds))).map(a => a.id);
+                const kpiIds = (await tx.select({ id: kpis.id }).from(kpis).where(eq(kpis.scorecardId, id))).map(m => m.id);
+                if (kpiIds.length) {
+                    const assignmentIds = (await tx.select({ id: assignments.id }).from(assignments).where(inArray(assignments.kpiId, kpiIds))).map(a => a.id);
                     if (assignmentIds.length) {
                         await tx.delete(assignmentAssignees).where(inArray(assignmentAssignees.assignmentId, assignmentIds));
                         await tx.delete(assignments).where(inArray(assignments.id, assignmentIds));
                     }
-                    await tx.delete(metricDataPoints).where(inArray(metricDataPoints.metricId, metricIds));
-                    await tx.delete(metrics).where(eq(metrics.scorecardId, id));
+                    await tx.delete(metrics).where(inArray(metrics.kpiId, kpiIds));
+                    await tx.delete(kpis).where(eq(kpis.scorecardId, id));
                 }
 
-                const metricValues = body.kpis.map((kpi: any, idx: number) => {
+                const kpiDefinitions = body.kpis.map((kpi: any, idx: number) => {
                     const chartSettingsCols = extractChartSettingColumns(kpi.chartSettings);
                     const normalizedDate = normalizeDateOnly(kpi.date);
                     const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
@@ -251,18 +252,18 @@ export async function PUT(req: NextRequest) {
                     };
                 });
 
-                if (metricValues.length) {
-                    await tx.insert(metrics).values(metricValues);
+                if (kpiDefinitions.length) {
+                    await tx.insert(kpis).values(kpiDefinitions);
 
-                    for (const m of metricValues) {
-                        const kpiSource = body.kpis.find((k: any) => (k.id || m.id) === m.id);
+                    for (const definition of kpiDefinitions) {
+                        const kpiSource = body.kpis.find((k: any) => (k.id || definition.id) === definition.id);
 
-                        // Insert dataPoints for ALL metrics (before assignee check)
-                        const points = (kpiSource?.dataPoints || []).map((dp: any) => {
+                        // Insert metrics for ALL KPIs (before assignee check)
+                        const points = ((kpiSource?.metrics && kpiSource.metrics.length ? kpiSource.metrics : kpiSource?.dataPoints) || []).map((dp: any) => {
                             const normalizedDate = normalizeDateOnly(dp.date);
-                            const value = normalizeValueForChartType(kpiSource?.chartType || m.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
+                            const value = normalizeValueForChartType(kpiSource?.chartType || definition.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
                             return {
-                                metricId: m.id,
+                                kpiId: definition.id,
                                 date: new Date(`${normalizedDate}T00:00:00.000Z`),
                                 value,
                                 color: dp.color || null,
@@ -270,7 +271,7 @@ export async function PUT(req: NextRequest) {
                         });
                         if (points.length) {
                             await tx
-                                .insert(metricDataPoints)
+                                .insert(metrics)
                                 .values(points)
                                 .onDuplicateKeyUpdate({
                                     set: {
@@ -287,8 +288,8 @@ export async function PUT(req: NextRequest) {
                         const assignmentId = crypto.randomUUID();
                         await tx.insert(assignments).values({
                             id: assignmentId,
-                            metricId: m.id,
-                            sectionId: m.sectionId,
+                            kpiId: definition.id,
+                            sectionId: definition.sectionId,
                             createdAt: new Date(),
                             updatedAt: new Date(),
                         });
@@ -345,14 +346,15 @@ export async function DELETE(req: NextRequest) {
 
         await db.delete(scorecards).where(eq(scorecards.id, id));
         await db.delete(sections).where(eq(sections.scorecardId, id));
-        const metricIds = (await db.select({ id: metrics.id }).from(metrics).where(eq(metrics.scorecardId, id))).map(m => m.id);
-        if (metricIds.length) {
-            const assignmentIds = (await db.select({ id: assignments.id }).from(assignments).where(inArray(assignments.metricId, metricIds))).map(a => a.id);
+        const kpiIds = (await db.select({ id: kpis.id }).from(kpis).where(eq(kpis.scorecardId, id))).map(m => m.id);
+        if (kpiIds.length) {
+            const assignmentIds = (await db.select({ id: assignments.id }).from(assignments).where(inArray(assignments.kpiId, kpiIds))).map(a => a.id);
             if (assignmentIds.length) {
                 await db.delete(assignmentAssignees).where(inArray(assignmentAssignees.assignmentId, assignmentIds));
                 await db.delete(assignments).where(inArray(assignments.id, assignmentIds));
             }
-            await db.delete(metrics).where(eq(metrics.scorecardId, id));
+            await db.delete(metrics).where(inArray(metrics.kpiId, kpiIds));
+            await db.delete(kpis).where(eq(kpis.scorecardId, id));
         }
         await db.delete(scorecardAssigneeTokens).where(eq(scorecardAssigneeTokens.scorecardId, id));
         return NextResponse.json({ success: true });

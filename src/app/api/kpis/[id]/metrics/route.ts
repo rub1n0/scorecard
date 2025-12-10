@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
-import { metricDataPoints, metrics } from '../../../../../../db/schema';
+import { kpis, metrics } from '../../../../../../db/schema';
 import { normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
 import { LabeledValue } from '@/types';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
+const isLabeledValue = (value: unknown): value is LabeledValue => {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    const candidate = value as Partial<LabeledValue>;
+    return (
+        typeof candidate.value === 'number' &&
+        'label' in candidate &&
+        typeof candidate.label === 'string'
+    );
+};
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -15,19 +26,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (!dateInput) return badRequest('date is required');
         if (body?.value === undefined || body?.value === null) return badRequest('value is required');
 
-        const [metric] = await db.select().from(metrics).where(eq(metrics.id, id));
-        if (!metric) return NextResponse.json({ error: 'Metric not found' }, { status: 404 });
+        const [kpi] = await db.select().from(kpis).where(eq(kpis.id, id));
+        if (!kpi) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
 
-        const chartType = body?.chartType ?? metric.chartType ?? null;
+        const chartType = body?.chartType ?? kpi.chartType ?? null;
         const normalizedDate = normalizeDateOnly(dateInput);
         const normalizedValue = normalizeValueForChartType(chartType, body.labeledValues ?? body.value);
         const color = body?.color ?? null;
         const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
 
         await db
-            .insert(metricDataPoints)
+            .insert(metrics)
             .values({
-                metricId: id,
+                kpiId: id,
                 date: dateValue,
                 value: normalizedValue,
                 color,
@@ -43,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         let latestVal: number;
 
         if (Array.isArray(normalizedValue)) {
-            if (normalizedValue.length > 0 && typeof normalizedValue[0] === 'object' && 'value' in (normalizedValue[0] as any)) {
+            if (normalizedValue.length > 0 && isLabeledValue(normalizedValue[0])) {
                 // LabeledValue[]
                 const labeled = normalizedValue as LabeledValue[];
                 valueRecord = labeled.reduce<Record<string, number>>((acc, item, idx) => {
@@ -66,18 +77,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
 
         await db
-            .update(metrics)
+            .update(kpis)
             .set({
                 valueJson: valueRecord,
                 latestValue: latestVal,
                 date: dateValue,
                 updatedAt: new Date(),
             })
-            .where(eq(metrics.id, id));
+            .where(eq(kpis.id, id));
 
-        return NextResponse.json({ metricId: id, date: normalizedDate, upserted: true });
+        return NextResponse.json({ kpiId: id, date: normalizedDate, upserted: true });
     } catch (error) {
-        console.error('[metrics/:id/datapoints][POST]', error);
-        return NextResponse.json({ error: 'Failed to upsert datapoint' }, { status: 500 });
+        console.error('[kpis/:id/metrics][POST]', error);
+        return NextResponse.json({ error: 'Failed to upsert metric' }, { status: 500 });
     }
 }

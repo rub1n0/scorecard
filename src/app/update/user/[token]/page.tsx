@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useScorecards } from '@/context/ScorecardContext';
 import { Scorecard, KPI } from '@/types';
-import { LayoutDashboard, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, CheckCircle2, Save, ArrowLeft } from 'lucide-react';
 
 type MetricUpdateRowProps = {
     kpi: KPI;
@@ -13,7 +13,7 @@ type MetricUpdateRowProps = {
 
 function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     const historyPoints = useMemo(() => {
-        const fromDataPoints = (kpi.dataPoints || []).map(dp => ({
+        const fromDataPoints = (kpi.metrics || kpi.dataPoints || []).map(dp => ({
             date: dp.date,
             value: dp.value,
         }));
@@ -29,7 +29,7 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
         }));
 
         return fromValue.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [kpi.dataPoints, kpi.value]);
+    }, [kpi.metrics, kpi.dataPoints, kpi.value]);
 
     const latestPoint = historyPoints[0];
 
@@ -73,6 +73,8 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const subtitleFull = kpi.subtitle || '—';
+    const subtitle = subtitleFull.length > 25 ? `${subtitleFull.slice(0, 25)}...` : subtitleFull;
 
     const buildUpdates = (): Partial<KPI> => {
         if (isChart) {
@@ -87,6 +89,7 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
             }));
             return {
                 value: valueRecord,
+                metrics: dataPoints,
                 dataPoints,
                 notes: notes || undefined,
                 date: date ? new Date(date).toISOString() : new Date().toISOString(),
@@ -114,7 +117,7 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
 
     const submit = async () => {
         if (!kpi.updateToken) {
-            setError('Missing update token for this metric.');
+            setError('Missing update token for this KPI.');
             return;
         }
         setSaving(true);
@@ -132,23 +135,61 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     };
 
     return (
-        <tr className="align-top">
+        <React.Fragment key={kpi.id}>
+            <tr className="align-top border-t border-industrial-800/60">
+                <td className="px-4 py-3">
+                    <div className="font-semibold text-industrial-100">{kpi.name}</div>
+                </td>
             <td className="px-4 py-3">
-                <div className="font-semibold text-industrial-100">{kpi.name}</div>
+                <div
+                    className="text-xs text-industrial-500 whitespace-nowrap overflow-hidden text-ellipsis w-[160px]"
+                    title={subtitleFull}
+                >
+                    {subtitle}
+                </div>
             </td>
-            <td className="px-4 py-3">
-                <div className="text-xs text-industrial-500 truncate">{kpi.subtitle || '—'}</div>
-            </td>
-            <td className="px-4 py-3">
-                <div className="text-xs text-industrial-300">{kpi.date ? new Date(kpi.date).toLocaleString() : '—'}</div>
-            </td>
-            <td className="px-4 py-3 w-[260px]">
-                <div className="space-y-2">
-                    {isChart ? (
+                <td className="px-4 py-3">
+                    <div className="text-xs text-industrial-300">{kpi.date ? new Date(kpi.date).toLocaleString() : '—'}</div>
+                </td>
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3">
+                    <div className="flex flex-col gap-2 items-stretch">
+                        <button
+                            type="button"
+                            onClick={submit}
+                            disabled={saving}
+                            className="btn btn-secondary btn-sm flex items-center justify-center gap-2"
+                        >
+                            {saving ? 'Saving...' : (
+                                <>
+                                    <Save size={14} />
+                                    Save
+                                </>
+                            )}
+                        </button>
+                        {error && <div className="text-[10px] text-red-400">{error}</div>}
+                        {success && <div className="text-[10px] text-verdigris-400">Saved</div>}
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td colSpan={3} className="px-4 py-3" />
+                <td className="px-4 py-3 w-[320px]">
+                    <div className="space-y-3">
+                        <div className="flex items-baseline justify-between">
+                            <p className="text-[11px] uppercase tracking-wider text-industrial-400 font-semibold">Values</p>
+                            {isChart && (
+                                <span className="text-[11px] text-verdigris-400 font-mono tracking-wide">multi-value</span>
+                            )}
+                        </div>
                         <div className="space-y-2">
-                            {entries.map((entry, idx) => (
-                                <div key={entry.key || idx} className="flex items-center gap-2">
-                                    <span className="text-[11px] text-industrial-500 w-24 truncate">{entry.key}</span>
+                            {(isChart ? entries : entries.slice(0, 1)).map((entry, idx) => (
+                                <div
+                                    key={entry.key || idx}
+                                    className="grid grid-cols-[140px_1fr] gap-3 items-center"
+                                >
+                                    <span className="text-[11px] text-industrial-500">{entry.key || `Value ${idx + 1}`}</span>
                                     <input
                                         type="number"
                                         step="any"
@@ -162,66 +203,39 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
                                     />
                                 </div>
                             ))}
+                            {!isChart && (
+                                <>
+                                    <input
+                                        type="date"
+                                        className="input w-full"
+                                        value={date}
+                                        onChange={(e) => setDate(e.target.value)}
+                                    />
+                                    <p className="text-[10px] text-industrial-500">Adjust the date if this value is for a different day.</p>
+                                </>
+                            )}
                         </div>
-                    ) : kpi.visualizationType === 'text' ? (
+                    </div>
+                </td>
+                <td className="px-4 py-3 w-[320px]">
+                    <div className="space-y-2">
+                        <p className="text-[11px] uppercase tracking-wider text-industrial-400 font-semibold">Notes</p>
                         <textarea
                             className="input w-full min-h-[70px]"
-                            value={entries[0]?.value as string}
-                            onChange={(e) => setEntries([{ ...entries[0], value: e.target.value }])}
-                            placeholder="Enter text"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Add notes"
                         />
-                    ) : (
-                        <input
-                            type="number"
-                            step="any"
-                            className="input w-full font-mono"
-                            value={entries[0]?.value as number | string}
-                            onChange={(e) => setEntries([{ ...entries[0], value: e.target.value }])}
-                            placeholder="Enter value"
-                        />
-                    )}
-                    {!isChart && (
-                        <input
-                            type="date"
-                            className="input w-full"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                        />
-                    )}
-                </div>
-            </td>
-            <td className="px-4 py-3 w-[220px]">
-                <textarea
-                    className="input w-full min-h-[70px]"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add notes"
-                />
-            </td>
-            <td className="px-4 py-3">
-                <div className="flex flex-col gap-2 items-stretch">
-                    <button
-                        type="button"
-                        onClick={submit}
-                        disabled={saving}
-                        className="btn btn-secondary btn-sm flex items-center justify-center gap-2"
-                    >
-                        {saving ? 'Saving...' : (
-                            <>
-                                <Save size={14} />
-                                Save
-                            </>
-                        )}
-                    </button>
-                    {error && <div className="text-[10px] text-red-400">{error}</div>}
-                    {success && <div className="text-[10px] text-verdigris-400">Saved</div>}
-                </div>
-            </td>
-        </tr>
+                    </div>
+                </td>
+                <td className="px-4 py-3" />
+            </tr>
+        </React.Fragment>
     );
 }
 
 export default function AssigneeUpdatePage() {
+    const router = useRouter();
     const params = useParams();
     const token = params.token as string;
     const {
@@ -284,14 +298,24 @@ export default function AssigneeUpdatePage() {
         <div className="min-h-screen bg-industrial-950 pb-10">
             {/* Header */}
             <header className="border-b border-industrial-800 bg-industrial-900/60 backdrop-blur-sm sticky top-0 z-10">
-                <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between">
+                <div className="max-w-5xl mx-auto px-5 py-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-industrial-850 rounded border border-industrial-700">
-                            <LayoutDashboard size={18} className="text-industrial-100" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-semibold text-industrial-100 leading-tight">{scorecard.name}</div>
-                            <div className="text-[11px] text-industrial-500 font-mono uppercase tracking-wider">Update Portal</div>
+                        <button
+                            type="button"
+                            onClick={() => router.push('/')}
+                            className="btn btn-ghost btn-sm flex items-center gap-2"
+                        >
+                            <ArrowLeft size={14} />
+                            Scorecard Manager
+                        </button>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-industrial-850 rounded border border-industrial-700">
+                                <LayoutDashboard size={18} className="text-industrial-100" />
+                            </div>
+                            <div>
+                                <div className="text-sm font-semibold text-industrial-100 leading-tight">{scorecard.name}</div>
+                                <div className="text-[11px] text-industrial-500 font-mono uppercase tracking-wider">Update Portal</div>
+                            </div>
                         </div>
                     </div>
                     <div className="text-right">

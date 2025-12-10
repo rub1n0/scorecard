@@ -7,12 +7,12 @@ import Modal from './Modal';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
 
-interface MetricVisibilityModalProps {
+interface KPIVisibilityModalProps {
     scorecard: Scorecard;
     onClose: () => void;
 }
 
-export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisibilityModalProps) {
+export default function KPIVisibilityModal({ scorecard, onClose }: KPIVisibilityModalProps) {
     const { refreshScorecards } = useScorecards();
     const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({});
     const [pendingId, setPendingId] = useState<string | null>(null);
@@ -62,14 +62,14 @@ export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisi
         setPendingId(kpiId);
 
         try {
-            const res = await fetch(`/api/metrics/${kpiId}`, {
+            const res = await fetch(`/api/kpis/${kpiId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ visible: nextVisible }),
             });
 
             if (!res.ok) {
-                throw new Error('Failed to update metric visibility');
+                throw new Error('Failed to update KPI visibility');
             }
 
             await refreshScorecards();
@@ -99,13 +99,13 @@ export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisi
         try {
             await Promise.all(
                 targets.map(async kpi => {
-                    const res = await fetch(`/api/metrics/${kpi.id}`, {
+                    const res = await fetch(`/api/kpis/${kpi.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ visible: nextVisible }),
                     });
                     if (!res.ok) {
-                        throw new Error('Failed to update metric visibility');
+                        throw new Error('Failed to update KPI visibility');
                     }
                 })
             );
@@ -124,12 +124,12 @@ export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisi
         <Modal
             isOpen={true}
             onClose={onClose}
-            title="Metric Visibility"
+            title="KPI Visibility"
             maxWidth="max-w-3xl"
         >
             <div className="space-y-4">
                 <p className="text-sm text-industrial-400">
-                    Check a metric to show it on the scorecard. Unchecking hides it from the Scorecard view without deleting it.
+                    Check a KPI to show it on the scorecard. Unchecking hides it from the Scorecard view without deleting it.
                 </p>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-industrial-400">
@@ -141,7 +141,7 @@ export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisi
                                 value={sortMode}
                                 onChange={(e) => setSortMode(e.target.value as 'name' | 'section')}
                             >
-                                <option value="name">Metric Name (A-Z)</option>
+                                <option value="name">KPI Name (A-Z)</option>
                                 <option value="section">Section (A-Z)</option>
                             </select>
                             <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-industrial-500" />
@@ -170,7 +170,7 @@ export default function MetricVisibilityModal({ scorecard, onClose }: MetricVisi
                     <table className="w-full text-sm">
                         <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
                             <tr>
-                                <th className="px-4 py-3 text-left">Metric</th>
+                                <th className="px-4 py-3 text-left">KPI</th>
                                 <th className="px-4 py-3 text-left">Section</th>
                                 <th className="px-4 py-3 text-left w-36">Visible</th>
                             </tr>

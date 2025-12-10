@@ -19,13 +19,16 @@ export interface LabeledValue {
     color?: string;
 }
 
-export interface DataPoint {
+export interface Metric {
     date: string;
     value: number | number[];
     valueArray?: number[]; // preserves raw array values for multi-value metrics
     labeledValues?: LabeledValue[]; // labeled key:value pairs for multi-value charts
     color?: string;
 }
+
+// Legacy alias while transitioning terminology
+export type DataPoint = Metric;
 
 export interface ChartSettings {
     strokeWidth?: number;
@@ -55,7 +58,8 @@ export interface KPI {
     notes?: string;
     visualizationType: VisualizationType;
     chartType?: ChartType;
-    dataPoints?: DataPoint[]; // DEPRECATED: Kept for backward compatibility during migration
+    metrics?: Metric[]; // Historical metric entries for the KPI (formerly dataPoints)
+    dataPoints?: Metric[]; // Legacy alias for backward compatibility
     trendValue?: number; // Percentage change for number display
     chartSettings?: ChartSettings;
     sectionId?: string; // Reference to Section.id
@@ -83,7 +87,7 @@ export interface Scorecard {
     description?: string;
     kpis: KPI[];
     sections?: Section[]; // Defined sections for this scorecard
-    assignees?: Record<string, string>; // email -> token
+    assignees?: Record<string, string | null>; // email -> token
     createdAt: string;
     updatedAt: string;
 }

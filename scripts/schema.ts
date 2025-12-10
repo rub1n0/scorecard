@@ -32,8 +32,8 @@ export const sections = mysqlTable('sections', {
     updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
 });
 
-// Metrics (KPIs)
-export const metrics = mysqlTable('metrics', {
+// KPIs
+export const kpis = mysqlTable('kpis', {
     id: varchar('id', { length: 36 }).primaryKey(),
     scorecardId: varchar('scorecard_id', { length: 36 }).notNull(),
     sectionId: varchar('section_id', { length: 36 }),
@@ -65,10 +65,10 @@ export const metrics = mysqlTable('metrics', {
     updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
 });
 
-// Metric datapoints
-export const metricDataPoints = mysqlTable('metric_data_points', {
+// Metrics (formerly datapoints)
+export const metrics = mysqlTable('metrics', {
     id: serial('id').primaryKey(),
-    metricId: varchar('metric_id', { length: 36 }).notNull(),
+    kpiId: varchar('kpi_id', { length: 36 }).notNull(),
     date: date('date').notNull(),
     value: json('value').notNull(),
     color: varchar('color', { length: 32 }),
@@ -77,7 +77,7 @@ export const metricDataPoints = mysqlTable('metric_data_points', {
 // Assignments
 export const assignments = mysqlTable('assignments', {
     id: varchar('id', { length: 36 }).primaryKey(),
-    metricId: varchar('metric_id', { length: 36 }).notNull(),
+    kpiId: varchar('kpi_id', { length: 36 }).notNull(),
     sectionId: varchar('section_id', { length: 36 }),
     createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),

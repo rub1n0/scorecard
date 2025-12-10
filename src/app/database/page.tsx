@@ -10,20 +10,20 @@ type DbUser = { id: string; name: string | null; email: string | null };
 type DbSection = { id: string; name: string | null; scorecardId: string; displayOrder?: number | null; color?: string | null; opacity?: number | null };
 type AssignmentRow = {
     id: string;
-    metricId: string;
+    kpiId: string;
     sectionId: string | null;
     assignees: DbUser[];
-    metric?: { id: string; name: string; scorecardId: string; sectionId: string | null };
+    kpi?: { id: string; name: string; scorecardId: string; sectionId: string | null };
     scorecard?: { id: string; name: string };
     section?: { id: string; name: string | null };
 };
-type MetricRow = KPI & {
+type KpiRow = KPI & {
     scorecardName: string;
     sectionName: string;
     dataPointCount: number;
     valueKeyCount: number;
     latestDataPoint?: { date: string; value: number | number[]; valueArray?: number[]; color?: string };
-    dataPoints: KPI['dataPoints'];
+    metrics: KPI['metrics'];
 };
 
 async function fetchJSON<T>(url: string): Promise<T> {
@@ -103,7 +103,7 @@ export default function DatabasePage() {
     };
 
     const handleDeleteScorecard = async (id: string) => {
-        if (!confirm('Delete this scorecard? This removes all metrics.')) return;
+        if (!confirm('Delete this scorecard? This removes all kpis.')) return;
         setBusy(true);
         try {
             await request(`/api/scorecards/${id}`, { method: 'DELETE', body: JSON.stringify({ id }) });
@@ -187,13 +187,13 @@ export default function DatabasePage() {
         }
     };
 
-    const metrics = useMemo<MetricRow[]>(() => {
+    const kpis = useMemo<KpiRow[]>(() => {
         const sectionsById = new Map<string, string>();
         sections.forEach(s => sectionsById.set(s.id, s.name || ''));
 
         return scorecards.flatMap(sc =>
             (sc.kpis || []).map((kpi: KPI) => {
-                const dataPoints = kpi.dataPoints || [];
+                const dataPoints = kpi.metrics || kpi.dataPoints || [];
                 const latestDataPoint = dataPoints.length ? dataPoints[dataPoints.length - 1] : undefined;
 
                 return {
@@ -203,7 +203,7 @@ export default function DatabasePage() {
                     dataPointCount: dataPoints.length,
                     valueKeyCount: Object.keys(kpi.value || {}).length,
                     latestDataPoint,
-                    dataPoints,
+                    metrics: dataPoints,
                 };
             })
         );
@@ -212,15 +212,15 @@ export default function DatabasePage() {
     const summary = useMemo(
         () => [
             { label: 'Scorecards', value: scorecards.length, icon: <Table2 size={16} />, tone: 'text-verdigris-300' },
-            { label: 'Metrics', value: metrics.length, icon: <Layers size={16} />, tone: 'text-tuscan-sun-300' },
+            { label: 'KPIs', value: kpis.length, icon: <Layers size={16} />, tone: 'text-tuscan-sun-300' },
             { label: 'Sections', value: sections.length, icon: <ListChecks size={16} />, tone: 'text-industrial-200' },
             { label: 'Assignments', value: assignments.length, icon: <Database size={16} />, tone: 'text-industrial-200' },
             { label: 'Users', value: users.length, icon: <Users size={16} />, tone: 'text-industrial-200' },
         ],
-        [assignments.length, metrics.length, scorecards.length, sections.length, users.length]
+        [assignments.length, kpis.length, scorecards.length, sections.length, users.length]
     );
 
-    const formatValue = (kpi: MetricRow) => {
+    const formatValue = (kpi: KpiRow) => {
         if (kpi.latestDataPoint) {
             const v = Array.isArray(kpi.latestDataPoint.value) ? kpi.latestDataPoint.value : kpi.latestDataPoint.valueArray;
             if (Array.isArray(v)) return `${kpi.prefix || ''}${v.join(', ')}${kpi.suffix || ''}`;
@@ -230,9 +230,10 @@ export default function DatabasePage() {
         return `${kpi.prefix || ''}${primary}${kpi.suffix || ''}`;
     };
 
-    const formatDataPointSummary = (kpi: MetricRow) => {
-        if (!kpi.dataPoints || kpi.dataPoints.length === 0) return 'No datapoints';
-        const list = kpi.dataPoints.slice(-3).map((dp) => {
+    const formatDataPointSummary = (kpi: KpiRow) => {
+        const history = kpi.metrics || kpi.dataPoints || [];
+        if (history.length === 0) return 'No metrics';
+        const list = history.slice(-3).map((dp) => {
             const rendered = Array.isArray(dp.value)
                 ? dp.value.join(', ')
                 : Array.isArray(dp.valueArray)
@@ -240,7 +241,7 @@ export default function DatabasePage() {
                     : dp.value;
             return `${dp.date}: ${rendered}`;
         });
-        const suffix = kpi.dataPoints.length > 3 ? `… (+${kpi.dataPoints.length - 3} more)` : '';
+        const suffix = history.length > 3 ? `… (+${history.length - 3} more)` : '';
         return `${list.join(' • ')} ${suffix}`.trim();
     };
 
@@ -362,7 +363,7 @@ export default function DatabasePage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-sm font-semibold text-industrial-200 uppercase tracking-wider">Scorecards</h2>
-                            <p className="text-xs text-industrial-500">With nested metrics and sections</p>
+                            <p className="text-xs text-industrial-500">With nested kpis and sections</p>
                         </div>
                         <span className="text-xs text-industrial-500">Showing {scorecards.length}</span>
                     </div>
@@ -418,7 +419,7 @@ export default function DatabasePage() {
                             <h2 className="text-sm font-semibold text-industrial-200 uppercase tracking-wider">Metrics</h2>
                             <p className="text-xs text-industrial-500">Flattened from scorecards</p>
                         </div>
-                        <span className="text-xs text-industrial-500">Showing {Math.min(metrics.length, 50)} of {metrics.length}</span>
+                        <span className="text-xs text-industrial-500">Showing {Math.min(kpis.length, 50)} of {kpis.length}</span>
                     </div>
                     <div className="border border-industrial-800 rounded-lg overflow-hidden">
                         <table className="w-full text-sm">
@@ -436,7 +437,7 @@ export default function DatabasePage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-industrial-800">
-                                {metrics.slice(0, 50).map(kpi => (
+                                {kpis.slice(0, 50).map(kpi => (
                                     <tr key={kpi.id} className="hover:bg-industrial-900/30">
                                         <td className="px-4 py-3">
                                             <div className="font-semibold text-industrial-100">{kpi.kpiName || kpi.name}</div>
@@ -460,10 +461,10 @@ export default function DatabasePage() {
                                         </td>
                                     </tr>
                                 ))}
-                                {metrics.length === 0 && (
+                                {kpis.length === 0 && (
                                     <tr>
                                         <td colSpan={8} className="px-4 py-6 text-center text-industrial-500 text-sm">
-                                            {loading ? 'Loading metrics…' : 'No metrics found.'}
+                                            {loading ? 'Loading kpis…' : 'No kpis found.'}
                                         </td>
                                     </tr>
                                 )}
@@ -494,7 +495,7 @@ export default function DatabasePage() {
                             <tbody className="divide-y divide-industrial-800">
                                 {assignments.slice(0, 50).map(row => (
                                     <tr key={row.id} className="hover:bg-industrial-900/30">
-                                        <td className="px-4 py-3 text-industrial-100">{row.metric?.name || row.metricId}</td>
+                                        <td className="px-4 py-3 text-industrial-100">{row.kpi?.name || row.kpiId}</td>
                                         <td className="px-4 py-3 text-industrial-200">{row.scorecard?.name || '—'}</td>
                                         <td className="px-4 py-3 text-industrial-200">{row.section?.name || 'General'}</td>
                                         <td className="px-4 py-3 text-industrial-300">

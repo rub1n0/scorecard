@@ -42,7 +42,6 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const [showGridLines, setShowGridLines] = useState(kpi?.chartSettings?.showGridLines ?? true);
     const [showDataLabels, setShowDataLabels] = useState(kpi?.chartSettings?.showDataLabels ?? true);
     const [reverseTrend, setReverseTrend] = useState(kpi?.reverseTrend ?? false);
-    const [showAllDataPoints, setShowAllDataPoints] = useState(false);
     const [prefix, setPrefix] = useState(kpi?.prefix || '');
     const [suffix, setSuffix] = useState(kpi?.suffix || '');
 
@@ -140,9 +139,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         }
 
         const latestPoint = dataPoints.length > 0 ? dataPoints[0] : null;
-        const inheritedLabeledValues = latestPoint?.labeledValues
-            ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
-            : [{ label: 'Value 1', value: 0 }];
+    const inheritedLabeledValues: LabeledValue[] = latestPoint?.labeledValues
+        ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
+        : [{ label: 'Value 1', value: 0 }];
 
         const newPoint: DataPoint = isMultiValueChart
             ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues }
@@ -328,7 +327,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         <Modal
             isOpen={true}
             onClose={onCancel}
-            title={kpi ? 'EDIT METRIC' : 'NEW METRIC'}
+            title={kpi ? 'EDIT KPI' : 'NEW METRIC'}
             className="kpi-form-modal"
         >
             <form onSubmit={handleSubmit}>
@@ -637,13 +636,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
 
                             {dataPoints.length > 0 ? (
                                 <div className="space-y-3">
-                                    {(() => {
-                                        const displayedPoints = showAllDataPoints ? dataPoints : dataPoints.slice(-10);
-                                        const startIndex = showAllDataPoints ? 0 : Math.max(0, dataPoints.length - 10);
-                                        return displayedPoints.map((dp, sliceIndex) => {
-                                            const actualIndex = startIndex + sliceIndex;
-                                            const valueArray = Array.isArray(dp.value) ? dp.value : (dp.valueArray || [typeof dp.value === 'number' ? dp.value : 0]);
-
+                                    {dataPoints.map((dp, actualIndex) => {
                                             // For multi-value charts, show expanded input section
                                             if (isMultiValueChart) {
                                                 return (
@@ -759,20 +752,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                                     </button>
                                                 </div>
                                             );
-                                        });
-                                    })()}
-
-                                    {dataPoints.length > 10 && (
-                                        <div className="flex justify-center pt-4">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowAllDataPoints(!showAllDataPoints)}
-                                                className="btn btn-secondary btn-sm"
-                                            >
-                                                {showAllDataPoints ? 'Show Less' : `Show All (${dataPoints.length} points)`}
-                                            </button>
-                                        </div>
-                                    )}
+                                        })}
                                 </div>
                             ) : (
                                 <p className="text-muted" style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>

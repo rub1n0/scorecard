@@ -209,9 +209,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     }
                     const fillOptions: any = {
                         type: 'solid',
-                        opacity: (chartType === 'bar' || chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar')
-                            ? 1.0
-                            : Math.max(0.2, kpi.chartSettings?.strokeOpacity ? kpi.chartSettings.strokeOpacity * 0.2 : 0.2),
+                        opacity: 0.8,
                     };
 
                     const chartOptions: any = {
@@ -262,7 +260,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         };
                         chartOptions.fill = {
                             type: 'solid',
-                            opacity: (kpi.chartSettings?.strokeOpacity ?? 1.0) * 0.75,
+                            opacity: 0.8,
                         };
                         if (chartType === 'donut') {
                             chartOptions.plotOptions = {
@@ -369,9 +367,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
             const fillOptions: any = {
                 type: 'solid',
-                opacity: (chartType === 'bar' || chartType === 'pie' || chartType === 'donut' || chartType === 'radialBar')
-                    ? 1.0
-                    : Math.max(0.2, kpi.chartSettings?.strokeOpacity ? kpi.chartSettings.strokeOpacity * 0.2 : 0.2),
+                opacity: 0.8,
             };
             const chartOptions: any = {
                 chart: {
@@ -479,8 +475,10 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 // Enable data labels for better readability
                 chartOptions.dataLabels = {
                     enabled: true,
-                    formatter: function (val: number) {
-                        return val.toFixed(1) + '%';
+                    formatter: function (_val: number, opts: any) {
+                        const series = opts?.w?.globals?.series;
+                        const raw = Array.isArray(series) ? series[opts.seriesIndex] : null;
+                        return typeof raw === 'number' ? raw.toLocaleString() : raw !== null && raw !== undefined ? String(raw) : '';
                     },
                     style: {
                         fontSize: '12px',
@@ -520,10 +518,9 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     colors: kpi.chartSettings?.strokeColor ? [kpi.chartSettings.strokeColor] : ['#18181b']
                 };
 
-                // Override fill opacity to be 75% of stroke opacity for better visibility
                 chartOptions.fill = {
                     type: 'solid',
-                    opacity: (kpi.chartSettings?.strokeOpacity ?? 1.0) * 0.75
+                    opacity: 0.8
                 };
 
                 // Add plotOptions for better spacing in donut charts
@@ -590,10 +587,9 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     };
                 }
 
-                // Override fill opacity to be 75% of stroke opacity for better visibility
                 chartOptions.fill = {
                     type: 'solid',
-                    opacity: (kpi.chartSettings?.strokeOpacity ?? 1.0) * 0.75
+                    opacity: 0.8
                 };
             }
 
@@ -679,10 +675,12 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
             {/* Header */}
             <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
+                    <h3 className="text-sm text-industrial-400 mb-1 truncate">{kpi.name}</h3>
                     {kpi.subtitle && (
-                        <p className="text-sm text-industrial-400 mb-1 truncate">{kpi.subtitle}</p>
+                        <p className="text-md font-semibold text-industrial-200 mb-0.5 uppercase tracking-wide">
+                            {kpi.subtitle}
+                        </p>
                     )}
-                    <h3 className="text-2xl font-semibold text-industrial-200 mb-0.5 truncate uppercase tracking-wide">{kpi.name}</h3>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {kpi.updateToken && (

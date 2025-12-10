@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
-import { metrics, scorecards, sections } from '../../../../db/schema';
+import { kpis, scorecards, sections } from '../../../../db/schema';
 import { buildChartSettings, extractChartSettingColumns, normalizeDateOnly } from '@/utils/metricNormalization';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
@@ -11,27 +11,27 @@ export async function GET() {
     try {
         const rows = await db
             .select({
-                metric: metrics,
+                kpi: kpis,
                 section: sections,
                 scorecard: scorecards,
             })
-            .from(metrics)
-            .leftJoin(sections, eq(metrics.sectionId, sections.id))
-            .leftJoin(scorecards, eq(metrics.scorecardId, scorecards.id));
+            .from(kpis)
+            .leftJoin(sections, eq(kpis.sectionId, sections.id))
+            .leftJoin(scorecards, eq(kpis.scorecardId, scorecards.id));
 
         return NextResponse.json(
             rows.map((row) => ({
-                ...row.metric,
-                name: row.metric.kpiName || row.metric.name,
-                kpiName: row.metric.kpiName || row.metric.name,
-                chartSettings: buildChartSettings(row.metric),
+                ...row.kpi,
+                name: row.kpi.kpiName || row.kpi.name,
+                kpiName: row.kpi.kpiName || row.kpi.name,
+                chartSettings: buildChartSettings(row.kpi),
                 section: row.section || null,
                 scorecard: row.scorecard || null,
             }))
         );
     } catch (error) {
-        console.error('[metrics][GET]', error);
-        return NextResponse.json({ error: 'Failed to fetch metrics' }, { status: 500 });
+        console.error('[kpis][GET]', error);
+        return NextResponse.json({ error: 'Failed to fetch KPIs' }, { status: 500 });
     }
 }
 
@@ -79,28 +79,28 @@ export async function POST(req: NextRequest) {
         const valueJson = body?.valueJson ?? body?.value;
         const [existing] = await db
             .select()
-            .from(metrics)
+            .from(kpis)
             .where(
                 and(
-                    eq(metrics.scorecardId, scorecardId),
-                    eq(metrics.kpiName, kpiName),
-                    sectionId ? eq(metrics.sectionId, sectionId) : isNull(metrics.sectionId)
+                    eq(kpis.scorecardId, scorecardId),
+                    eq(kpis.kpiName, kpiName),
+                    sectionId ? eq(kpis.sectionId, sectionId) : isNull(kpis.sectionId)
                 )
             );
 
         if (existing) {
             await db
-                .update(metrics)
+                .update(kpis)
                 .set({
                     ...baseDefinition,
                     ...(valueJson !== undefined ? { valueJson } : {}),
                     updatedAt: now,
                 })
-                .where(eq(metrics.id, existing.id));
+                .where(eq(kpis.id, existing.id));
             return NextResponse.json({ id: existing.id, deduped: true });
         }
 
-        await db.insert(metrics).values({
+        await db.insert(kpis).values({
             ...baseDefinition,
             id,
             valueJson: valueJson ?? {},
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ id, created: true }, { status: 201 });
     } catch (error) {
-        console.error('[metrics][POST]', error);
-        return NextResponse.json({ error: 'Failed to create metric' }, { status: 500 });
+        console.error('[kpis][POST]', error);
+        return NextResponse.json({ error: 'Failed to create KPI' }, { status: 500 });
     }
 }

@@ -10,11 +10,11 @@ import KPIForm from './KPIForm';
 import CSVImport from './CSVImport';
 import SectionManagementModal from './SectionManagementModal';
 import AssignmentManager from './AssignmentManager';
-import { Plus, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download, Link2, Copy, Check, Eye } from 'lucide-react';
+import { Plus, Upload, BarChart3, Settings, ChevronDown, Layout, User, Download, Link2, Copy, Check, Eye, RefreshCcw, Trash2, Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PageHeader from './PageHeader';
 import Modal from './Modal';
-import MetricVisibilityModal from './MetricVisibilityModal';
+import KPIVisibilityModal from './KPIVisibilityModal';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -23,12 +23,34 @@ interface ScorecardViewProps {
     scorecard: Scorecard;
 }
 
+type AssigneeLinkRow = {
+    email: string;
+    token: string | null;
+    count: number;
+};
+
+type SectionLinkRow = {
+    label: string;
+    token: string | null;
+    key: string;
+    email: string;
+};
+
 const generateId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
 
 export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { addKPI, addKPIs, updateKPI, deleteKPI, refreshScorecards, updateScorecard, generateAssigneeToken } = useScorecards();
+    const {
+        addKPI,
+        addKPIs,
+        updateKPI,
+        deleteKPI,
+        refreshScorecards,
+        updateScorecard,
+        regenerateAssigneeToken,
+        deleteAssigneeToken,
+    } = useScorecards();
     const [showKPIForm, setShowKPIForm] = useState(false);
     const [showCSVImport, setShowCSVImport] = useState(false);
     const [showSectionManagement, setShowSectionManagement] = useState(false);
@@ -40,9 +62,10 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const [editingKPI, setEditingKPI] = useState<KPI | undefined>();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [assigneeLinks, setAssigneeLinks] = useState<{ email: string; token: string; count: number }[]>([]);
-    const [sectionLinks, setSectionLinks] = useState<{ label: string; token: string; key: string }[]>([]);
+    const [assigneeLinks, setAssigneeLinks] = useState<AssigneeLinkRow[]>([]);
+    const [sectionLinks, setSectionLinks] = useState<SectionLinkRow[]>([]);
     const [copyState, setCopyState] = useState<string>('');
+    const [rowActionLoading, setRowActionLoading] = useState<Record<string, boolean>>({});
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -60,6 +83,12 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [showManageDropdown]);
+
+    useEffect(() => {
+        if (!showLinksModal) {
+            setRowActionLoading({});
+        }
+    }, [showLinksModal]);
 
     const handleAddKPI = (kpiData: Omit<KPI, 'id'>) => {
         addKPI(scorecard.id, kpiData);
@@ -149,12 +178,12 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                 };
             });
 
-            const response = await fetch('/api/metrics/import', {
+            const response = await fetch('/api/kpis/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     scorecardId: scorecard.id,
-                    metrics: kpisWithSections,
+                    kpis: kpisWithSections,
                 }),
             });
 
@@ -290,14 +319,11 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         return all.filter(sec => (sec ? sec.id === selectedSectionParam : false));
     }, [scorecard.sections, selectedSectionParam]);
 
-    const assigneeEmails = useMemo(() => {
-        const emails = new Set<string>();
-        scorecard.kpis.forEach(kpi => {
-            if (kpi.assignee) emails.add(kpi.assignee);
-            (kpi.assignees || []).forEach(e => emails.add(e));
-        });
-        return Array.from(emails);
-    }, [scorecard.kpis]);
+    const buildActionKey = (type: 'assignee' | 'section', identifier: string) => `${type}:${identifier}`;
+    const setActionLoading = (key: string, value: boolean) => {
+        setRowActionLoading(prev => ({ ...prev, [key]: value }));
+    };
+    const isActionLoading = (key: string) => Boolean(rowActionLoading[key]);
 
     const copyToClipboard = async (text: string) => {
         if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
@@ -317,35 +343,91 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     const loadLinks = async () => {
         setLinksLoading(true);
         try {
-            const rows: { email: string; token: string; count: number }[] = [];
-            for (const email of assigneeEmails) {
-                let token = scorecard.assignees?.[email];
-                if (!token) {
-                    token = await generateAssigneeToken(scorecard.id, email);
-                }
-                const count = scorecard.kpis.filter(kpi => {
-                    const list = new Set([...(kpi.assignees || []), ...(kpi.assignee ? [kpi.assignee] : [])]);
+            const response = await fetch(`/api/scorecards/${scorecard.id}`);
+            if (!response.ok) {
+                throw new Error('Failed to load scorecard data');
+            }
+            const latest: Scorecard = await response.json();
+            const assigneeMap = latest.assignees || {};
+
+            const emailSet = new Set<string>();
+            latest.kpis.forEach(kpi => {
+                if (kpi.assignee) emailSet.add(kpi.assignee);
+                (kpi.assignees || []).forEach(email => {
+                    if (email) emailSet.add(email);
+                });
+            });
+
+            const updatedAssigneeLinks: AssigneeLinkRow[] = Array.from(emailSet).map(email => {
+                const count = latest.kpis.filter(kpi => {
+                    const list = new Set([
+                        ...(kpi.assignees || []),
+                        ...(kpi.assignee ? [kpi.assignee] : []),
+                    ]);
                     return list.has(email);
                 }).length;
-                rows.push({ email, token, count });
-            }
-            setAssigneeLinks(rows);
+                return {
+                    email,
+                    count,
+                    token: assigneeMap[email] ?? null,
+                };
+            });
+            setAssigneeLinks(updatedAssigneeLinks);
 
-            const allSections: (Section | null)[] = [...(scorecard.sections || []).sort((a, b) => a.order - b.order), null];
-            const sectionRows: { label: string; token: string; key: string }[] = [];
-            for (const sec of allSections) {
+            const orderedSections = [...(latest.sections || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            const allSections: (Section | null)[] = [...orderedSections, null];
+            const sectionRows: SectionLinkRow[] = allSections.map(sec => {
                 const key = sec?.id || 'unassigned';
                 const pseudoEmail = `__section__:${key}`;
-                const label = sec ? sec.name || 'Untitled Section' : 'Unassigned';
-                let token = scorecard.assignees?.[pseudoEmail];
-                if (!token) {
-                    token = await generateAssigneeToken(scorecard.id, pseudoEmail);
-                }
-                sectionRows.push({ label, token, key });
-            }
+                return {
+                    label: sec ? sec.name || 'Untitled Section' : 'Unassigned',
+                    token: assigneeMap[pseudoEmail] ?? null,
+                    key,
+                    email: pseudoEmail,
+                };
+            });
             setSectionLinks(sectionRows);
+        } catch (error) {
+            console.error('Failed to load links:', error);
         } finally {
             setLinksLoading(false);
+        }
+    };
+
+    const handleRegenerateLink = async (
+        type: 'assignee' | 'section',
+        identifier: string,
+        email: string
+    ) => {
+        const key = buildActionKey(type, identifier);
+        setActionLoading(key, true);
+        try {
+            await regenerateAssigneeToken(scorecard.id, email);
+            await loadLinks();
+        } catch (error) {
+            console.error('Failed to regenerate link:', error);
+        } finally {
+            setActionLoading(key, false);
+        }
+    };
+
+    const handleDeleteLink = async (
+        type: 'assignee' | 'section',
+        identifier: string,
+        email: string
+    ) => {
+        const key = buildActionKey(type, identifier);
+        setActionLoading(key, true);
+        try {
+            await deleteAssigneeToken(scorecard.id, email);
+            if (copyState === email) {
+                setCopyState('');
+            }
+            await loadLinks();
+        } catch (error) {
+            console.error('Failed to delete link:', error);
+        } finally {
+            setActionLoading(key, false);
         }
     };
 
@@ -581,7 +663,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
             )}
 
             {showMetricVisibility && (
-                <MetricVisibilityModal
+                <KPIVisibilityModal
                     scorecard={scorecard}
                     onClose={() => setShowMetricVisibility(false)}
                 />
@@ -603,6 +685,10 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                     copyState={copyState}
                     copyToClipboard={copyToClipboard}
                     setCopyState={setCopyState}
+                    buildActionKey={buildActionKey}
+                    isActionLoading={isActionLoading}
+                    handleRegenerateLink={handleRegenerateLink}
+                    handleDeleteLink={handleDeleteLink}
                 />
             )}
         </div>
@@ -616,15 +702,23 @@ function LinksModal({
     loading,
     copyState,
     copyToClipboard,
-    setCopyState
+    setCopyState,
+    buildActionKey,
+    isActionLoading,
+    handleRegenerateLink,
+    handleDeleteLink,
 }: {
     onClose: () => void;
-    sectionLinks: { label: string; token: string; key: string }[];
-    assigneeLinks: { email: string; token: string; count: number }[];
+    sectionLinks: SectionLinkRow[];
+    assigneeLinks: AssigneeLinkRow[];
     loading: boolean;
     copyState: string;
     copyToClipboard: (text: string) => Promise<void>;
     setCopyState: (v: string) => void;
+    buildActionKey: (type: 'assignee' | 'section', identifier: string) => string;
+    isActionLoading: (key: string) => boolean;
+    handleRegenerateLink: (type: 'assignee' | 'section', identifier: string, email: string) => Promise<void>;
+    handleDeleteLink: (type: 'assignee' | 'section', identifier: string, email: string) => Promise<void>;
 }) {
 
     return (
@@ -637,26 +731,59 @@ function LinksModal({
                             <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
                                 <tr>
                                     <th className="px-4 py-2 text-left">Section</th>
-                                    <th className="px-4 py-2 text-right">Copy Link</th>
+                                    <th className="px-4 py-2 text-left">Copy Link</th>
+                                    <th className="px-4 py-2 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-industrial-800">
                                 {sectionLinks.map(link => {
-                                    const fullLink = `${window.location.origin}/update/user/${link.token}`;
+                                    const sectionKey = buildActionKey('section', link.key);
+                                    const actionLoading = isActionLoading(sectionKey);
+                                    const fullLink = link.token ? `${window.location.origin}/update/user/${link.token}` : '';
                                     return (
                                         <tr key={link.key}>
                                             <td className="px-4 py-2 text-industrial-100">{link.label}</td>
+                                            <td className="px-4 py-2 text-left">
+                                                {link.token ? (
+                                                    <button
+                                                        className="btn btn-xs btn-ghost"
+                                                        onClick={async () => {
+                                                            await copyToClipboard(fullLink);
+                                                            setCopyState(link.key);
+                                                            setTimeout(() => setCopyState(''), 1500);
+                                                        }}
+                                                    >
+                                                        {copyState === link.key ? <Check size={12} /> : <Copy size={12} />} Copy
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[11px] text-red-400">Link removed</span>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-2 text-right">
-                                                <button
-                                                    className="btn btn-xs btn-ghost"
-                                                    onClick={async () => {
-                                                        await copyToClipboard(fullLink);
-                                                        setCopyState(link.key);
-                                                        setTimeout(() => setCopyState(''), 1500);
-                                                    }}
-                                                >
-                                                    {copyState === link.key ? <Check size={12} /> : <Copy size={12} />} Copy
-                                                </button>
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-xs btn-ghost"
+                                                        disabled={loading || actionLoading}
+                                                        onClick={() => handleRegenerateLink('section', link.key, link.email)}
+                                                        title="Generate section link"
+                                                    >
+                                                        {actionLoading ? (
+                                                            <Loader2 size={12} className="animate-spin" />
+                                                        ) : (
+                                                            <RefreshCcw size={12} />
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
+                                                        disabled={loading || actionLoading || !link.token}
+                                                        onClick={() => handleDeleteLink('section', link.key, link.email)}
+                                                        title="Remove section link"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -674,40 +801,73 @@ function LinksModal({
                                 <tr>
                                     <th className="px-4 py-2 text-left">Assignee</th>
                                     <th className="px-4 py-2 text-left">Metrics</th>
-                                    <th className="px-4 py-2 text-right">Copy Link</th>
+                                    <th className="px-4 py-2 text-left">Copy Link</th>
+                                    <th className="px-4 py-2 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-industrial-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={3} className="px-4 py-4 text-center text-industrial-500">
+                                        <td colSpan={4} className="px-4 py-4 text-center text-industrial-500">
                                             Loading links...
                                         </td>
                                     </tr>
                                 ) : assigneeLinks.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="px-4 py-4 text-center text-industrial-500">
+                                        <td colSpan={4} className="px-4 py-4 text-center text-industrial-500">
                                             No assignees found.
                                         </td>
                                     </tr>
                                 ) : (
                                     assigneeLinks.map(row => {
-                                        const link = `${window.location.origin}/update/user/${row.token}`;
+                                        const actionKey = buildActionKey('assignee', row.email);
+                                        const actionLoading = isActionLoading(actionKey);
+                                        const fullLink = row.token ? `${window.location.origin}/update/user/${row.token}` : '';
                                         return (
                                             <tr key={row.email}>
                                                 <td className="px-4 py-2 text-industrial-100">{row.email}</td>
                                                 <td className="px-4 py-2 text-industrial-400">{row.count}</td>
+                                                <td className="px-4 py-2 text-left">
+                                                    {row.token ? (
+                                                        <button
+                                                            className="btn btn-xs btn-ghost"
+                                                            onClick={async () => {
+                                                                await copyToClipboard(fullLink);
+                                                                setCopyState(row.email);
+                                                                setTimeout(() => setCopyState(''), 1500);
+                                                            }}
+                                                        >
+                                                            {copyState === row.email ? <Check size={12} /> : <Copy size={12} />} Copy
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[11px] text-red-400">Link removed</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-2 text-right">
-                                                    <button
-                                                        className="btn btn-xs btn-ghost"
-                                                        onClick={async () => {
-                                                            await copyToClipboard(link);
-                                                            setCopyState(row.email);
-                                                            setTimeout(() => setCopyState(''), 1500);
-                                                        }}
-                                                    >
-                                                        {copyState === row.email ? <Check size={12} /> : <Copy size={12} />} Copy
-                                                    </button>
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-xs btn-ghost"
+                                                        disabled={loading || actionLoading}
+                                                            onClick={() => handleRegenerateLink('assignee', row.email, row.email)}
+                                                            title="Regenerate link"
+                                                        >
+                                                            {actionLoading ? (
+                                                                <Loader2 size={12} className="animate-spin" />
+                                                            ) : (
+                                                                <RefreshCcw size={12} />
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
+                                                        disabled={loading || actionLoading || !row.token}
+                                                            onClick={() => handleDeleteLink('assignee', row.email, row.email)}
+                                                            title="Remove link"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );

@@ -1,4 +1,4 @@
-import { KPI, DataPoint, VisualizationType, ChartType, ChartSettings } from '@/types';
+import { KPI, Metric, VisualizationType, ChartType, ChartSettings } from '@/types';
 
 export interface ParsedKPI extends Omit<KPI, 'id'> {
     sectionName?: string;
@@ -117,7 +117,7 @@ function parseSimpleFormat(rows: string[][]): ParsedKPI[] {
         const numValue = parseFloat(valueStr);
         const isNumber = !isNaN(numValue);
 
-        let dataPoints: DataPoint[] | undefined;
+        let dataPoints: Metric[] | undefined;
         if (historicalStr) {
             const values = historicalStr.split(';').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
             if (values.length > 0) {
@@ -141,6 +141,7 @@ function parseSimpleFormat(rows: string[][]): ParsedKPI[] {
             notes,
             visualizationType: isNumber ? 'number' : 'text',
             trendValue: trendStr ? parseFloat(trendStr) : undefined,
+            metrics: dataPoints,
             dataPoints,
         };
 
@@ -194,7 +195,7 @@ function parseTimeSeriesFormat(rows: string[][]): ParsedKPI[] {
         const chartType = chartTypeMap[chartTypeStr] || 'line';
 
         // Extract data points
-        const dataPoints: DataPoint[] = [];
+        const dataPoints: Metric[] = [];
         let latestValue = 0;
         let latestDate = new Date().toISOString().split('T')[0];
         let notes: string | undefined;
@@ -225,6 +226,7 @@ function parseTimeSeriesFormat(rows: string[][]): ParsedKPI[] {
             notes,
             visualizationType: 'chart',
             chartType,
+            metrics: dataPoints.length > 0 ? dataPoints : undefined,
             dataPoints: dataPoints.length > 0 ? dataPoints : undefined,
         };
 
@@ -341,7 +343,7 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
 
         // Build the new value Record structure
         const valueRecord: Record<string, number | string> = {};
-        const dataPoints: DataPoint[] = []; // Keep for backward compatibility
+        const dataPoints: Metric[] = []; // Keep for backward compatibility
         let latestDate = (dateIdx >= 0 ? firstRow[dateIdx] : undefined) || new Date().toISOString().split('T')[0];
         const subtitle: string | undefined = subtitleIdx >= 0 ? getColumnValue(subtitleIdx) || undefined : undefined;
         let notes: string | undefined = notesIdx >= 0 ? getColumnValue(notesIdx) || undefined : undefined;
@@ -482,6 +484,7 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             visualizationType,
             chartType: visualizationType === 'chart' ? chartType : undefined,
             trendValue,
+            metrics: dataPoints.length > 0 ? dataPoints : undefined,
             dataPoints: dataPoints.length > 0 ? dataPoints : undefined, // Keep for backward compatibility
             sectionName,
             assignees: assignees.length ? assignees : undefined,

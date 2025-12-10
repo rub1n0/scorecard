@@ -8,14 +8,14 @@ import PageHeader from '@/components/PageHeader';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DbSection = { id: string; name: string | null; scorecardId: string };
-type DbMetric = { id: string; name: string; subtitle?: string | null; sectionId: string | null; scorecardId: string; updateToken?: string | null; section?: DbSection | null; scorecard?: DbScorecard | null };
+type DbKPI = { id: string; name: string; subtitle?: string | null; sectionId: string | null; scorecardId: string; updateToken?: string | null; section?: DbSection | null; scorecard?: DbScorecard | null };
 type DbScorecard = { id: string; name: string };
 type AssignmentRow = {
     id: string;
-    metricId: string;
+    kpiId: string;
     sectionId: string | null;
     assignees: DbUser[];
-    metric?: DbMetric | null;
+    kpi?: DbKPI | null;
     section?: DbSection | null;
     scorecard?: DbScorecard | null;
     _virtual?: boolean;
@@ -32,7 +32,7 @@ function AssignmentDashboardInner() {
 
     const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
     const [sections, setSections] = useState<DbSection[]>([]);
-    const [metrics, setMetrics] = useState<DbMetric[]>([]);
+    const [kpis, setKPIs] = useState<DbKPI[]>([]);
     const [users, setUsers] = useState<DbUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [drawer, setDrawer] = useState<DrawerMode | null>(null);
@@ -47,7 +47,7 @@ function AssignmentDashboardInner() {
     const [saving, setSaving] = useState(false);
 
     // Drawer form state
-    const [selectedMetricId, setSelectedMetricId] = useState('');
+    const [selectedKPIId, setSelectedKPIId] = useState('');
     const [selectedSectionId, setSelectedSectionId] = useState('');
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
@@ -67,7 +67,7 @@ function AssignmentDashboardInner() {
                 const [aRes, sRes, mRes, uRes] = await Promise.all([
                     fetch('/api/assignments'),
                     fetch('/api/sections'),
-                    fetch('/api/metrics'),
+                    fetch('/api/kpis'),
                     fetch('/api/users'),
                 ]);
                 const [aData, sData, mData, uData] = await Promise.all([
@@ -78,10 +78,10 @@ function AssignmentDashboardInner() {
                 ]);
                 setAssignments(aData as AssignmentRow[]);
                 setSections(sData as DbSection[]);
-                const normalizedMetrics: DbMetric[] = (mData as Array<DbMetric | { metric: DbMetric }>).map((row) =>
-                    'metric' in row && row.metric ? row.metric : (row as DbMetric)
+                const normalizedKPIs: DbKPI[] = (mData as Array<DbKPI | { kpi: DbKPI }>).map((row) =>
+                    'kpi' in row && row.kpi ? row.kpi : (row as DbKPI)
                 );
-                setMetrics(normalizedMetrics);
+                setKPIs(normalizedKPIs);
                 setUsers(uData as DbUser[]);
             } catch (error) {
                 console.error('Failed to load assignments dashboard', error);
@@ -93,15 +93,15 @@ function AssignmentDashboardInner() {
     }, []);
 
     const resetDrawerState = () => {
-        setSelectedMetricId('');
+        setSelectedKPIId('');
         setSelectedSectionId('');
         setSelectedUserIds([]);
     };
 
-    const openCreateForMetric = (metric: DbMetric) => {
+    const openCreateForKPI = (kpi: DbKPI) => {
         setDrawer({ type: 'create' });
-        setSelectedMetricId(metric.id);
-        setSelectedSectionId(metric.sectionId || '');
+        setSelectedKPIId(kpi.id);
+        setSelectedSectionId(kpi.sectionId || '');
         setSelectedUserIds([]);
     };
 
@@ -109,7 +109,7 @@ function AssignmentDashboardInner() {
         setDrawer(mode);
         resetDrawerState();
         if (mode.type === 'edit') {
-            setSelectedMetricId(mode.assignment.metricId);
+            setSelectedKPIId(mode.assignment.kpiId);
             setSelectedSectionId(mode.assignment.sectionId || '');
             setSelectedUserIds(mode.assignment.assignees.map(a => a.id));
         }
@@ -125,51 +125,51 @@ function AssignmentDashboardInner() {
         [sections, scorecardFilter]
     );
 
-    const filteredMetrics = useMemo(
-        () => metrics.filter(m => scorecardFilter === 'all' || m.scorecardId === scorecardFilter),
-        [metrics, scorecardFilter]
+    const filteredKPIs = useMemo(
+        () => kpis.filter(m => scorecardFilter === 'all' || m.scorecardId === scorecardFilter),
+        [kpis, scorecardFilter]
     );
 
     const combinedRows = useMemo(() => {
         const sectionById = new Map(sections.map(s => [s.id, s]));
         const scorecardById = new Map(scorecards.map(sc => [sc.id, sc]));
-        const assignedMetricIds = new Set(assignments.map(a => a.metricId));
+        const assignedKPIIds = new Set(assignments.map(a => a.kpiId));
 
         const normalizedAssignments = assignments.map(a => {
-            const metric = a.metric || metrics.find(m => m.id === a.metricId) || null;
-            const section = a.section || (metric?.sectionId ? sectionById.get(metric.sectionId) || null : null);
-            const scorecard = a.scorecard || (metric ? scorecardById.get(metric.scorecardId) || null : null);
-            return { ...a, metric, section, scorecard, _virtual: false } as AssignmentRow;
+            const kpi = a.kpi || kpis.find(m => m.id === a.kpiId) || null;
+            const section = a.section || (kpi?.sectionId ? sectionById.get(kpi.sectionId) || null : null);
+            const scorecard = a.scorecard || (kpi ? scorecardById.get(kpi.scorecardId) || null : null);
+            return { ...a, kpi, section, scorecard, _virtual: false } as AssignmentRow;
         });
 
-        const virtuals: AssignmentRow[] = metrics
-            .filter(m => !assignedMetricIds.has(m.id))
+        const virtuals: AssignmentRow[] = kpis
+            .filter(m => !assignedKPIIds.has(m.id))
             .map(m => ({
                 id: `virtual-${m.id}`,
-                metricId: m.id,
+                kpiId: m.id,
                 sectionId: m.sectionId,
                 assignees: [],
-                metric: m,
+                kpi: m,
                 section: m.section || (m.sectionId ? sectionById.get(m.sectionId) || null : null),
                 scorecard: m.scorecard || scorecardById.get(m.scorecardId) || null,
                 _virtual: true,
             }));
 
         return [...normalizedAssignments, ...virtuals];
-    }, [assignments, metrics, sections, scorecards]);
+    }, [assignments, kpis, sections, scorecards]);
 
     const filtered = useMemo(() => {
         return combinedRows
             .filter(a => {
-                const metricName = a.metric?.name?.toLowerCase?.() || '';
+                const kpiName = a.kpi?.name?.toLowerCase?.() || '';
                 const sectionName = a.section?.name?.toLowerCase?.() || '';
                 const scorecardName = a.scorecard?.name?.toLowerCase?.() || '';
                 const q = search.toLowerCase();
-                if (q && !metricName.includes(q) && !sectionName.includes(q) && !scorecardName.includes(q)) {
+                if (q && !kpiName.includes(q) && !sectionName.includes(q) && !scorecardName.includes(q)) {
                     return false;
                 }
 
-                const assignmentScorecardId = a.scorecard?.id || a.metric?.scorecardId || null;
+                const assignmentScorecardId = a.scorecard?.id || a.kpi?.scorecardId || null;
                 if (scorecardFilter !== 'all' && assignmentScorecardId !== scorecardFilter) return false;
                 if (sectionFilter !== 'all' && a.sectionId !== sectionFilter) return false;
 
@@ -180,7 +180,7 @@ function AssignmentDashboardInner() {
                 if (showMultiAssigned && a.assignees.length <= 1) return false;
                 return true;
             })
-            .sort((a, b) => (a.metric?.name || '').localeCompare(b.metric?.name || ''));
+            .sort((a, b) => (a.kpi?.name || '').localeCompare(b.kpi?.name || ''));
     }, [combinedRows, search, sectionFilter, userFilter, showUnassigned, showMultiAssigned, scorecardFilter]);
 
     const toggleUser = (id: string) => {
@@ -188,7 +188,7 @@ function AssignmentDashboardInner() {
     };
 
     const saveAssignment = async () => {
-        if (!selectedMetricId) return;
+        if (!selectedKPIId) return;
         const isEdit = drawer?.type === 'edit';
         if (!isEdit && selectedUserIds.length === 0) return; // require assignee for new rows but allow clearing on edit
         setSaving(true);
@@ -208,7 +208,7 @@ function AssignmentDashboardInner() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        metricId: selectedMetricId,
+                        kpiId: selectedKPIId,
                         sectionId: selectedSectionId || null,
                         assigneeIds: selectedUserIds,
                     }),
@@ -229,11 +229,11 @@ function AssignmentDashboardInner() {
         if (!selectedSectionId || selectedUserIds.length === 0) return;
         setSaving(true);
         try {
-            const targets = metrics.filter(m => (m.sectionId || '') === selectedSectionId);
-            const existingByMetric = new Map(assignments.map(a => [a.metricId, a]));
+            const targets = kpis.filter(m => (m.sectionId || '') === selectedSectionId);
+            const existingByKPI = new Map(assignments.map(a => [a.kpiId, a]));
 
-            for (const metric of targets) {
-                const existing = existingByMetric.get(metric.id);
+            for (const kpi of targets) {
+                const existing = existingByKPI.get(kpi.id);
                 if (existing) {
                     await fetch('/api/assignments', {
                         method: 'PUT',
@@ -249,7 +249,7 @@ function AssignmentDashboardInner() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            metricId: metric.id,
+                            kpiId: kpi.id,
                             sectionId: selectedSectionId,
                             assigneeIds: selectedUserIds,
                         }),
@@ -309,10 +309,10 @@ function AssignmentDashboardInner() {
                 token = await generateAssigneeToken(sc.id, email);
             }
 
-            // Fallback to KPI token if no assignee token exists (single metric)
+            // Fallback to KPI token if no assignee token exists (single kpi)
             if (!token) {
-                const metric = sc.kpis.find(k => k.id === row.metricId);
-                token = metric?.updateToken;
+                const kpi = sc.kpis.find(k => k.id === row.kpiId);
+                token = kpi?.updateToken;
             }
 
             if (!token) throw new Error('Unable to generate link token');
@@ -348,14 +348,14 @@ function AssignmentDashboardInner() {
 
                     {!isBulk && (
                         <div className="space-y-2 mb-4">
-                            <label className="text-xs text-industrial-400">Metric</label>
+                            <label className="text-xs text-industrial-400">KPI</label>
                             <select
                                 className="input w-full"
-                                value={selectedMetricId}
-                                onChange={e => setSelectedMetricId(e.target.value)}
+                                value={selectedKPIId}
+                                onChange={e => setSelectedKPIId(e.target.value)}
                             >
-                                <option value="">Select a metric</option>
-                                {filteredMetrics.map(m => (
+                                <option value="">Select a kpi</option>
+                                {filteredKPIs.map(m => (
                                     <option key={m.id} value={m.id}>
                                         {m.name}
                                     </option>
@@ -450,7 +450,7 @@ function AssignmentDashboardInner() {
                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-industrial-500" />
                             <input
                                 className="input pl-10 w-full"
-                                placeholder="Search metrics, sections, scorecards..."
+                                placeholder="Search kpis, sections, scorecards..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                             />
@@ -509,7 +509,7 @@ function AssignmentDashboardInner() {
                         <table className="min-w-full text-sm">
                             <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
                                 <tr>
-                                    <th className="px-4 py-3 text-left">Metric</th>
+                                    <th className="px-4 py-3 text-left">KPI</th>
                                     <th className="px-4 py-3 text-left">Section</th>
                                     <th className="px-4 py-3 text-left">Scorecard</th>
                                     <th className="px-4 py-3 text-left">Assignees</th>
@@ -527,7 +527,7 @@ function AssignmentDashboardInner() {
                                 ) : filtered.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="text-center py-8 text-industrial-500">
-                                            No metrics or assignments match your filters.
+                                            No kpis or assignments match your filters.
                                         </td>
                                     </tr>
                                 ) : (
@@ -535,7 +535,7 @@ function AssignmentDashboardInner() {
                                         const isVirtual = !!row._virtual;
                                         return (
                                             <tr key={row.id} className="hover:bg-industrial-900/40">
-                                                <td className="px-4 py-3 text-industrial-100">{row.metric?.name || 'Unknown metric'}</td>
+                                                <td className="px-4 py-3 text-industrial-100">{row.kpi?.name || 'Unknown kpi'}</td>
                                                 <td className="px-4 py-3 text-industrial-300">
                                                     {row.section?.name || 'Unassigned'}
                                                 </td>
@@ -562,7 +562,7 @@ function AssignmentDashboardInner() {
                                                     {isVirtual ? (
                                                         <button
                                                             className="btn btn-xs btn-primary flex items-center gap-1"
-                                                            onClick={() => row.metric && openCreateForMetric(row.metric)}
+                                                            onClick={() => row.kpi && openCreateForKPI(row.kpi)}
                                                         >
                                                                 <Plus size={12} />
                                                                 Assign
