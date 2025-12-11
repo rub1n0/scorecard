@@ -3,10 +3,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import dynamic from 'next/dynamic';
 import { KPI } from '@/types';
-import { Edit2, Trash2, TrendingUp, TrendingDown, Link as LinkIcon, Check } from 'lucide-react';
+import { Edit2, Trash2, Link as LinkIcon, Check } from 'lucide-react';
 import ChartErrorBoundary from './ChartErrorBoundary';
+import TrendBadge from './TrendBadge';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -19,6 +22,8 @@ interface KPITileProps {
 }
 
 export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITileProps) {
+    const hasNotes = Boolean(kpi.notes);
+
     const renderVisualization = () => {
         // Skip rendering complex visualizations while dragging for performance and to avoid errors
         if (isDragging) {
@@ -76,11 +81,12 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
             const valueLength = formattedValue.length;
 
             // Larger font sizes for better visibility
-            let fontSizeClass = 'text-8xl';
-            if (valueLength > 11) fontSizeClass = 'text-4xl';
-            else if (valueLength > 9) fontSizeClass = 'text-5xl';
-            else if (valueLength > 6) fontSizeClass = 'text-6xl';
-            else if (valueLength > 4) fontSizeClass = 'text-7xl';
+            // Amplify value size for desktop readability
+            let fontSizeClass = 'text-[12rem]';
+            if (valueLength > 11) fontSizeClass = 'text-6xl';
+            else if (valueLength > 9) fontSizeClass = 'text-7xl';
+            else if (valueLength > 6) fontSizeClass = 'text-8xl';
+            else if (valueLength > 4) fontSizeClass = 'text-9xl';
 
             return (
                 <div className="flex flex-col h-full py-4">
@@ -103,10 +109,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                 )}
                             </div>
                             {trend !== 0 && (
-                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xl font-mono font-medium whitespace-nowrap ${isGood ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50' : 'bg-red-900/30 text-red-400 border border-red-900/50'}`}>
-                                    {isPositive ? <TrendingUp size={32} /> : <TrendingDown size={32} />}
-                                    <span>{Math.abs(trend).toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>
-                                </div>
+                                <TrendBadge trend={trend} isPositive={isPositive} isGood={isGood} />
                             )}
                         </div>
                     </div>
@@ -154,7 +157,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                                 x: { show: false },
                                                 fixed: { enabled: false },
                                                 style: {
-                                                    fontSize: '12px',
+                                fontSize: '14px',
                                                     fontFamily: 'monospace',
                                                 },
                                             },
@@ -222,7 +225,14 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                             fontFamily: 'monospace',
                         },
                         theme: { mode: 'dark', palette: 'palette1' },
-                        dataLabels: { enabled: kpi.chartSettings?.showDataLabels ?? false },
+                        dataLabels: {
+                            enabled: kpi.chartSettings?.showDataLabels ?? false,
+                            style: {
+                                fontSize: '17px',
+                                fontFamily: 'monospace',
+                                fontWeight: 'bold',
+                            },
+                        },
                         stroke: {
                             curve: 'smooth',
                             width: kpi.chartSettings?.strokeWidth ?? 2,
@@ -249,7 +259,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         chartOptions.legend = {
                             show: kpi.chartSettings?.showLegend ?? true,
                             position: 'bottom',
-                            fontSize: '12px',
+                            fontSize: '18px',
                             fontFamily: 'monospace',
                             labels: { colors: '#d4d4d8' },
                         };
@@ -269,12 +279,12 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                         size: '65%',
                                         labels: {
                                             show: true,
-                                            name: { show: true, fontSize: '14px', fontFamily: 'monospace', color: '#a1a1aa' },
-                                            value: { show: true, fontSize: '20px', fontFamily: 'monospace', fontWeight: 'bold', color: '#f4f4f5' },
+                                            name: { show: true, fontSize: '18px', fontFamily: 'monospace', color: '#a1a1aa' },
+                                            value: { show: true, fontSize: '24px', fontFamily: 'monospace', fontWeight: 'bold', color: '#f4f4f5' },
                                             total: {
                                                 show: true,
                                                 label: 'Total',
-                                                fontSize: '12px',
+                                                fontSize: '16px',
                                                 fontFamily: 'monospace',
                                                 color: '#71717a',
                                                 formatter: (w: any) => w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toFixed(0),
@@ -288,7 +298,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         chartOptions.xaxis = {
                             categories,
                             labels: {
-                                style: { colors: Array(categories.length).fill('#71717a'), fontSize: '10px', fontFamily: 'monospace' },
+                                style: { colors: Array(categories.length).fill('#71717a'), fontSize: '16px', fontFamily: 'monospace' },
                             },
                         };
                         chartOptions.plotOptions = {
@@ -302,7 +312,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         chartOptions.xaxis = {
                             categories,
                             labels: {
-                                style: { colors: Array(categories.length).fill('#a1a1aa'), fontSize: '10px', fontFamily: 'monospace' },
+                                style: { colors: Array(categories.length).fill('#a1a1aa'), fontSize: '16px', fontFamily: 'monospace' },
                             },
                         };
                         chartOptions.yaxis = { show: false };
@@ -389,6 +399,12 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 },
                 dataLabels: {
                     enabled: kpi.chartSettings?.showDataLabels ?? false,
+                    style: {
+                        fontSize: '17px',
+                        fontFamily: 'monospace',
+                        fontWeight: 'bold',
+                        colors: ['#f4f4f5'],
+                    },
                 },
                 stroke: strokeOptions,
                 grid: {
@@ -422,7 +438,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     labels: {
                         style: {
                             colors: '#71717a',
-                            fontSize: '10px',
+                            fontSize: '16px',
                             fontFamily: 'monospace',
                         },
                     },
@@ -437,7 +453,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     labels: {
                         style: {
                             colors: '#71717a',
-                            fontSize: '10px',
+                            fontSize: '16px',
                             fontFamily: 'monospace',
                         },
                         formatter: (val: number) => val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toFixed(0),
@@ -481,7 +497,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                         return typeof raw === 'number' ? raw.toLocaleString() : raw !== null && raw !== undefined ? String(raw) : '';
                     },
                     style: {
-                        fontSize: '12px',
+                        fontSize: '18px',
                         fontFamily: 'monospace',
                         fontWeight: 'bold',
                         colors: ['#ffffff']
@@ -499,7 +515,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 chartOptions.legend = {
                     show: kpi.chartSettings?.showLegend ?? true,
                     position: 'bottom',
-                    fontSize: '12px',
+                    fontSize: '16px',
                     fontFamily: 'monospace',
                     labels: {
                         colors: '#d4d4d8', // Brighter zinc-300
@@ -533,26 +549,26 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                     show: true,
                                     name: {
                                         show: true,
-                                        fontSize: '14px',
+                                        fontSize: '18px',
                                         fontFamily: 'monospace',
                                         color: '#a1a1aa'
                                     },
                                     value: {
                                         show: true,
-                                        fontSize: '20px',
+                                        fontSize: '22px',
                                         fontFamily: 'monospace',
                                         fontWeight: 'bold',
                                         color: '#f4f4f5'
                                     },
-                                    total: {
-                                        show: true,
-                                        label: 'Total',
-                                        fontSize: '12px',
-                                        fontFamily: 'monospace',
-                                        color: '#71717a',
-                                        formatter: function (w: any) {
-                                            return w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toFixed(0);
-                                        }
+                                        total: {
+                                            show: true,
+                                            label: 'Total',
+                                            fontSize: '16px',
+                                            fontFamily: 'monospace',
+                                            color: '#71717a',
+                                            formatter: function (w: any) {
+                                                return w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toFixed(0);
+                                            }
                                     }
                                 }
                             }
@@ -599,7 +615,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     labels: {
                         style: {
                             colors: Array(validDataPoints.length).fill('#a1a1aa'),
-                            fontSize: '10px',
+                            fontSize: '16px',
                             fontFamily: 'monospace',
                         },
                     },
@@ -671,48 +687,82 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
     };
 
     return (
-        <div className="glass-card p-5 h-full flex flex-col group">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                    <h3 className="text-sm text-industrial-400 mb-1 truncate">{kpi.name}</h3>
-                    {kpi.subtitle && (
-                        <p className="text-md font-semibold text-industrial-200 mb-0.5 uppercase tracking-wide">
-                            {kpi.subtitle}
-                        </p>
-                    )}
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {kpi.updateToken && (
-                        <button
-                            onClick={handleCopyLink}
-                            className="btn btn-icon p-1.5 text-industrial-500 hover:text-blue-400 hover:bg-blue-900/20 rounded relative"
-                            aria-label="Copy Update Link"
-                            title="Copy Update Link"
-                        >
-                            {showCopied ? <Check size={14} className="text-green-500" /> : <LinkIcon size={14} />}
-                        </button>
-                    )}
-                    <button onClick={onEdit} className="btn btn-icon p-1.5 text-industrial-500 hover:text-industrial-200 hover:bg-industrial-800 rounded" aria-label="Edit KPI">
-                        <Edit2 size={14} />
-                    </button>
-                    <button onClick={onDelete} className="btn btn-icon p-1.5 text-industrial-500 hover:text-red-400 hover:bg-red-900/20 rounded" aria-label="Delete KPI">
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-            </div>
+        <div className={`glass-card p-6 h-full group min-h-[320px] md:min-h-[360px] ${hasNotes ? 'md:col-span-2' : ''}`}>
+            <div className={`h-full flex ${hasNotes ? 'flex-col md:flex-row gap-6' : 'flex-col'}`}>
+                <div className={`${hasNotes ? 'md:w-1/2' : 'w-full'} flex flex-col flex-1`}>
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm text-industrial-400 mb-1 truncate">{kpi.name}</h3>
+                            {kpi.subtitle && (
+                                <p className="text-xl font-semibold text-industrial-200 mb-0.5 uppercase tracking-wide">
+                                    {kpi.subtitle}
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {kpi.updateToken && (
+                                <button
+                                    onClick={handleCopyLink}
+                                    className="btn btn-icon p-1.5 text-industrial-500 hover:text-blue-400 hover:bg-blue-900/20 rounded relative"
+                                    aria-label="Copy Update Link"
+                                    title="Copy Update Link"
+                                >
+                                    {showCopied ? <Check size={14} className="text-green-500" /> : <LinkIcon size={14} />}
+                                </button>
+                            )}
+                            <button onClick={onEdit} className="btn btn-icon p-1.5 text-industrial-500 hover:text-industrial-200 hover:bg-industrial-800 rounded" aria-label="Edit KPI">
+                                <Edit2 size={14} />
+                            </button>
+                            <button onClick={onDelete} className="btn btn-icon p-1.5 text-industrial-500 hover:text-red-400 hover:bg-red-900/20 rounded" aria-label="Delete KPI">
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+                    </div>
 
-            {/* Content */}
-            <div className="flex-1">
-                {renderVisualization()}
-            </div>
-
-            {/* Notes */}
-            {kpi.notes && (
-                <div className="mt-4 pt-3 border-t border-industrial-800">
-                    <p className="text-xs text-industrial-500 font-mono line-clamp-2">{kpi.notes}</p>
+                    {/* Content */}
+                    <div className="flex-1">
+                        {renderVisualization()}
+                    </div>
                 </div>
-            )}
+
+                {/* Notes */}
+                {hasNotes && (
+                    <div className="md:w-1/2 flex flex-col flex-1 border-t md:border-t-0 md:border-l border-industrial-800 pt-4 md:pt-0 md:pl-6">
+                        <span className="text-xs uppercase tracking-wide text-industrial-500 mb-2">Notes</span>
+                        <div className="text-sm text-industrial-200 leading-relaxed space-y-2">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                    ul: ({ node, ...props }) => <ul className="list-disc ml-5 space-y-1" {...props} />,
+                                    ol: ({ node, ...props }) => <ol className="list-decimal ml-5 space-y-1" {...props} />,
+                                    li: ({ node, ...props }) => <li className="text-industrial-200" {...props} />,
+                                    table: ({ node, ...props }) => (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse border border-industrial-800 text-sm" {...props} />
+                                        </div>
+                                    ),
+                                    thead: ({ node, ...props }) => <thead className="bg-industrial-900" {...props} />,
+                                    tbody: ({ node, ...props }) => <tbody {...props} />,
+                                    tr: ({ node, ...props }) => <tr className="border-b border-industrial-800 last:border-0" {...props} />,
+                                    th: ({ node, ...props }) => <th className="px-3 py-2 font-semibold text-industrial-100" {...props} />,
+                                    td: ({ node, ...props }) => <td className="px-3 py-2 text-industrial-200 align-top" {...props} />,
+                                    code: ({ node, inline, ...props }) =>
+                                        inline ? (
+                                            <code className="bg-industrial-900 px-1.5 py-0.5 rounded text-xs text-amber-300" {...props} />
+                                        ) : (
+                                            <code className="block bg-industrial-900 p-3 rounded text-xs text-amber-300 overflow-x-auto" {...props} />
+                                        ),
+                                    strong: ({ node, ...props }) => <strong className="font-semibold text-white" {...props} />,
+                                }}
+                            >
+                                {kpi.notes || ''}
+                            </ReactMarkdown>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

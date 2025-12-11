@@ -149,6 +149,7 @@ export default function CSVImport({ onImport, onCancel, existingKPIs }: CSVImpor
                                     'Value',
                                     'Date',
                                     'Notes',
+                                    'Visualization Type',
                                     'Chart Type',
                                     'Section',
                                     'Assignment',
