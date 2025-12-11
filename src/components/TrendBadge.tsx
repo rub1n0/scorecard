@@ -16,7 +16,7 @@ export default function TrendBadge({ trend, isPositive, isGood }: TrendBadgeProp
         : 'text-red-700';
 
     return (
-        <div className={`flex items-center gap-3 px-6 py-3 rounded-xl text-4xl font-mono font-bold whitespace-nowrap shadow ${colorClasses}`}>
+        <div className={`flex items-center gap-3 py-3 rounded-xl text-4xl font-mono font-bold whitespace-nowrap shadow ${colorClasses}`}>
             {isPositive ? <TrendingUp size={72} /> : <TrendingDown size={72} />}
             <span>{formatted}</span>
         </div>

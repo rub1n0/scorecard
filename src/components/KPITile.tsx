@@ -83,34 +83,63 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
             // Larger font sizes for better visibility
             // Amplify value size for desktop readability
             let fontSizeClass = 'text-[12rem]';
-            if (valueLength > 11) fontSizeClass = 'text-6xl';
-            else if (valueLength > 9) fontSizeClass = 'text-7xl';
-            else if (valueLength > 6) fontSizeClass = 'text-8xl';
-            else if (valueLength > 4) fontSizeClass = 'text-9xl';
+            let subTextSizeClass = 'text-5xl'; // 25% of 12rem (192px) is 48px (text-5xl)
+
+            if (valueLength > 11) {
+                fontSizeClass = 'text-6xl'; // 60px
+                subTextSizeClass = 'text-base'; // 16px (approx 25%)
+            } else if (valueLength > 9) {
+                fontSizeClass = 'text-7xl'; // 72px
+                subTextSizeClass = 'text-lg'; // 18px (25%)
+            } else if (valueLength > 6) {
+                fontSizeClass = 'text-8xl'; // 96px
+                subTextSizeClass = 'text-2xl'; // 24px (25%)
+            } else if (valueLength > 4) {
+                fontSizeClass = 'text-9xl'; // 128px
+                subTextSizeClass = 'text-3xl'; // 30px (approx 25%)
+            }
 
             return (
                 <div className="flex flex-col h-full py-4">
                     {/* Number and trend - takes up most of the space */}
                     <div className="flex-1 flex flex-col justify-center">
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-baseline gap-1">
+                        <div className="flex justify-center items-center">
+                            <div className="flex">
+                                {/* Prefix - Bottom Left */}
                                 {kpi.prefix && (
-                                    <span className="text-sm text-industrial-300 font-mono" style={{ opacity: kpi.prefixOpacity ?? 0.5 }}>
-                                        {kpi.prefix}
-                                    </span>
+                                    <div className="flex flex-col justify-end pb-3 md:pb-6 mr-2">
+                                        <span className={`${subTextSizeClass} text-industrial-300 font-mono`} style={{ opacity: kpi.prefixOpacity ?? 0.5 }}>
+                                            {kpi.prefix}
+                                        </span>
+                                    </div>
                                 )}
+
+                                {/* Main Value */}
                                 <span className={`${fontSizeClass} font-bold text-industrial-100 font-mono tracking-tighter leading-none`}>
                                     {formattedValue}
                                 </span>
-                                {kpi.suffix && (
-                                    <span className="text-sm text-industrial-300 font-mono" style={{ opacity: kpi.suffixOpacity ?? 0.5 }}>
-                                        {kpi.suffix}
-                                    </span>
-                                )}
+
+                                {/* Right Column: Trend (Top) and Suffix (Bottom) */}
+                                <div className="flex flex-col justify-between ml-3 py-2 md:py-4" >
+                                    {/* Trend Badge - Top Right */}
+                                    <div>
+                                        {trend !== 0 && (
+                                            <div className="scale-75 origin-top-left md:scale-100">
+                                                <TrendBadge trend={trend} isPositive={isPositive} isGood={isGood} />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Suffix - Bottom Right */}
+                                    {kpi.suffix && (
+                                        <div className="flex justify-start mt-auto pb-1 md:pb-2">
+                                            <span className={`${subTextSizeClass} text-industrial-300 font-mono`} style={{ opacity: kpi.suffixOpacity ?? 0.5 }}>
+                                                {kpi.suffix}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            {trend !== 0 && (
-                                <TrendBadge trend={trend} isPositive={isPositive} isGood={isGood} />
-                            )}
                         </div>
                     </div>
 
@@ -157,7 +186,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                                 x: { show: false },
                                                 fixed: { enabled: false },
                                                 style: {
-                                fontSize: '14px',
+                                                    fontSize: '14px',
                                                     fontFamily: 'monospace',
                                                 },
                                             },
@@ -560,15 +589,15 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                                         fontWeight: 'bold',
                                         color: '#f4f4f5'
                                     },
-                                        total: {
-                                            show: true,
-                                            label: 'Total',
-                                            fontSize: '16px',
-                                            fontFamily: 'monospace',
-                                            color: '#71717a',
-                                            formatter: function (w: any) {
-                                                return w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toFixed(0);
-                                            }
+                                    total: {
+                                        show: true,
+                                        label: 'Total',
+                                        fontSize: '16px',
+                                        fontFamily: 'monospace',
+                                        color: '#71717a',
+                                        formatter: function (w: any) {
+                                            return w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toFixed(0);
+                                        }
                                     }
                                 }
                             }
