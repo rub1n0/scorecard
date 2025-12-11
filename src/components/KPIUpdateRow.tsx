@@ -85,7 +85,8 @@ export default function KPIUpdateRow({ kpi, onUpdate }: KPIUpdateRowProps) {
                 value: valueRecord,
                 metrics: dataPoints,
                 dataPoints,
-                notes: notes || undefined,
+                // Preserve clearing notes
+                notes: notes ?? '',
                 date: date ? new Date(date).toISOString() : new Date().toISOString(),
             };
         }
@@ -93,7 +94,7 @@ export default function KPIUpdateRow({ kpi, onUpdate }: KPIUpdateRowProps) {
         if (kpi.visualizationType === 'text') {
             return {
                 value: { '0': entries[0]?.value ?? '' },
-                notes: notes || undefined,
+                notes: notes ?? '',
                 date: date ? new Date(date).toISOString() : new Date().toISOString(),
             };
         }
@@ -104,7 +105,8 @@ export default function KPIUpdateRow({ kpi, onUpdate }: KPIUpdateRowProps) {
         return {
             value: { '0': safeNum },
             trendValue: safeNum,
-            notes: notes || undefined,
+            // Allow blank notes to persist
+            notes: notes ?? '',
             metrics: [{ date: date ? new Date(date).toISOString() : new Date().toISOString(), value: safeNum }],
             dataPoints: [{ date: date ? new Date(date).toISOString() : new Date().toISOString(), value: safeNum }],
             date: date ? new Date(date).toISOString() : new Date().toISOString(),

@@ -91,7 +91,8 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
                 value: valueRecord,
                 metrics: dataPoints,
                 dataPoints,
-                notes: notes || undefined,
+                // Preserve clearing notes
+                notes: notes ?? '',
                 date: date ? new Date(date).toISOString() : new Date().toISOString(),
             };
         }
@@ -99,7 +100,7 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
         if (kpi.visualizationType === 'text') {
             return {
                 value: { '0': entries[0]?.value ?? '' },
-                notes: notes || undefined,
+                notes: notes ?? '',
                 date: date ? new Date(date).toISOString() : new Date().toISOString(),
             };
         }
@@ -110,7 +111,8 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
         return {
             value: { '0': safeNum },
             trendValue: safeNum,
-            notes: notes || undefined,
+            // Allow blank notes to clear existing text
+            notes: notes ?? '',
             date: date ? new Date(date).toISOString() : new Date().toISOString(),
         };
     };

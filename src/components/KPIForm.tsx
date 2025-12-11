@@ -2,6 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { KPI, VisualizationType, ChartType, DataPoint, LabeledValue, Section } from '@/types';
 import { Plus, Trash2 } from 'lucide-react';
 import ColorPicker from './ColorPicker';
@@ -620,13 +622,51 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
 
                 {/* Notes */}
                 <div className="form-group">
-                    <label className="form-label">Notes (Optional)</label>
+                    <div className="flex items-center justify-between">
+                        <label className="form-label">Notes (Optional)</label>
+                        <span className="text-[11px] uppercase tracking-wide text-industrial-500">Markdown supported</span>
+                    </div>
                     <textarea
                         className="textarea"
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Add system context..."
+                        placeholder="Add system context... (bold, lists, code blocks, etc.)"
                     />
+                    {notes && (
+                        <div className="mt-3 border border-industrial-800 rounded-md bg-industrial-950/60 p-3">
+                            <div className="text-[11px] uppercase tracking-wide text-industrial-500 mb-2">Preview</div>
+                            <div className="text-sm text-industrial-200 leading-relaxed space-y-2">
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                        ul: ({ node, ...props }) => <ul className="list-disc ml-5 space-y-1" {...props} />,
+                                        ol: ({ node, ...props }) => <ol className="list-decimal ml-5 space-y-1" {...props} />,
+                                        li: ({ node, ...props }) => <li className="text-industrial-200" {...props} />,
+                                        table: ({ node, ...props }) => (
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse border border-industrial-800 text-sm" {...props} />
+                                            </div>
+                                        ),
+                                        thead: ({ node, ...props }) => <thead className="bg-industrial-900" {...props} />,
+                                        tbody: ({ node, ...props }) => <tbody {...props} />,
+                                        tr: ({ node, ...props }) => <tr className="border-b border-industrial-800 last:border-0" {...props} />,
+                                        th: ({ node, ...props }) => <th className="px-3 py-2 font-semibold text-industrial-100" {...props} />,
+                                        td: ({ node, ...props }) => <td className="px-3 py-2 text-industrial-200 align-top" {...props} />,
+                                        code: ({ node, inline, ...props }) =>
+                                            inline ? (
+                                                <code className="bg-industrial-900 px-1.5 py-0.5 rounded text-xs text-amber-300" {...props} />
+                                            ) : (
+                                                <code className="block bg-industrial-900 p-3 rounded text-xs text-amber-300 overflow-x-auto" {...props} />
+                                            ),
+                                        strong: ({ node, ...props }) => <strong className="font-semibold text-white" {...props} />,
+                                    }}
+                                >
+                                    {notes}
+                                </ReactMarkdown>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="form-actions my-6">

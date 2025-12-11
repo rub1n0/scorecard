@@ -134,6 +134,11 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
 
             // Add existing sections to the map
             const existingSections = scorecard.sections || [];
+            const scorecardMetaUpdates: Partial<Scorecard> = {};
+
+            if (!scorecard.description && backupDescription) {
+                scorecardMetaUpdates.description = backupDescription;
+            }
             existingSections.forEach(section => {
                 sectionNameToId.set(section.name, section.id);
             });
@@ -200,14 +205,29 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     };
 
     const handleExportBackup = () => {
+        const sectionNameById = new Map<string, string>();
+        (scorecard.sections || []).forEach(section => {
+            if (section.id) {
+                sectionNameById.set(section.id, section.name);
+            }
+        });
+
         const backup = {
-            name: scorecard.name,
-            description: scorecard.description,
-            kpis: scorecard.kpis,
+            version: '2.0',
+            exportedAt: new Date().toISOString(),
+            meta: {
+                name: scorecard.name,
+                description: scorecard.description,
+                scorecardId: scorecard.id,
+                slug: (scorecard as any).slug ?? undefined,
+            },
             sections: scorecard.sections,
             assignees: scorecard.assignees,
-            exportedAt: new Date().toISOString(),
-            version: '1.0'
+            kpis: scorecard.kpis.map(kpi => ({
+                ...kpi,
+                // Capture section name so we can re-link on import even if IDs change
+                sectionName: kpi.sectionId ? sectionNameById.get(kpi.sectionId) ?? null : null,
+            })),
         };
 
         const dataStr = JSON.stringify(backup, null, 2);
@@ -234,39 +254,124 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
             const backup = JSON.parse(text);
 
             // Validate backup structure
-            if (!backup.kpis || !Array.isArray(backup.kpis)) {
+            if (!backup.kpis || !Array.isArray(backup.kpis) || backup.kpis.length === 0) {
                 throw new Error('Invalid backup file: missing KPIs data');
             }
 
+            const backupSections = Array.isArray(backup.sections) ? backup.sections : [];
+            const backupSectionNameById = new Map<string, string>();
+            backupSections.forEach((section: Section) => {
+                if (section.id) {
+                    backupSectionNameById.set(section.id, section.name);
+                }
+            });
+
+            const backupName = backup.meta?.name || backup.name || 'Scorecard';
+            const backupDescription = backup.meta?.description || backup.description || '';
+            const backupVersion = backup.version || '1.0';
+
             // Confirm with user
             const confirmed = confirm(
-                `Import backup from ${new Date(backup.exportedAt).toLocaleDateString()}?\n\n` +
-                `This will add ${backup.kpis.length} metrics and ${backup.sections?.length || 0} sections to this scorecard.`
+                `Import backup "${backupName}" (v${backupVersion}) from ${backup.exportedAt ? new Date(backup.exportedAt).toLocaleDateString() : 'unknown date'}?\n\n` +
+                `This will add ${backup.kpis.length} metrics and ${backupSections.length} sections to this scorecard.`
             );
 
             if (!confirmed) return;
 
-            // Import sections if present
-            if (backup.sections && Array.isArray(backup.sections)) {
-                const existingSections = scorecard.sections || [];
-                const newSections = backup.sections.map((s: Section) => ({
-                    ...s,
-                    id: generateId(), // Generate new IDs
-                    order: existingSections.length + backup.sections.indexOf(s)
-                }));
+            const existingSections = scorecard.sections || [];
+            const existingSectionsByName = new Map<string, Section>();
+            existingSections.forEach(section => {
+                existingSectionsByName.set(section.name.toLowerCase(), section);
+            });
 
-                await updateScorecard(scorecard.id, {
-                    sections: [...existingSections, ...newSections]
+            const sectionIdMap = new Map<string, string>(); // map backup sectionId -> current/new sectionId
+            const newSections: Section[] = [];
+            let nextOrder = existingSections.length;
+            const availableColors = ['verdigris', 'tuscan-sun', 'sandy-brown', 'burnt-peach', 'charcoal-blue'];
+            let colorIndex = existingSections.length % availableColors.length;
+
+            const ensureSection = (incomingName?: string | null, incomingId?: string | null) => {
+                if (!incomingName && incomingId && sectionIdMap.has(incomingId)) {
+                    return sectionIdMap.get(incomingId);
+                }
+
+                if (!incomingName) return undefined;
+
+                const key = incomingName.toLowerCase();
+                const existing = existingSectionsByName.get(key);
+                if (existing) {
+                    if (incomingId) sectionIdMap.set(incomingId, existing.id);
+                    return existing.id;
+                }
+
+                const newSection: Section = {
+                    id: generateId(),
+                    name: incomingName,
+                    color: availableColors[colorIndex % availableColors.length],
+                    order: nextOrder++,
+                };
+                colorIndex++;
+                newSections.push(newSection);
+                existingSectionsByName.set(key, newSection);
+                if (incomingId) sectionIdMap.set(incomingId, newSection.id);
+                return newSection.id;
+            };
+
+            // First, import sections from the backup payload (if present)
+            backupSections.forEach((section: Section) => {
+                const targetId = ensureSection(section.name, section.id);
+                if (!targetId) return;
+                // If this was a brand-new section, preserve incoming color/order when possible
+                const created = newSections.find(s => s.id === targetId);
+                if (created && section.color) {
+                    created.color = section.color;
+                }
+                if (created && typeof section.order === 'number') {
+                    created.order = section.order;
+                }
+            });
+
+            // Prepare KPIs with remapped section IDs and without stale IDs
+            const kpisToImport = backup.kpis.map((kpi: any) => {
+                const {
+                    id: _id,
+                    sectionId,
+                    sectionName,
+                    metrics,
+                    dataPoints,
+                    section,
+                    updateToken,
+                    valueJson,
+                    ...rest
+                } = kpi;
+
+                const inferredName = sectionName || (sectionId ? backupSectionNameById.get(sectionId) : undefined);
+                const resolvedSectionId = ensureSection(inferredName ?? null, sectionId ?? null);
+
+                const sourceMetrics = Array.isArray(metrics) ? metrics : Array.isArray(dataPoints) ? dataPoints : undefined;
+                const sanitizedMetrics = sourceMetrics?.map((dp: any) => {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { id: _metricId, ...cleanDp } = dp;
+                    return cleanDp;
                 });
+
+                return {
+                    ...rest,
+                    sectionId: resolvedSectionId ?? undefined,
+                    metrics: sanitizedMetrics,
+                    dataPoints: sanitizedMetrics,
+                    // Never restore old tokens directly
+                    updateToken: undefined,
+                    valueJson: valueJson ?? rest.value,
+                } as Omit<KPI, 'id'>;
+            });
+
+            // Persist any new sections discovered during import
+            if (newSections.length > 0 || Object.keys(scorecardMetaUpdates).length > 0) {
+                await updateScorecard(scorecard.id, { sections: [...existingSections, ...newSections], ...scorecardMetaUpdates });
                 await refreshScorecards();
             }
 
-            // Import KPIs (strip IDs, assign new ones)
-            const kpisToImport = backup.kpis.map((kpi: any) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { id: _id, ...rest } = kpi;
-                return rest;
-            });
             await addKPIs(scorecard.id, kpisToImport);
 
             alert('Backup imported successfully!');
@@ -601,7 +706,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                                             )}
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         {sectionKPIs.map((kpi) => (
                                             <KPITile
                                                 key={kpi.id}

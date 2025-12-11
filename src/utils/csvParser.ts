@@ -250,6 +250,7 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
     const valueIdx = headers.findIndex(h => h.includes('value'));
     const dateIdx = headers.findIndex(h => h.includes('date'));
     const notesIdx = headers.findIndex(h => h.includes('notes'));
+    const visualizationTypeIdx = headers.findIndex(h => h.includes('visualization'));
     const chartTypeIdx = headers.findIndex(h => h.includes('chart') && h.includes('type'));
     const categoryIdx = headers.findIndex(h => h.includes('category'));
     const sectionIdx = headers.findIndex(h => h.includes('section'));
@@ -297,23 +298,44 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
         };
 
         // Determine KPI type based on available data
+        const rawVisualizationType = visualizationTypeIdx >= 0 ? (getColumnValue(visualizationTypeIdx)?.trim() || '') : '';
         const rawChartType = chartTypeIdx >= 0 ? (getColumnValue(chartTypeIdx)?.trim() || '') : '';
+        const normalizedVisType = rawVisualizationType.toLowerCase();
         const normalizedChartType = rawChartType.toLowerCase();
         const hasChartType = chartTypeIdx >= 0 && !!rawChartType;
         const hasCategory = categoryIdx >= 0 && !!getColumnValue(categoryIdx)?.trim();
 
-        // Default to number unless chart type is specified or it looks like a categorical chart
+        // Default to number unless explicitly set
         let visualizationType: VisualizationType = 'number';
         let chartType: ChartType = 'line'; // Default chart type
 
-        // Allow explicit type hints for number/text in the Chart Type column
-        if (['number', 'metric', 'value'].includes(normalizedChartType)) {
-            visualizationType = 'number';
-            chartType = 'line';
-        } else if (['text', 'note', 'status'].includes(normalizedChartType)) {
+        const normalizeVisualizationHint = (val: string): VisualizationType | undefined => {
+            if (!val) return undefined;
+            if (['text', 'note', 'status'].includes(val)) return 'text';
+            if (['chart', 'graph', 'visual'].includes(val)) return 'chart';
+            if (['number', 'metric', 'value'].includes(val)) return 'number';
+            return undefined;
+        };
+
+        const visHint = normalizeVisualizationHint(normalizedVisType);
+        if (visHint === 'text') {
             visualizationType = 'text';
             chartType = 'line';
-        } else if (hasChartType) {
+        } else if (visHint === 'number') {
+            visualizationType = 'number';
+            chartType = 'line';
+        } else if (visHint === 'chart') {
+            visualizationType = 'chart';
+        }
+
+        // Allow explicit type hints for number/text in the Chart Type column
+        if (visHint !== 'text' && visHint !== 'number' && ['number', 'metric', 'value'].includes(normalizedChartType)) {
+            visualizationType = 'number';
+            chartType = 'line';
+        } else if (visHint !== 'text' && visHint !== 'number' && ['text', 'note', 'status'].includes(normalizedChartType)) {
+            visualizationType = 'text';
+            chartType = 'line';
+        } else if (visHint !== 'text' && hasChartType) {
             visualizationType = 'chart';
             const chartTypeMap: Record<string, ChartType> = {
                 'line': 'line', 'area': 'area', 'bar': 'bar', 'column': 'bar',
@@ -321,7 +343,7 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
                 'radialbar': 'radialBar', 'scatter': 'scatter', 'heatmap': 'heatmap',
             };
             chartType = chartTypeMap[normalizedChartType] || 'line';
-        } else if (hasCategory) {
+        } else if (visHint !== 'text' && hasCategory) {
             // If no chart type but has category, assume bar chart or similar?
             // Or maybe just keep it as number if it's ambiguous?
             // Let's stick to explicit chart type for charts, or default to number.
@@ -329,7 +351,7 @@ function parseUnifiedFormat(rows: string[][]): ParsedKPI[] {
             // Let's default to 'bar' if categories are present but no chart type.
             visualizationType = 'chart';
             chartType = 'bar';
-        } else {
+        } else if (!visHint) {
             // Check if ANY row has a text value
             const hasTextValue = rowGroup.some(row => {
                 const valStr = row[valueIdx] || '';
@@ -561,6 +583,7 @@ export function generateExampleCSV(
         'Value',
         'Date',
         'Notes',
+        'Visualization Type',
         'Chart Type',
         'Section',
         'Assignment',
@@ -575,7 +598,18 @@ export function generateExampleCSV(
         'Show Data Labels',
     ];
 
-    const buildCSV = (rows: string[][]) => [headers, ...rows].map(row => row.join(',')).join('\n');
+    const addVisualizationType = (rows: string[][]): string[][] => {
+        return rows.map(row => {
+            const [name, subtitle, value, date, notes, chartType, ...rest] = row;
+            const normalizedChart = (chartType || '').toLowerCase();
+            const isChart = ['line', 'area', 'bar', 'column', 'pie', 'donut', 'radar', 'radialbar', 'scatter', 'heatmap'].includes(normalizedChart);
+            const isNumber = !isNaN(parseFloat(value));
+            const visType = isChart ? 'chart' : isNumber ? 'number' : 'text';
+            return [name, subtitle, value, date, notes, visType, chartType, ...rest];
+        });
+    };
+
+    const buildCSV = (rows: string[][]) => [headers, ...addVisualizationType(rows)].map(row => row.join(',')).join('\n');
 
     // Unified template with all KPI types
     const unifiedRows: string[][] = [

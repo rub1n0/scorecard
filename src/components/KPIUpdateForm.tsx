@@ -216,7 +216,8 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             await onUpdate({
                 value: valueRecord,
                 trendValue: finalTrend,
-                notes: notes || undefined,
+                // Always send notes so clearing them persists
+                notes: notes ?? '',
                 metrics: sortedPoints,
                 dataPoints: sortedPoints,
                 date: new Date().toISOString()
