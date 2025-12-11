@@ -653,12 +653,14 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                         tr: ({ node, ...props }) => <tr className="border-b border-industrial-800 last:border-0" {...props} />,
                                         th: ({ node, ...props }) => <th className="px-3 py-2 font-semibold text-industrial-100" {...props} />,
                                         td: ({ node, ...props }) => <td className="px-3 py-2 text-industrial-200 align-top" {...props} />,
-                                        code: ({ node, inline, ...props }) =>
-                                            inline ? (
+                                        code: ({ node, ...props }) => {
+                                            const isInline = (props as any).inline === true;
+                                            return isInline ? (
                                                 <code className="bg-industrial-900 px-1.5 py-0.5 rounded text-xs text-amber-300" {...props} />
                                             ) : (
                                                 <code className="block bg-industrial-900 p-3 rounded text-xs text-amber-300 overflow-x-auto" {...props} />
-                                            ),
+                                            );
+                                        },
                                         strong: ({ node, ...props }) => <strong className="font-semibold text-white" {...props} />,
                                     }}
                                 >

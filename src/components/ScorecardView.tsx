@@ -134,11 +134,6 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
 
             // Add existing sections to the map
             const existingSections = scorecard.sections || [];
-            const scorecardMetaUpdates: Partial<Scorecard> = {};
-
-            if (!scorecard.description && backupDescription) {
-                scorecardMetaUpdates.description = backupDescription;
-            }
             existingSections.forEach(section => {
                 sectionNameToId.set(section.name, section.id);
             });
@@ -367,8 +362,8 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
             });
 
             // Persist any new sections discovered during import
-            if (newSections.length > 0 || Object.keys(scorecardMetaUpdates).length > 0) {
-                await updateScorecard(scorecard.id, { sections: [...existingSections, ...newSections], ...scorecardMetaUpdates });
+            if (newSections.length > 0) {
+                await updateScorecard(scorecard.id, { sections: [...existingSections, ...newSections] });
                 await refreshScorecards();
             }
 
