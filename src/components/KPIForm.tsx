@@ -75,6 +75,26 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
 
     const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
 
+    // Sankey State
+    interface SankeyNode { id: string; title: string; }
+    interface SankeyLink { source: string; target: string; value: number; }
+    const [sankeyNodes, setSankeyNodes] = useState<SankeyNode[]>([]);
+    const [sankeyLinks, setSankeyLinks] = useState<SankeyLink[]>([]);
+
+    // Hydrate Sankey Data
+    useEffect(() => {
+        if (kpi?.visualizationType === 'sankey') {
+            try {
+                const raw = kpi.value["0"] || Object.values(kpi.value)[0];
+                const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (data && data.nodes) setSankeyNodes(data.nodes);
+                if (data && data.links) setSankeyLinks(data.links);
+            } catch (e) {
+                console.error("Error parsing sankey data", e);
+            }
+        }
+    }, [kpi]);
+
     // Helper function to normalize dates to YYYY-MM-DD format for HTML date inputs
     const normalizeDateForInput = (dateString: string): string => {
         // If it's already a valid date format, try to parse and normalize it
@@ -294,6 +314,15 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                     valueRecord[dp.date] = extractValue(dp.value);
                 });
             }
+        } else if (visualizationType === 'sankey') {
+             // Save nodes and links
+             const sankeyData = {
+                 nodes: sankeyNodes,
+                 links: sankeyLinks
+             };
+             // Store as JSON string in "0" key to fit Record<string, string|number> type safely, 
+             // though runtime often allows objects. JSON string is safer for persistence if DB is strict.
+             valueRecord = { "0": JSON.stringify(sankeyData) };
         }
 
 
@@ -471,6 +500,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             <option value="number">Number with Trend</option>
                             <option value="chart">Chart</option>
                             <option value="text">Text</option>
+                            <option value="sankey">Sankey Chart</option>
                         </select>
                     </div>
                 </div>
@@ -798,7 +828,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                             );
                                         }
 
-                                        // Standard single-value layout for line/area/number
+                                        // Standard row (handled below in original code if not returned above)
                                         return (
                                             <div key={actualIndex} className={`grid ${gridCols} gap-2 items-center`}>
                                                 <input
@@ -842,6 +872,127 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         </div>
                     );
                 })()}
+
+                {/* Sankey Editor - Rendered only when Sankey is selected */}
+                {visualizationType === 'sankey' && (
+                    <div className="form-group border-t border-industrial-800 pt-6 mt-6">
+                        <h3 className="text-sm font-semibold text-industrial-200 mb-4 uppercase tracking-wide">Sankey Data</h3>
+                        
+                        {/* Nodes Section */}
+                        <div className="mb-6">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="form-label mb-0">Nodes</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setSankeyNodes([...sankeyNodes, { id: `node-${sankeyNodes.length + 1}`, title: `Node ${sankeyNodes.length + 1}` }])}
+                                    className="btn btn-secondary btn-sm"
+                                >
+                                    <Plus size={14} /> Add Node
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {sankeyNodes.map((node, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                        <input 
+                                            className="input w-1/3" 
+                                            placeholder="ID"
+                                            value={node.id} 
+                                            onChange={e => {
+                                                const newNodes = [...sankeyNodes];
+                                                newNodes[idx].id = e.target.value;
+                                                setSankeyNodes(newNodes);
+                                            }}
+                                        />
+                                        <input 
+                                            className="input flex-1" 
+                                            placeholder="Title"
+                                            value={node.title} 
+                                            onChange={e => {
+                                                const newNodes = [...sankeyNodes];
+                                                newNodes[idx].title = e.target.value;
+                                                setSankeyNodes(newNodes);
+                                            }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setSankeyNodes(sankeyNodes.filter((_, i) => i !== idx))}
+                                            className="btn btn-icon btn-danger"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {sankeyNodes.length === 0 && <div className="text-industrial-500 text-sm italic">No nodes defined.</div>}
+                            </div>
+                        </div>
+
+                        {/* Links Section */}
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="form-label mb-0">Links</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setSankeyLinks([...sankeyLinks, { source: '', target: '', value: 10 }])}
+                                    className="btn btn-secondary btn-sm"
+                                >
+                                    <Plus size={14} /> Add Link
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {sankeyLinks.map((link, idx) => (
+                                    <div key={idx} className="flex gap-2 items-center">
+                                        <select 
+                                            className="select flex-1"
+                                            value={link.source}
+                                            onChange={e => {
+                                                const newLinks = [...sankeyLinks];
+                                                newLinks[idx].source = e.target.value;
+                                                setSankeyLinks(newLinks);
+                                            }}
+                                        >
+                                            <option value="">Select Source</option>
+                                            {sankeyNodes.map(n => <option key={n.id} value={n.id}>{n.title} ({n.id})</option>)}
+                                        </select>
+                                        <span className="text-industrial-500">→</span>
+                                        <select 
+                                            className="select flex-1"
+                                            value={link.target}
+                                            onChange={e => {
+                                                const newLinks = [...sankeyLinks];
+                                                newLinks[idx].target = e.target.value;
+                                                setSankeyLinks(newLinks);
+                                            }}
+                                        >
+                                            <option value="">Select Target</option>
+                                            {sankeyNodes.map(n => <option key={n.id} value={n.id}>{n.title} ({n.id})</option>)}
+                                        </select>
+                                        <input 
+                                            type="number"
+                                            className="input w-24"
+                                            placeholder="Value"
+                                            value={link.value}
+                                            onChange={e => {
+                                                const newLinks = [...sankeyLinks];
+                                                newLinks[idx].value = parseFloat(e.target.value) || 0;
+                                                setSankeyLinks(newLinks);
+                                            }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setSankeyLinks(sankeyLinks.filter((_, i) => i !== idx))}
+                                            className="btn btn-icon btn-danger"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {sankeyLinks.length === 0 && <div className="text-industrial-500 text-sm italic">No links defined.</div>}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+
             </form>
         </Modal >
     );

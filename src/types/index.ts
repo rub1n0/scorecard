@@ -1,4 +1,4 @@
-export type VisualizationType = 'chart' | 'number' | 'text';
+export type VisualizationType = 'chart' | 'number' | 'text' | 'sankey';
 
 export type ChartType =
     | 'line'

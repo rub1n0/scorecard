@@ -10,6 +10,7 @@ import { KPI } from '@/types';
 import { Edit2, Trash2, Link as LinkIcon, Check } from 'lucide-react';
 import ChartErrorBoundary from './ChartErrorBoundary';
 import TrendBadge from './TrendBadge';
+import SankeyChart from './SankeyChart';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -44,6 +45,36 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
             );
         }
 
+
+        if (kpi.visualizationType === 'sankey') {
+             // Safe parsing of Sankey data
+             // We expect kpi.value to potentially hold the sankey structure or we construct it
+             // For now, let's try to extract it from kpi.value["0"] if it's a JSON string, or just use kpi.value if it's already an object
+             
+             let sankeyData: any = { nodes: [], links: [] };
+             try {
+                const rawValue = kpi.value["0"] || Object.values(kpi.value)[0];
+                if (typeof rawValue === 'string') {
+                    sankeyData = JSON.parse(rawValue);
+                } else if (typeof rawValue === 'object') {
+                    sankeyData = rawValue;
+                }
+             } catch (e) {
+                 console.error("Failed to parse Sankey data", e);
+             }
+
+             if (!sankeyData.nodes || !sankeyData.links || sankeyData.nodes.length === 0) {
+                 // Check if dataPoints has data we can transform (simple flow)
+                 // Or return 'No Data'
+                 return <div className="py-12 text-center text-industrial-600 text-xs font-mono uppercase tracking-wider">Invalid Sankey Data</div>;
+             }
+
+             return (
+                 <div className="kpi-chart-display -ml-2">
+                     <SankeyChart data={sankeyData} height={320} />
+                 </div>
+             );
+        }
 
         if (kpi.visualizationType === 'text') {
             // For text KPIs, value is stored as {"0": "actual text"}
