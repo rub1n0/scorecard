@@ -10,7 +10,8 @@ export type ChartType =
     | 'radar'
     | 'radialBar'
     | 'scatter'
-    | 'heatmap';
+    | 'heatmap'
+    | 'sankey';
 
 // Labeled value for multi-value chart types (bar, pie, donut, radar, radialBar)
 export interface LabeledValue {
@@ -37,6 +38,7 @@ export interface ChartSettings {
     showLegend?: boolean;
     showGridLines?: boolean;
     showDataLabels?: boolean;
+    fillOpacity?: number;
 }
 
 export interface Section {
@@ -78,8 +80,12 @@ export interface KPI {
     strokeColor?: string;
     strokeOpacity?: number;
     showLegend?: boolean;
-    showGridlines?: boolean;
+    showGridLines?: boolean;
     showDataLabels?: boolean;
+    sankeySettings?: {
+        showLegend?: boolean;
+        showLabels?: boolean;
+    };
 }
 
 export interface Scorecard {

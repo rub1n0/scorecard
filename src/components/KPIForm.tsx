@@ -639,20 +639,10 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                     : 0;
             valueRecord = { '0': finalValue };
         } else if (resolvedVisualization === 'chart') {
-            if (chartDefinition?.usesLabeledValues) {
-                // Persist as labeled array so multi-value charts hydrate correctly
-                const labeled = sortedPoints.map((dp) => ({
-                    label: dp.date,
-                    value: typeof dp.value === 'number' ? dp.value : toNumber(String(dp.value)),
-                    color: dp.color,
-                }));
-                valueRecord = { '0': JSON.stringify(labeled) };
-            } else {
-                sortedPoints.forEach((dp) => {
-                    valueRecord[dp.date || dimensionLabel] =
-                        typeof dp.value === 'number' ? dp.value : toNumber(String(dp.value));
-                });
-            }
+            sortedPoints.forEach((dp) => {
+                valueRecord[dp.date || dimensionLabel] =
+                    typeof dp.value === 'number' ? dp.value : toNumber(String(dp.value));
+            });
         } else if (resolvedVisualization === 'sankey') {
             const nodesForSave = sankeyNodes.map((node, idx) => ({
                 id: node.id || `node-${idx + 1}`,

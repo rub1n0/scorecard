@@ -454,7 +454,7 @@ export default function DatabasePage() {
                                         <td className="px-4 py-3 text-industrial-200">{formatDataPointSummary(kpi)}</td>
                                         <td className="px-4 py-3 text-industrial-200 text-xs">
                                             <div>Stroke: {kpi.strokeColor || '—'} {kpi.strokeWidth ? `(${kpi.strokeWidth}px)` : ''}</div>
-                                            <div>Legend: {kpi.showLegend ? 'On' : 'Off'} • Grid: {kpi.showGridlines ? 'On' : 'Off'} • Labels: {kpi.showDataLabels ? 'On' : 'Off'}</div>
+                                            <div>Legend: {kpi.showLegend ? 'On' : 'Off'} • Grid: {(kpi.showGridLines ?? false) ? 'On' : 'Off'} • Labels: {kpi.showDataLabels ? 'On' : 'Off'}</div>
                                         </td>
                                         <td className="px-4 py-3 text-industrial-400 text-xs">
                                             {kpi.date ? new Date(kpi.date).toLocaleString() : '—'}

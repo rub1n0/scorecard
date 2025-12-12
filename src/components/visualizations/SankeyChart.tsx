@@ -1,7 +1,44 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import type { SankeyOptions } from "apexsankey/lib/models/Options";
+type SankeyOptions = {
+  width?: number;
+  height?: number;
+  viewPortWidth?: number;
+  viewPortHeight?: number;
+  canvasStyle?: string;
+  spacing?: number;
+  nodeWidth?: number;
+  nodeBorderColor?: string;
+  nodeBorderWidth?: number;
+  fontFamily?: string;
+  fontSize?: string;
+  fontWeight?: string | number;
+  fontColor?: string;
+  edgeOpacity?: number;
+  edgeGradientFill?: boolean;
+  tooltipId?: string;
+  enableTooltip?: boolean;
+  tooltipBGColor?: string;
+  tooltipBorderColor?: string;
+  enableToolbar?: boolean;
+  chart?: {
+    animations?: { enabled?: boolean; easing?: string };
+    toolbar?: { show?: boolean };
+  };
+  colors?: string[];
+  dataLabels?: { enabled?: boolean; style?: { colors?: string[] } };
+  plotOptions?: {
+    sankey?: {
+      flow?: { curvature?: number; colorMode?: "path" | "gradient" };
+      startDirection?: "rtl" | "ltr";
+      labels?: { enabled?: boolean };
+      legend?: { show?: boolean };
+    };
+  };
+  title?: { text?: string; align?: string };
+  tooltip?: { enabled?: boolean; theme?: "dark" | "light" };
+};
 
 interface SankeyNode {
   id: string;
@@ -88,12 +125,7 @@ const normalizeSankeyData = (data: SankeyData): NormalizedSankey => {
       value: Number(edge?.value) || 0,
       type: edge?.type ?? `flow-${idx + 1}`,
     }))
-    .filter(
-      (edge) =>
-        edge.source &&
-        edge.target &&
-        Number.isFinite(edge.value)
-    );
+    .filter((edge) => edge.source && edge.target && Number.isFinite(edge.value));
 
   return { nodes, edges, options: data?.options };
 };
@@ -199,8 +231,10 @@ export default function SankeyChart({
         enableToolbar: false,
       };
 
-      const chart = new ApexSankey(chartRef.current, chartOptions);
-      chart.render({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chart = new ApexSankey(chartRef.current, chartOptions as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (chart as any).render({
         nodes,
         edges,
         options: graphOptions ?? {},

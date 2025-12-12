@@ -79,10 +79,7 @@ const buildScorecard = async (id: string) => {
             strokeColor: kpi.strokeColor ?? chartSettings.strokeColor,
             strokeOpacity: kpi.strokeOpacity ?? chartSettings.strokeOpacity,
             showLegend: typeof kpi.showLegend === 'number' ? Boolean(kpi.showLegend) : kpi.showLegend ?? chartSettings.showLegend,
-            showGridlines:
-                typeof kpi.showGridlines === 'number'
-                    ? Boolean(kpi.showGridlines)
-                    : kpi.showGridlines ?? (chartSettings as any).showGridLines ?? (chartSettings as any).showGridlines,
+            showGridLines: chartSettings.showGridLines ?? true,
             showDataLabels: typeof kpi.showDataLabels === 'number' ? Boolean(kpi.showDataLabels) : kpi.showDataLabels ?? chartSettings.showDataLabels,
             order: kpi.order ?? undefined,
             lastUpdatedBy: kpi.lastUpdatedBy || undefined,

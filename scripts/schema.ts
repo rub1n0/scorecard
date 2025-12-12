@@ -56,6 +56,7 @@ export const kpis = mysqlTable('kpis', {
     showDataLabels: boolean('show_data_labels').default(false).notNull(),
     trendValue: double('trend_value'),
     latestValue: double('latest_value'),
+    sankeySettings: json('sankey_settings'),
     valueJson: json('value_json'),
     notes: text('notes'),
     chartSettings: json('chart_settings'),

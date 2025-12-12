@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { KPI, Metric } from '@/types';
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import ColorPicker from './ColorPicker';
+import { validateVisualizationData } from '@/utils/chartValidation';
+import { getChartDefinition, isMultiValueChartType } from './visualizations/chartConfig';
 
 interface KPIUpdateFormProps {
     kpi: KPI;
@@ -16,16 +18,18 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [showAllMetrics, setShowAllMetrics] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
     // Default color palette
     const defaultColors = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
+    const chartDefinition = useMemo(() => getChartDefinition(kpi.chartType || 'line'), [kpi.chartType]);
 
     // Determine if this is a multi-value chart type
     const isMultiValueChart = useMemo(
-        () => kpi.visualizationType === 'chart' && ['bar', 'pie', 'donut', 'radar', 'radialBar'].includes(kpi.chartType || ''),
+        () => kpi.visualizationType === 'chart' && isMultiValueChartType(kpi.chartType || 'line'),
         [kpi.visualizationType, kpi.chartType]
     );
+    const showColorColumn = kpi.visualizationType === 'chart' && chartDefinition.requiresColor;
 
     // Helper function to normalize dates to YYYY-MM-DD format
     const normalizeDate = (dateStr: string): string => {
@@ -65,45 +69,44 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             return { dateLabel: 'Date', showValue: false, showColor: false };
         }
 
-        if (kpi.visualizationType === 'number' || (kpi.visualizationType === 'chart' && (kpi.chartType === 'line' || kpi.chartType === 'area'))) {
-            return { dateLabel: 'Date', showValue: true, showColor: false };
+        if (kpi.visualizationType === 'chart') {
+            return {
+                dateLabel: chartDefinition.dimensionLabel,
+                showValue: true,
+                showColor: chartDefinition.requiresColor,
+            };
         }
 
-        if (kpi.visualizationType === 'chart' && kpi.chartType === 'radar') {
-            return { dateLabel: 'Dimension', showValue: true, showColor: false };
-        }
-
-        // bar, pie, donut, radialBar
-        return { dateLabel: 'Category', showValue: true, showColor: true };
+        return { dateLabel: 'Date', showValue: true, showColor: false };
     };
 
     const columnConfig = getColumnConfig();
 
     const handleAddMetric = () => {
-        let defaultLabel = new Date().toISOString().split('T')[0];
-
-        if (kpi.visualizationType === 'chart') {
-            if (kpi.chartType === 'pie' || kpi.chartType === 'donut' || kpi.chartType === 'bar' || kpi.chartType === 'radialBar') {
-                defaultLabel = 'New Category';
-            } else if (kpi.chartType === 'radar') {
-                defaultLabel = 'Dimension';
-            }
-        }
+        const defaultLabel = chartDefinition.defaultDimensionValue || new Date().toISOString().split('T')[0];
 
         const latestPoint = metrics.length > 0 ? metrics[0] : null;
         const inheritedLabeledValues = latestPoint?.labeledValues
-            ? latestPoint.labeledValues.map(lv => ({ ...lv, value: 0 }))
-            : [{ label: 'Value 1', value: 0 }];
+            ? latestPoint.labeledValues.map((lv, idx) => ({
+                ...lv,
+                value: 0,
+                color: lv.color || (showColorColumn ? defaultColors[idx % defaultColors.length] : undefined),
+            }))
+            : [{
+                label: 'Value 1',
+                value: 0,
+                color: showColorColumn ? defaultColors[0] : undefined,
+            }];
 
-        const newMetricColor = latestPoint?.color || (columnConfig.showColor ? defaultColors[metrics.length % defaultColors.length] : undefined);
+        const newMetricColor = latestPoint?.color || (showColorColumn ? defaultColors[metrics.length % defaultColors.length] : undefined);
 
         const newPoint: Metric = isMultiValueChart
             ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues, color: newMetricColor }
-            : { date: defaultLabel, value: 0 };
+            : { date: defaultLabel, value: 0, color: showColorColumn ? defaultColors[metrics.length % defaultColors.length] : undefined };
 
         // Add color for chart types that use it
-        if (columnConfig.showColor) {
-            newPoint.color = defaultColors[metrics.length % defaultColors.length];
+        if (showColorColumn) {
+            newPoint.color = newPoint.color || defaultColors[metrics.length % defaultColors.length];
         }
 
         const updatedPoints = [...metrics, newPoint].sort((a, b) =>
@@ -140,7 +143,11 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         const dp = updated[dpIndex];
         const currentLabeled = dp.labeledValues ? [...dp.labeledValues] : [];
         const newIndex = currentLabeled.length + 1;
-        currentLabeled.push({ label: `Value ${newIndex}`, value: 0 });
+        currentLabeled.push({
+            label: `Value ${newIndex}`,
+            value: 0,
+            color: showColorColumn ? defaultColors[newIndex % defaultColors.length] : undefined,
+        });
         updated[dpIndex].labeledValues = currentLabeled;
         updated[dpIndex].valueArray = currentLabeled.map(lv => lv.value);
         updated[dpIndex].value = currentLabeled.map(lv => lv.value);
@@ -182,12 +189,22 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         setIsSubmitting(true);
         setError(null);
         setSuccess(false);
+        setValidationErrors([]);
 
         try {
             // Sort data points
             const sortedPoints = [...metrics].sort((a, b) =>
                 new Date(a.date).getTime() - new Date(b.date).getTime()
             );
+
+            if (kpi.visualizationType === 'chart') {
+                const { isValid, errors } = validateVisualizationData(kpi.visualizationType, kpi.chartType, sortedPoints);
+                if (!isValid) {
+                    setValidationErrors(errors);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
 
             // Build the value Record structure
             let valueRecord: Record<string, number | string> = {};
@@ -299,7 +316,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                             className="bg-transparent border border-industrial-700 rounded px-2 py-1 text-industrial-200 flex-1"
                                                             value={point.date}
                                                             onChange={(e) => handleUpdateMetric(index, 'date', e.target.value)}
-                                                            placeholder={kpi.chartType === 'radar' ? 'Dimension Name' : 'Category Name'}
+                                                            placeholder={chartDefinition.dimensionLabel}
                                                         />
                                                         {columnConfig.showColor && (
                                                             <ColorPicker
@@ -326,7 +343,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                                     className="bg-industrial-800 border border-industrial-700 rounded px-2 py-1 text-industrial-200 flex-1"
                                                                     value={lv.label}
                                                                     onChange={(e) => handleUpdateMultiValue(index, vIdx, 'label', e.target.value)}
-                                                                    placeholder={`Label ${vIdx + 1}`}
+                                                                    placeholder={chartDefinition.valueLabel}
                                                                 />
                                                                 <span className="text-industrial-500">:</span>
                                                                 <input
@@ -335,7 +352,7 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                                                     className="bg-industrial-800 border border-industrial-700 rounded px-2 py-1 w-24 text-center text-industrial-200 font-mono"
                                                                     value={lv.value}
                                                                     onChange={(e) => handleUpdateMultiValue(index, vIdx, 'value', e.target.value)}
-                                                                    placeholder="0"
+                                                                    placeholder={chartDefinition.valueLabel}
                                                                 />
                                                                 <ColorPicker
                                                                     value={lv.color || '#3b82f6'}
@@ -373,25 +390,26 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                                     return (
                                         <tr key={index} className="hover:bg-industrial-800/30 transition-colors">
                                             <td className="px-4 py-2">
-                                                <input
-                                                    type={columnConfig.dateLabel === 'Date' ? "date" : "text"}
-                                                    className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
-                                                    value={point.date}
-                                                    onChange={(e) => handleUpdateMetric(index, 'date', e.target.value)}
-                                                    placeholder={columnConfig.dateLabel}
-                                                />
-                                            </td>
-                                            {columnConfig.showValue && (
-                                                <td className="px-4 py-2">
-                                                    <input
-                                                        type="number"
-                                                        step="any"
-                                                        className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
-                                                        value={Array.isArray(point.value) ? (point.value[0] ?? 0) : point.value}
-                                                        onChange={(e) => handleUpdateMetric(index, 'value', e.target.value)}
-                                                    />
-                                                </td>
-                                            )}
+                                                        <input
+                                                            type={columnConfig.dateLabel === 'Date' ? "date" : "text"}
+                                                            className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
+                                                            value={point.date}
+                                                            onChange={(e) => handleUpdateMetric(index, 'date', e.target.value)}
+                                                            placeholder={chartDefinition.dimensionLabel}
+                                                        />
+                                                    </td>
+                                                    {columnConfig.showValue && (
+                                                        <td className="px-4 py-2">
+                                                            <input
+                                                                type="number"
+                                                                step="any"
+                                                                className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
+                                                                value={Array.isArray(point.value) ? (point.value[0] ?? 0) : point.value}
+                                                                onChange={(e) => handleUpdateMetric(index, 'value', e.target.value)}
+                                                                placeholder={chartDefinition.valueLabel}
+                                                            />
+                                                        </td>
+                                                    )}
                                             {columnConfig.showColor && (
                                                 <td className="px-4 py-2">
                                                     <ColorPicker
@@ -419,6 +437,14 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
 
                     {/* Show-all toggle removed; always render all points */}
                 </div>
+
+                {validationErrors.length > 0 && (
+                    <div className="border border-red-700/70 bg-red-900/20 text-red-200 rounded-md p-3 text-sm space-y-1">
+                        {validationErrors.map((err, idx) => (
+                            <div key={idx}>• {err}</div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Notes */}

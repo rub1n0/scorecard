@@ -306,8 +306,6 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
       });
 
       const backupName = backup.meta?.name || backup.name || "Scorecard";
-      const backupDescription =
-        backup.meta?.description || backup.description || "";
       const backupVersion = backup.version || "1.0";
 
       // Confirm with user
@@ -386,17 +384,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
 
       // Prepare KPIs with remapped section IDs and without stale IDs
       const kpisToImport = backup.kpis.map((kpi: any) => {
-        const {
-          id: _id,
-          sectionId,
-          sectionName,
-          metrics,
-          dataPoints,
-          section,
-          updateToken,
-          valueJson,
-          ...rest
-        } = kpi;
+        const { sectionId, sectionName, metrics, dataPoints, valueJson, ...rest } = kpi;
 
         const inferredName =
           sectionName ||

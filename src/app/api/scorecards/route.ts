@@ -13,7 +13,8 @@ import {
     sections,
     users,
 } from '../../../../db/schema';
-import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
+import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly } from '@/utils/metricNormalization';
+import { buildPersistedMetrics } from '@/utils/metricPersistence';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
 
@@ -86,14 +87,12 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             value: (kpi.valueJson as any) || {},
             notes: kpi.notes || undefined,
             chartSettings,
+            sankeySettings: (kpi as any).sankeySettings || undefined,
             strokeWidth: kpi.strokeWidth ?? chartSettings.strokeWidth,
             strokeColor: kpi.strokeColor ?? chartSettings.strokeColor,
             strokeOpacity: kpi.strokeOpacity ?? chartSettings.strokeOpacity,
             showLegend: typeof kpi.showLegend === 'number' ? Boolean(kpi.showLegend) : kpi.showLegend ?? chartSettings.showLegend,
-            showGridlines:
-                typeof kpi.showGridlines === 'number'
-                    ? Boolean(kpi.showGridlines)
-                    : kpi.showGridlines ?? (chartSettings as any).showGridLines ?? (chartSettings as any).showGridlines,
+            showGridLines: chartSettings.showGridLines ?? true,
             showDataLabels: typeof kpi.showDataLabels === 'number' ? Boolean(kpi.showDataLabels) : kpi.showDataLabels ?? chartSettings.showDataLabels,
             order: kpi.order ?? undefined,
             lastUpdatedBy: kpi.lastUpdatedBy || undefined,
@@ -242,6 +241,7 @@ export async function PUT(req: NextRequest) {
                         showDataLabels: chartSettingsCols.showDataLabels ?? (kpi.chartSettings?.showDataLabels ?? false),
                         trendValue: kpi.trendValue ?? null,
                         valueJson: kpi.value || {},
+                        sankeySettings: kpi.sankeySettings || null,
                         notes: kpi.notes || null,
                         chartSettings: kpi.chartSettings || null,
                         order: kpi.order ?? idx,
@@ -259,16 +259,9 @@ export async function PUT(req: NextRequest) {
                         const kpiSource = body.kpis.find((k: any) => (k.id || definition.id) === definition.id);
 
                         // Insert metrics for ALL KPIs (before assignee check)
-                        const points = ((kpiSource?.metrics && kpiSource.metrics.length ? kpiSource.metrics : kpiSource?.dataPoints) || []).map((dp: any) => {
-                            const normalizedDate = normalizeDateOnly(dp.date);
-                            const value = normalizeValueForChartType(kpiSource?.chartType || definition.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
-                            return {
-                                kpiId: definition.id,
-                                date: new Date(`${normalizedDate}T00:00:00.000Z`),
-                                value,
-                                color: dp.color || null,
-                            };
-                        });
+                        const sourceMetrics = (kpiSource?.metrics && kpiSource.metrics.length ? kpiSource.metrics : kpiSource?.dataPoints) || [];
+                        const { points } = buildPersistedMetrics(definition.id, kpiSource?.chartType || definition.chartType, sourceMetrics);
+
                         if (points.length) {
                             await tx
                                 .insert(metrics)

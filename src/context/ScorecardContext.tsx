@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Scorecard, KPI, Section, Metric } from '@/types';
+import { Scorecard, KPI, Section } from '@/types';
 
 const clientFetch = (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
 const newId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
@@ -223,65 +223,6 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('Failed to add KPIs:', error);
         }
-    };
-
-    const getKpiMetrics = (kpi: KPI): Metric[] => kpi.metrics || kpi.dataPoints || [];
-
-    // Helper function to merge two KPIs
-    const mergeKPIs = (existingKPI: KPI, updatingKPI: KPI, newData: Partial<KPI>): Partial<KPI> => {
-        // Combine datapoints from both KPIs
-        const allDataPoints = [
-            ...getKpiMetrics(existingKPI),
-            ...getKpiMetrics(updatingKPI)
-        ];
-
-        const chartType = newData.chartType || existingKPI.chartType;
-        const nextVisible = newData.visible ?? existingKPI.visible ?? updatingKPI.visible ?? true;
-
-        const attachAssignments = (partial: Partial<KPI>) => {
-            const mergedAssignees = combineAssignees(
-                partial.assignee ?? existingKPI.assignee ?? updatingKPI.assignee,
-                partial.assignees ?? existingKPI.assignees ?? updatingKPI.assignees
-            );
-
-            return {
-                ...partial,
-                visible: nextVisible,
-                assignees: mergedAssignees.length ? mergedAssignees : undefined,
-                assignee: mergedAssignees[0],
-            };
-        };
-
-        // For bar/radar: keep only latest per category
-        if (chartType === 'bar' || chartType === 'radar' || chartType === 'radialBar') {
-            const categoryMap = new Map<string, Metric>();
-
-            // Sort by date (which is category for these charts), keep latest
-            allDataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-            for (const dp of allDataPoints) {
-                categoryMap.set(dp.date, dp); // date field holds the category name
-            }
-
-            return attachAssignments({
-                ...newData,
-                metrics: Array.from(categoryMap.values()),
-                dataPoints: Array.from(categoryMap.values())
-            });
-        }
-
-        // For other types: merge and sort chronologically
-        const merged = allDataPoints.sort((a, b) =>
-            new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-
-        const mergedMetrics = merged.length > 0 ? merged : undefined;
-
-        return attachAssignments({
-            ...newData,
-            metrics: mergedMetrics,
-            dataPoints: mergedMetrics,
-        });
     };
 
     const updateKPI = async (scorecardId: string, kpiId: string, updates: Partial<KPI>) => {

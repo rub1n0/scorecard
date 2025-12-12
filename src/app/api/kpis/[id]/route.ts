@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import { kpiValues, kpis, metrics, scorecards, sections } from '../../../../../db/schema';
-import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
+import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly } from '@/utils/metricNormalization';
+import { buildPersistedMetrics, IncomingMetric } from '@/utils/metricPersistence';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -39,6 +40,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             values,
             metrics: metricsForKpi,
             dataPoints: metricsForKpi,
+            sankeySettings: (row.kpi as { sankeySettings?: unknown }).sankeySettings || null,
         });
     } catch (error) {
         console.error('[kpis/:id][GET]', error);
@@ -57,6 +59,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const updates: Partial<typeof kpis.$inferInsert> = {
             chartSettings: body?.chartSettings ?? undefined,
+            sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
             subtitle: body?.subtitle ?? undefined,
             notes: body?.notes ?? undefined,
             chartType: body?.chartType ?? existing.chartType ?? undefined,
@@ -78,7 +81,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             strokeColor: chartSettings.strokeColor ?? body?.strokeColor ?? undefined,
             strokeOpacity: chartSettings.strokeOpacity ?? body?.strokeOpacity ?? undefined,
             showLegend: chartSettings.showLegend ?? body?.showLegend ?? undefined,
-            showGridlines: chartSettings.showGridlines ?? body?.showGridlines ?? undefined,
+            showGridlines: chartSettings.showGridlines ?? (typeof body?.showGridLines === 'boolean' ? body.showGridLines : undefined),
             showDataLabels: chartSettings.showDataLabels ?? body?.showDataLabels ?? undefined,
             updatedAt: new Date(),
         };
@@ -89,7 +92,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             updates.kpiName = name;
         }
 
-        const incomingMetrics = Array.isArray(body?.metrics)
+        const incomingMetrics: IncomingMetric[] | null = Array.isArray(body?.metrics)
             ? body.metrics
             : Array.isArray(body?.dataPoints)
                 ? body.dataPoints
@@ -102,50 +105,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 await tx.delete(metrics).where(eq(metrics.kpiId, id));
 
                 const chartType = updates.chartType ?? existing.chartType ?? null;
-                const points = incomingMetrics.map((dp: any) => {
-                    const normalizedDate = normalizeDateOnly(dp.date);
-                    const value = normalizeValueForChartType(chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
-                    return {
-                        kpiId: id,
-                        date: new Date(`${normalizedDate}T00:00:00.000Z`),
-                        value,
-                        color: dp.color || null,
-                    };
-                });
+                const { points, latestValue, valueJson, latestDate } = buildPersistedMetrics(id, chartType, incomingMetrics);
 
                 if (points.length) {
-                    const sortedByDate = [...points].sort((a, b) => a.date.getTime() - b.date.getTime());
                     await tx.insert(metrics).values(points);
-
-                    const latest = sortedByDate[sortedByDate.length - 1];
-                    // Build valueJson/latestValue from latest point if not supplied
-                    if (updates.valueJson === undefined) {
-                        if (Array.isArray(latest.value)) {
-                            if (latest.value.length && typeof latest.value[0] === 'object') {
-                                const labeled = latest.value as any[];
-                                updates.valueJson = labeled.reduce<Record<string, number>>((acc, item, idx) => {
-                                    const label = (item as any).label ?? String(idx);
-                                    const val = typeof (item as any).value === 'number' ? (item as any).value : 0;
-                                    acc[label] = val;
-                                    return acc;
-                                }, {});
-                            } else {
-                                const arr = latest.value as number[];
-                                updates.valueJson = arr.reduce<Record<string, number>>((acc, val, idx) => {
-                                    acc[String(idx)] = val;
-                                    return acc;
-                                }, {});
-                            }
-                        } else {
-                            updates.valueJson = { "0": latest.value as number };
-                        }
+                    if (updates.valueJson === undefined && valueJson) {
+                        updates.valueJson = valueJson;
                     }
-                    if (updates.latestValue === undefined) {
-                        updates.latestValue = Array.isArray(latest.value)
-                            ? (typeof latest.value[0] === 'number' ? latest.value[0] : 0)
-                            : (latest.value as number);
+                    if (updates.latestValue === undefined && latestValue !== undefined) {
+                        updates.latestValue = latestValue;
                     }
-                    updates.date = latest.date;
+                    if (latestDate) {
+                        updates.date = latestDate;
+                    }
                 } else {
                     // No points provided; clear metrics and leave valueJson as provided
                     updates.latestValue = updates.latestValue ?? null;

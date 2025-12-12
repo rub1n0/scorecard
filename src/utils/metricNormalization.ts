@@ -131,20 +131,23 @@ export const buildChartSettings = (row: {
     strokeWidth?: number | null;
     strokeColor?: string | null;
     strokeOpacity?: number | null;
+    fillOpacity?: number | null;
     showLegend?: boolean | number | null;
-    showGridlines?: boolean | number | null;
+    showGridLines?: boolean | number | null;
     showDataLabels?: boolean | number | null;
 }): ChartSettings => {
-    const jsonSettings = (row.chartSettings || {}) as ChartSettings & { showGridlines?: boolean };
+    const jsonSettings = (row.chartSettings || {}) as ChartSettings & { showGridlines?: boolean; showGridLines?: boolean };
     return {
         strokeWidth: row.strokeWidth ?? jsonSettings.strokeWidth,
         strokeColor: row.strokeColor ?? jsonSettings.strokeColor,
         strokeOpacity: row.strokeOpacity ?? jsonSettings.strokeOpacity,
+        fillOpacity: row.fillOpacity ?? jsonSettings.fillOpacity,
         showLegend: (typeof row.showLegend === 'number' ? Boolean(row.showLegend) : row.showLegend) ?? jsonSettings.showLegend,
         showGridLines:
-            (typeof row.showGridlines === 'number' ? Boolean(row.showGridlines) : row.showGridlines) ??
+            (typeof row.showGridLines === 'number' ? Boolean(row.showGridLines) : row.showGridLines) ??
+            (typeof row.showGridLines === 'number' ? Boolean(row.showGridLines) : row.showGridLines) ??
             jsonSettings.showGridLines ??
-            jsonSettings.showGridlines,
+            (jsonSettings as { showGridlines?: boolean }).showGridlines,
         showDataLabels: (typeof row.showDataLabels === 'number' ? Boolean(row.showDataLabels) : row.showDataLabels) ?? jsonSettings.showDataLabels,
     };
 };
@@ -155,8 +158,9 @@ export const extractChartSettingColumns = (settings?: (ChartSettings & { showGri
         strokeWidth: settings.strokeWidth,
         strokeColor: settings.strokeColor,
         strokeOpacity: settings.strokeOpacity,
+        fillOpacity: settings.fillOpacity,
         showLegend: settings.showLegend,
-        showGridlines: settings.showGridlines ?? settings.showGridLines,
+        showGridlines: settings.showGridLines ?? (settings as { showGridlines?: boolean }).showGridlines,
         showDataLabels: settings.showDataLabels,
     };
 };
