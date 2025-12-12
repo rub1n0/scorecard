@@ -17,6 +17,7 @@ type NumberVisualizationProps = {
   suffixOpacity?: number;
   chartSettings?: ChartSettings;
   dataPoints?: Metric[];
+  style?: React.CSSProperties;
 };
 
 const normalizeSparklineData = (dataPoints?: Metric[]) => {
@@ -48,6 +49,7 @@ export default function NumberVisualization({
   suffixOpacity = 0.5,
   chartSettings,
   dataPoints,
+  style,
 }: NumberVisualizationProps) {
   const isPositive = trendValue >= 0;
   const isGood = reverseTrend ? !isPositive : isPositive;
@@ -112,6 +114,7 @@ export default function NumberVisualization({
 
             <span
               className={`${fontSizeClass} font-bold text-industrial-100 font-mono tracking-tighter leading-none`}
+              style={style}
             >
               {formattedValue}
             </span>

@@ -76,6 +76,8 @@ export const kpis = mysqlTable(
     showDataLabels: boolean('show_data_labels').default(false).notNull(),
     trendValue: double('trend_value'),
     latestValue: double('latest_value'),
+    targetValue: json('target_value'),
+    targetColor: varchar('target_color', { length: 64 }),
     sankeySettings: json('sankey_settings'),
     valueJson: json('value_json'),
     notes: text('notes'),

@@ -39,7 +39,12 @@ interface ScorecardContextType {
     // Collaborative updates
     assignKPIToUser: (scorecardId: string, kpiId: string, email: string) => Promise<void>;
     bulkAssignKPIs: (scorecardId: string, kpiIds: string[], emails: string[]) => Promise<void>;
-    updateKPIByToken: (token: string, updates: Partial<KPI>, updatedBy?: string) => Promise<void>;
+    updateKPIByToken: (
+        token: string,
+        updates: Partial<KPI>,
+        updatedBy?: string,
+        kpiId?: string
+    ) => Promise<void>;
     getKPIByToken: (token: string) => { scorecard: Scorecard; kpi: KPI } | null;
     getKPIsByAssigneeToken: (token: string) => { scorecard: Scorecard; kpis: KPI[]; assigneeEmail: string } | null;
     generateAssigneeToken: (scorecardId: string, email: string) => Promise<string>;
@@ -233,6 +238,8 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         if (!currentKPI) return;
 
         const nextVisible = updates.visible ?? currentKPI.visible ?? true;
+        const hasTargetValue = Object.prototype.hasOwnProperty.call(updates, 'targetValue');
+        const hasTargetColor = Object.prototype.hasOwnProperty.call(updates, 'targetColor');
         const payload: Partial<KPI> = {
             ...currentKPI,
             ...updates,
@@ -240,6 +247,8 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             prefixOpacity: updates.prefixOpacity ?? currentKPI.prefixOpacity,
             suffix: updates.suffix ?? currentKPI.suffix,
             suffixOpacity: updates.suffixOpacity ?? currentKPI.suffixOpacity,
+            targetValue: hasTargetValue ? updates.targetValue : currentKPI.targetValue,
+            targetColor: hasTargetColor ? updates.targetColor : currentKPI.targetColor,
             metrics: updates.metrics ?? updates.dataPoints ?? currentKPI.metrics ?? currentKPI.dataPoints ?? [],
             dataPoints: updates.dataPoints ?? updates.metrics ?? currentKPI.dataPoints ?? currentKPI.metrics ?? [],
             chartType: updates.chartType ?? currentKPI.chartType,
@@ -423,14 +432,29 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
     const updateKPIByToken = async (
         token: string,
         updates: Partial<KPI>,
-        updatedBy?: string
+        updatedBy?: string,
+        kpiId?: string
     ) => {
         // Find KPI by token across all scorecards
         for (const scorecard of scorecards) {
-            const kpi = scorecard.kpis.find(k => k.updateToken === token);
+            let kpi = scorecard.kpis.find(k => k.updateToken === token);
+
+            // If not found by KPI token, try to resolve via assignee token and explicit KPI id
+            if (!kpi && kpiId) {
+                const email = Object.entries(scorecard.assignees || {}).find(([, t]) => t === token)?.[0];
+                if (email) {
+                    const candidate = scorecard.kpis.find(k => k.id === kpiId);
+                    if (candidate) {
+                        kpi = candidate;
+                    }
+                }
+            }
+
             if (!kpi) continue;
 
             const nextVisible = updates.visible ?? kpi.visible ?? true;
+            const hasTargetValue = Object.prototype.hasOwnProperty.call(updates, 'targetValue');
+            const hasTargetColor = Object.prototype.hasOwnProperty.call(updates, 'targetColor');
             const payload = {
                 // Keep immutable identity fields
                 id: kpi.id,
@@ -444,6 +468,8 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 prefixOpacity: updates.prefixOpacity ?? kpi.prefixOpacity,
                 suffix: updates.suffix ?? kpi.suffix,
                 suffixOpacity: updates.suffixOpacity ?? kpi.suffixOpacity,
+                targetValue: hasTargetValue ? updates.targetValue : kpi.targetValue,
+                targetColor: hasTargetColor ? updates.targetColor : kpi.targetColor,
                 // Ensure metrics/dataPoints are present for replacement
                 metrics: updates.metrics ?? updates.dataPoints ?? kpi.metrics ?? kpi.dataPoints ?? [],
                 dataPoints: updates.dataPoints ?? updates.metrics ?? kpi.dataPoints ?? kpi.metrics ?? [],

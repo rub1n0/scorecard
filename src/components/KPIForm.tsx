@@ -191,6 +191,10 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         useState<VisualizationSelection>(initialSelection);
     const [chartType, setChartType] = useState<ChartType>(initialChartType);
     const [reverseTrend, setReverseTrend] = useState(kpi?.reverseTrend ?? false);
+    const [targetValue, setTargetValue] = useState<string>(
+        kpi?.targetValue !== undefined && kpi?.targetValue !== null ? String(kpi.targetValue) : ''
+    );
+    const [targetColor, setTargetColor] = useState<string>(kpi?.targetColor || standardPalette[0]);
 
     const [strokeWidth, setStrokeWidth] = useState(
         kpi?.chartSettings?.strokeWidth ?? kpi?.strokeWidth ?? 2
@@ -659,6 +663,24 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             };
         }
 
+        const rawTarget = targetValue.trim();
+        const normalizedTarget =
+            resolvedVisualization === 'number'
+                ? rawTarget === ''
+                    ? null
+                    : Number.isFinite(parseFloat(rawTarget))
+                        ? parseFloat(rawTarget)
+                        : null
+                : resolvedVisualization === 'text'
+                    ? rawTarget === ''
+                        ? null
+                        : rawTarget
+                    : undefined;
+        const normalizedTargetColor =
+            normalizedTarget === null || normalizedTarget === undefined
+                ? null
+                : targetColor || undefined;
+
         const kpiData: Omit<KPI, 'id'> = {
             name: kpiName,
             kpiName: kpiName,
@@ -697,6 +719,11 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             prefixOpacity,
             suffix: suffix || undefined,
             suffixOpacity,
+            targetValue: normalizedTarget,
+            targetColor:
+                resolvedVisualization === 'number' || resolvedVisualization === 'text'
+                    ? normalizedTargetColor
+                    : undefined,
         };
 
         onSave(kpiData);
@@ -887,6 +914,27 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             <span className="text-sm text-industrial-300">Reverse Trend (down is good)</span>
                         </div>
 
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="form-label">Target</label>
+                                <div className="flex items-end gap-2">
+                                    <input
+                                        type="number"
+                                        className="input"
+                                        value={targetValue}
+                                        onChange={(e) => setTargetValue(e.target.value)}
+                                        placeholder="Enter target value"
+                                        style={
+                                            targetValue && Number(metricValue || 0) === Number(targetValue)
+                                                ? { color: targetColor }
+                                                : undefined
+                                        }
+                                    />
+                                    <ColorPicker value={targetColor} onChange={setTargetColor} />
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_auto] gap-3 items-end">
                             <div>
                                 <label className="form-label">{dimensionLabel}</label>
@@ -917,7 +965,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                 )}
 
                 {visualizationSelection === 'text' && (
-                    <div className="form-group border-t border-industrial-800 pt-4">
+                    <div className="form-group border-t border-industrial-800 pt-4 space-y-4">
                         <label className="form-label">Value</label>
                         <input
                             type="text"
@@ -925,7 +973,27 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             value={textValue}
                             onChange={(e) => setTextValue(e.target.value)}
                             placeholder="Enter text value"
+                            style={
+                                targetValue && textValue.trim() === targetValue.trim()
+                                    ? { color: targetColor }
+                                    : undefined
+                            }
                         />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="form-label">Target</label>
+                                <div className="flex items-end gap-2">
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={targetValue}
+                                        onChange={(e) => setTargetValue(e.target.value)}
+                                        placeholder="Enter target text"
+                                    />
+                                    <ColorPicker value={targetColor} onChange={setTargetColor} />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

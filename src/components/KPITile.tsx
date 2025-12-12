@@ -40,13 +40,27 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
 
         if (kpi.visualizationType === 'text') {
             const textValue = String(kpi.value["0"] || Object.values(kpi.value)[0] || '');
-            return <TextVisualization value={textValue} />;
+            const matchesTarget =
+                kpi.targetValue !== undefined &&
+                kpi.targetValue !== null &&
+                textValue.trim() === String(kpi.targetValue).trim();
+            return (
+                <TextVisualization
+                    value={textValue}
+                    style={matchesTarget && kpi.targetColor ? { color: kpi.targetColor } : undefined}
+                />
+            );
         }
 
         if (kpi.visualizationType === 'number') {
             const rawValue = kpi.value["0"] || Object.values(kpi.value)[0] || 0;
             const numValue = typeof rawValue === 'number' ? rawValue : parseFloat(String(rawValue)) || 0;
             const trend = kpi.trendValue || 0;
+            const matchesTarget =
+                kpi.targetValue !== undefined &&
+                kpi.targetValue !== null &&
+                Number.isFinite(Number(kpi.targetValue)) &&
+                ((kpi.reverseTrend ? numValue <= Number(kpi.targetValue) : numValue >= Number(kpi.targetValue)));
 
             return (
                 <NumberVisualization
@@ -60,6 +74,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     suffixOpacity={kpi.suffixOpacity}
                     chartSettings={kpi.chartSettings}
                     dataPoints={kpi.dataPoints}
+                    style={matchesTarget && kpi.targetColor ? { color: kpi.targetColor } : undefined}
                 />
             );
         }

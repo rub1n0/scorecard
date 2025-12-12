@@ -26,6 +26,7 @@ import {
   RefreshCcw,
   Trash2,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "./PageHeader";
@@ -932,11 +933,16 @@ function LinksModal({
           </h4>
           <div className="border border-industrial-800 rounded-md overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
+              <colgroup>
+                <col className="w-2/6" />
+                <col className="w-3/6" />
+                <col className="w-1/6" />
+              </colgroup>
+              <thead className="bg-industrial-600/40 text-industrial-300 uppercase text-[11px]">
                 <tr>
                   <th className="px-4 py-2 text-left">Section</th>
-                  <th className="px-4 py-2 text-left">Copy Link</th>
-                  <th className="px-4 py-2 text-right">Actions</th>
+                  <th className="px-4 py-2 text-left"></th>
+                  <th className="px-4 py-2 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-industrial-800">
@@ -953,21 +959,32 @@ function LinksModal({
                       </td>
                       <td className="px-4 py-2 text-left">
                         {link.token ? (
-                          <button
-                            className="btn btn-xs btn-ghost"
-                            onClick={async () => {
-                              await copyToClipboard(fullLink);
-                              setCopyState(link.key);
-                              setTimeout(() => setCopyState(""), 1500);
-                            }}
-                          >
-                            {copyState === link.key ? (
-                              <Check size={12} />
-                            ) : (
-                              <Copy size={12} />
-                            )}{" "}
-                            Copy
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="btn btn-xs btn-ghost"
+                              onClick={async () => {
+                                await copyToClipboard(fullLink);
+                                setCopyState(link.key);
+                                setTimeout(() => setCopyState(""), 1500);
+                              }}
+                            >
+                              {copyState === link.key ? (
+                                <Check size={12} />
+                              ) : (
+                                <Copy size={12} />
+                              )}{" "}
+                              Copy
+                            </button>
+                            <a
+                              className="btn btn-xs btn-ghost"
+                              href={fullLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink size={12} />
+                              Open
+                            </a>
+                          </div>
                         ) : (
                           <span className="text-[11px] text-red-400">
                             Link removed
@@ -1022,12 +1039,16 @@ function LinksModal({
           </h4>
           <div className="border border-industrial-800 rounded-md overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-industrial-900/60 text-industrial-400 uppercase text-[11px]">
+              <colgroup>
+                <col className="w-2/6" />
+                <col className="w-3/6" />
+                <col className="w-1/6" />
+              </colgroup>
+              <thead className="bg-industrial-600/40 text-industrial-300 uppercase text-[11px]">
                 <tr>
                   <th className="px-4 py-2 text-left">Assignee</th>
-                  <th className="px-4 py-2 text-left">Metrics</th>
-                  <th className="px-4 py-2 text-left">Copy Link</th>
-                  <th className="px-4 py-2 text-right">Actions</th>
+                  <th className="px-4 py-2 text-left"></th>
+                  <th className="px-4 py-2 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-industrial-800">
@@ -1061,26 +1082,35 @@ function LinksModal({
                         <td className="px-4 py-2 text-industrial-100">
                           {row.email}
                         </td>
-                        <td className="px-4 py-2 text-industrial-400">
-                          {row.count}
-                        </td>
+
                         <td className="px-4 py-2 text-left">
                           {row.token ? (
-                            <button
-                              className="btn btn-xs btn-ghost"
-                              onClick={async () => {
-                                await copyToClipboard(fullLink);
-                                setCopyState(row.email);
-                                setTimeout(() => setCopyState(""), 1500);
-                              }}
-                            >
-                              {copyState === row.email ? (
-                                <Check size={12} />
-                              ) : (
-                                <Copy size={12} />
-                              )}{" "}
-                              Copy
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="btn btn-xs btn-ghost"
+                                onClick={async () => {
+                                  await copyToClipboard(fullLink);
+                                  setCopyState(row.email);
+                                  setTimeout(() => setCopyState(""), 1500);
+                                }}
+                              >
+                                {copyState === row.email ? (
+                                  <Check size={12} />
+                                ) : (
+                                  <Copy size={12} />
+                                )}{" "}
+                                Copy
+                              </button>
+                              <a
+                                className="btn btn-xs btn-ghost"
+                                href={fullLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink size={12} />
+                                Open
+                              </a>
+                            </div>
                           ) : (
                             <span className="text-[11px] text-red-400">
                               Link removed

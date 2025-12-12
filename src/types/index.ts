@@ -76,6 +76,8 @@ export interface KPI {
     suffix?: string; // Optional suffix for number display (e.g., "%", "ms", "GB")
     suffixOpacity?: number; // Opacity of the suffix (0-1)
     visible?: boolean; // Controls whether the metric is shown on the scorecard
+    targetValue?: number | string | null; // Target value for number/text KPIs
+    targetColor?: string | null; // Color to use when hitting target
     strokeWidth?: number;
     strokeColor?: string;
     strokeOpacity?: number;

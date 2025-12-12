@@ -41,6 +41,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             metrics: metricsForKpi,
             dataPoints: metricsForKpi,
             sankeySettings: (row.kpi as { sankeySettings?: unknown }).sankeySettings || null,
+            targetValue: (row.kpi as { targetValue?: unknown }).targetValue ?? null,
+            targetColor: (row.kpi as { targetColor?: string | null }).targetColor ?? null,
         });
     } catch (error) {
         console.error('[kpis/:id][GET]', error);
@@ -56,6 +58,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const [existing] = await db.select().from(kpis).where(eq(kpis.id, id));
         if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+        const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
+        const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
 
         const updates: Partial<typeof kpis.$inferInsert> = {
             chartSettings: body?.chartSettings ?? undefined,
@@ -83,6 +88,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             showLegend: chartSettings.showLegend ?? body?.showLegend ?? undefined,
             showGridlines: chartSettings.showGridlines ?? (typeof body?.showGridLines === 'boolean' ? body.showGridLines : undefined),
             showDataLabels: chartSettings.showDataLabels ?? body?.showDataLabels ?? undefined,
+            targetValue: hasTargetValue ? body?.targetValue ?? null : existing.targetValue ?? undefined,
+            targetColor: hasTargetColor ? body?.targetColor ?? null : existing.targetColor ?? undefined,
             updatedAt: new Date(),
         };
 

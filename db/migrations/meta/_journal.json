@@ -29,6 +29,20 @@
       "when": 1700000003000,
       "tag": "0003_kpi_metric_terminology",
       "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1700000004000,
+      "tag": "0004_sankey_settings",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1700000005000,
+      "tag": "0005_target_fields",
+      "breakpoints": false
     }
   ]
 }

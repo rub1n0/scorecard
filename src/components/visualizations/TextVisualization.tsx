@@ -4,9 +4,10 @@ import React from "react";
 
 type TextVisualizationProps = {
   value: string;
+  style?: React.CSSProperties;
 };
 
-export default function TextVisualization({ value }: TextVisualizationProps) {
+export default function TextVisualization({ value, style }: TextVisualizationProps) {
   const textLength = value.length;
 
   let fontSizeClass = "text-[10rem]";
@@ -22,6 +23,7 @@ export default function TextVisualization({ value }: TextVisualizationProps) {
       <div className="flex items-center justify-center w-full">
         <p
           className={`${fontSizeClass} font-bold text-industrial-100 font-mono tracking-tight text-center leading-none break-words max-w-full px-2`}
+          style={style}
         >
           {value}
         </p>
