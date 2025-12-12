@@ -1,17 +1,86 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useScorecards } from '@/context/ScorecardContext';
 import { Scorecard, KPI } from '@/types';
-import { LayoutDashboard, AlertTriangle, CheckCircle2, Save, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, CheckCircle2, Save, ArrowLeft, Trash2 } from 'lucide-react';
+import { getChartDefinition, isMultiValueChartType } from '@/components/visualizations/chartConfig';
+import ColorPicker from '@/components/ColorPicker';
+
+type SankeyNode = { id: string; title: string; color?: string };
+type SankeyLink = { source: string; target: string; value: number };
+const sankeyPalette = ['#264653', '#2A9D8F', '#E9C46A', '#F4A261', '#E76F51'];
+const chartPalette = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
+
+const parseSankeyValue = (value: Record<string, number | string>) => {
+    const raw = value?.['0'] ?? Object.values(value || {})[0];
+    let parsed: Record<string, unknown> = {};
+
+    try {
+        const candidate = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        parsed = typeof candidate === 'object' && candidate !== null ? (candidate as Record<string, unknown>) : {};
+    } catch {
+        parsed = {};
+    }
+
+    const nodesInput = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+    const linksInput = Array.isArray(parsed.links)
+        ? parsed.links
+        : Array.isArray(parsed.edges)
+            ? parsed.edges
+            : [];
+
+    const nodesMap = new Map<string, SankeyNode>();
+    nodesInput.forEach((node, idx) => {
+        if (typeof node !== 'object' || node === null) return;
+        const record = node as Record<string, unknown>;
+        const id = typeof record.id === 'string' ? record.id : `node-${idx + 1}`;
+        const title =
+            typeof record.title === 'string' && record.title.trim() ? record.title : id;
+        const color = typeof record.color === 'string' ? (record.color as string) : undefined;
+        nodesMap.set(id, { id, title, color });
+    });
+
+    const links: SankeyLink[] = linksInput
+        .map((link) => {
+            if (typeof link !== 'object' || link === null) return null;
+            const record = link as Record<string, unknown>;
+            const source = typeof record.source === 'string' ? record.source : '';
+            const target = typeof record.target === 'string' ? record.target : '';
+            const value = Number(record.value);
+            if (!source || !target || !Number.isFinite(value)) return null;
+            return { source, target, value };
+        })
+        .filter(Boolean) as SankeyLink[];
+
+    links.forEach((link) => {
+        if (!nodesMap.has(link.source)) {
+            nodesMap.set(link.source, { id: link.source, title: link.source });
+        }
+        if (!nodesMap.has(link.target)) {
+            nodesMap.set(link.target, { id: link.target, title: link.target });
+        }
+    });
+
+    const nodes = Array.from(nodesMap.values()).map((node, idx) => ({
+        ...node,
+        color: node.color || sankeyPalette[idx % sankeyPalette.length],
+    }));
+
+    return { nodes, links };
+};
 
 type MetricUpdateRowProps = {
     kpi: KPI;
     onUpdate: (updates: Partial<KPI>) => Promise<void>;
+    registerSubmit?: (id: string, submitFn?: () => Promise<boolean>) => void;
+    onDirtyChange?: (id: string, dirty: boolean) => void;
+    fallbackToken?: string;
+    rowIndex?: number;
 };
 
-function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
+function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbackToken, rowIndex = 0 }: MetricUpdateRowProps) {
     const historyPoints = useMemo(() => {
         const fromDataPoints = (kpi.metrics || kpi.dataPoints || []).map(dp => ({
             date: dp.date,
@@ -32,9 +101,19 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     }, [kpi.metrics, kpi.dataPoints, kpi.value]);
 
     const latestPoint = historyPoints[0];
-
+    const isSankey = kpi.visualizationType === 'sankey' || kpi.chartType === 'sankey';
     const isChart = kpi.visualizationType === 'chart';
-    type ValueEntry = { key: string; value: number | string };
+    const chartDefinition = useMemo(
+        () => getChartDefinition(kpi.chartType || 'line'),
+        [kpi.chartType]
+    );
+    const isCategoryChart = isChart && isMultiValueChartType(kpi.chartType || 'line');
+    type ValueEntry = { key: string; value: number | string; color?: string };
+
+    const markDirty = useCallback(() => {
+        setDirty(true);
+        onDirtyChange?.(kpi.id, true);
+    }, [kpi.id, onDirtyChange]);
 
     // Helper to normalize array values to single number
     const normalizeValue = (v: number | string | number[] | undefined): number | string => {
@@ -43,17 +122,43 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
     };
 
     const initialEntries: ValueEntry[] = useMemo(() => {
+        if (isSankey) {
+            return [];
+        }
         if (isChart) {
-            const base: { key: string; value: number | string | number[] }[] = historyPoints.length
-                ? historyPoints.map(({ date, value }) => ({ key: date, value }))
-                : Object.entries(kpi.value || {}).map(([key, val]) => ({ key, value: val as number | string }));
+            const metricSource = (kpi.metrics && kpi.metrics.length ? kpi.metrics : kpi.dataPoints) || [];
+            const fromMetrics =
+                metricSource.length > 0
+                    ? [...metricSource]
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((dp, idx) => ({
+                            key: dp.date,
+                            value: Array.isArray(dp.value) ? dp.value[0] ?? 0 : dp.value,
+                            color: dp.color || chartPalette[idx % chartPalette.length],
+                        }))
+                    : [];
+
+            const base: { key: string; value: number | string | number[]; color?: string }[] = fromMetrics.length
+                ? fromMetrics
+                : (historyPoints.length
+                    ? historyPoints.map(({ date, value }, idx) => ({
+                        key: date,
+                        value,
+                        color: chartPalette[idx % chartPalette.length],
+                    }))
+                    : Object.entries(kpi.value || {}).map(([key, val], idx) => ({
+                        key,
+                        value: val as number | string,
+                        color: chartPalette[idx % chartPalette.length],
+                    })));
             return base.map(dp => ({
                 key: dp.key || 'Value',
                 value: typeof dp.value === 'number'
                     ? dp.value
                     : Array.isArray(dp.value)
                         ? (dp.value[0] ?? 0)
-                        : Number(dp.value) || 0
+                        : Number(dp.value) || 0,
+                color: dp.color,
             }));
         }
         if (kpi.visualizationType === 'text') {
@@ -65,28 +170,157 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
             ? numeric
             : normalizeValue(latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
         return [{ key: '0', value: firstVal }];
-    }, [isChart, historyPoints, kpi.value, kpi.visualizationType, latestPoint?.value]);
+    }, [isChart, isSankey, historyPoints, kpi.value, kpi.visualizationType, latestPoint?.value]);
 
     const [entries, setEntries] = useState<ValueEntry[]>(initialEntries);
+    const initialSankey = useMemo(() => parseSankeyValue(kpi.value), [kpi.value]);
+    const [sankeyNodes, setSankeyNodes] = useState<SankeyNode[]>(initialSankey.nodes);
+    const [sankeyLinks, setSankeyLinks] = useState<SankeyLink[]>(initialSankey.links);
     const [notes, setNotes] = useState(kpi.notes || '');
+    const notesRef = useRef<HTMLTextAreaElement | null>(null);
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+    const [reverseTrend, setReverseTrend] = useState(kpi.reverseTrend ?? false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const subtitleFull = kpi.subtitle || '—';
-    const subtitle = subtitleFull.length > 25 ? `${subtitleFull.slice(0, 25)}...` : subtitleFull;
+    const [dirty, setDirty] = useState(false);
+    const subtitleFull = kpi.subtitle || '';
+    const formattedUpdated = kpi.date
+        ? `Updated ${new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        }).format(new Date(kpi.date))}`
+        : 'Not updated yet';
+
+    useEffect(() => {
+        const el = notesRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.max(el.scrollHeight, 120)}px`;
+    }, [notes]);
+
+    const rowBg = rowIndex % 2 === 0 ? 'bg-industrial-950' : 'bg-industrial-900/40';
+
+    const updateEntry = (index: number, field: 'key' | 'value' | 'color', nextValue: string) => {
+        markDirty();
+        setEntries((prev) =>
+            prev.map((entry, idx) => (idx === index ? { ...entry, [field]: nextValue } : entry))
+        );
+    };
+
+    const addEntry = () => {
+        const baseLabel = chartDefinition.defaultDimensionValue || 'Value';
+        markDirty();
+        setEntries((prev) => [
+            ...prev,
+            {
+                key: `${baseLabel} ${prev.length + 1}`,
+                value: 0,
+                color: chartDefinition.requiresColor
+                    ? chartPalette[prev.length % chartPalette.length]
+                    : undefined,
+            },
+        ]);
+    };
+
+    const removeEntry = (index: number) => {
+        markDirty();
+        setEntries((prev) => (prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== index)));
+    };
+
+    const addNode = () => {
+        const nextIndex = sankeyNodes.length + 1;
+        markDirty();
+        setSankeyNodes((prev) => [
+            ...prev,
+            {
+                id: `node-${nextIndex}`,
+                title: `Node ${nextIndex}`,
+                color: sankeyPalette[prev.length % sankeyPalette.length],
+            },
+        ]);
+    };
+
+    const updateNode = (id: string, field: 'title' | 'color', value: string) => {
+        markDirty();
+        setSankeyNodes((prev) =>
+            prev.map((node) => (node.id === id ? { ...node, [field]: value } : node))
+        );
+    };
+
+    const removeNode = (id: string) => {
+        markDirty();
+        setSankeyNodes((prev) => prev.filter((node) => node.id !== id));
+        setSankeyLinks((prev) => prev.filter((link) => link.source !== id && link.target !== id));
+    };
+
+    const addLink = () => {
+        const source = sankeyNodes[0]?.id || 'source';
+        const target = sankeyNodes[1]?.id || source;
+        markDirty();
+        setSankeyLinks((prev) => [...prev, { source, target, value: 10 }]);
+    };
+
+    const updateLink = (index: number, field: 'source' | 'target' | 'value', value: string) => {
+        markDirty();
+        setSankeyLinks((prev) => {
+            const next = [...prev];
+            if (field === 'value') {
+                next[index].value = Number(value) || 0;
+            } else {
+                next[index][field] = value;
+            }
+            return next;
+        });
+    };
+
+    const removeLink = (index: number) => {
+        markDirty();
+        setSankeyLinks((prev) => prev.filter((_, idx) => idx !== index));
+    };
 
     const buildUpdates = (): Partial<KPI> => {
+        if (isSankey) {
+            const nodesForSave = (sankeyNodes.length ? sankeyNodes : [{ id: 'node-1', title: 'Node 1' }]).map(
+                (node, idx) => ({
+                    id: node.id || `node-${idx + 1}`,
+                    title: node.title || node.id || `Node ${idx + 1}`,
+                    color: node.color || sankeyPalette[idx % sankeyPalette.length],
+                })
+            );
+            const linksForSave = (sankeyLinks.length ? sankeyLinks : []).filter(
+                (link) => link.source && link.target
+            );
+
+            return {
+                value: { '0': JSON.stringify({ nodes: nodesForSave, links: linksForSave }) },
+                notes: notes ?? '',
+                date: new Date().toISOString(),
+                sankeySettings: kpi.sankeySettings,
+                dataPoints: [],
+                metrics: [],
+            };
+        }
+
         if (isChart) {
             const valueRecord: Record<string, number> = {};
+            const needsColor = chartDefinition.requiresColor;
             entries.forEach(e => {
                 const num = typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0;
                 valueRecord[e.key] = num;
             });
-            const dataPoints = entries.map(e => ({
-                date: e.key,
-                value: typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0
-            }));
+            const dataPoints = entries.map((e, idx) => {
+                const num = typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0;
+                const color = needsColor ? e.color || chartPalette[idx % chartPalette.length] : undefined;
+                return {
+                    date: e.key,
+                    value: num,
+                    ...(color ? { color } : {}),
+                };
+            });
             return {
                 value: valueRecord,
                 metrics: dataPoints,
@@ -111,16 +345,18 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
         return {
             value: { '0': safeNum },
             trendValue: safeNum,
+            reverseTrend,
             // Allow blank notes to clear existing text
             notes: notes ?? '',
             date: date ? new Date(date).toISOString() : new Date().toISOString(),
         };
     };
 
-    const submit = async () => {
-        if (!kpi.updateToken) {
+    const submit = useCallback(async (): Promise<boolean> => {
+        const tokenToUse = kpi.updateToken || fallbackToken;
+        if (!tokenToUse) {
             setError('Missing update token for this KPI.');
-            return;
+            return false;
         }
         setSaving(true);
         setError(null);
@@ -129,39 +365,356 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
             await onUpdate(buildUpdates());
             setSuccess(true);
             setTimeout(() => setSuccess(false), 2000);
+            setDirty(false);
+            onDirtyChange?.(kpi.id, false);
+            return true;
         } catch {
             setError('Failed to save update.');
+            return false;
         } finally {
             setSaving(false);
         }
+    }, [buildUpdates, kpi.id, onDirtyChange, kpi.updateToken, onUpdate]);
+
+    useEffect(() => {
+        registerSubmit?.(kpi.id, submit);
+        onDirtyChange?.(kpi.id, dirty);
+        return () => registerSubmit?.(kpi.id, undefined);
+    }, [dirty, kpi.id, onDirtyChange, registerSubmit, submit]);
+
+    const renderValueInputs = () => {
+        if (isSankey) {
+            return (
+                <div className="flex flex-nowrap gap-4 overflow-x-auto pb-1">
+                    <div className="min-w-[320px] shrink-0 flex-1 space-y-2">
+                        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-industrial-500">
+                            <span>Nodes</span>
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-ghost btn-sm px-2"
+                                onClick={addNode}
+                            >
+                                + Node
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {sankeyNodes.length === 0 && (
+                                <span className="text-xs text-industrial-600">Add at least two nodes.</span>
+                            )}
+                            {sankeyNodes.map((node, idx) => (
+                                <div
+                                    key={node.id}
+                                    className="flex items-center gap-2 rounded-md border border-industrial-800 bg-industrial-900/40 px-2 py-1"
+                                >
+                                    <input
+                                        type="text"
+                                        className="input h-9 text-sm px-2 min-w-[120px]"
+                                        value={node.title}
+                                        onChange={(e) => updateNode(node.id, 'title', e.target.value)}
+                                        placeholder={`Node ${idx + 1}`}
+                                    />
+                                    <ColorPicker
+                                        value={node.color || sankeyPalette[idx % sankeyPalette.length]}
+                                        onChange={(color) => updateNode(node.id, 'color', color)}
+                                        align="right"
+                                    />
+                                    {sankeyNodes.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeNode(node.id)}
+                                            className="btn btn-ghost btn-sm text-industrial-500 hover:text-red-400"
+                                            title="Remove node"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="min-w-[360px] shrink-0 flex-[1.2] space-y-2">
+                        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-industrial-500">
+                            <span>Links</span>
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-ghost btn-sm px-2"
+                                onClick={addLink}
+                                disabled={sankeyNodes.length === 0}
+                            >
+                                + Link
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            {sankeyLinks.length === 0 && (
+                                <span className="text-xs text-industrial-600">Add flows by connecting nodes.</span>
+                            )}
+                            {sankeyLinks.map((link, idx) => (
+                                <div
+                                    key={idx}
+                                    className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-md border border-industrial-800 bg-industrial-900/40 p-1"
+                                >
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">Source</span>
+                                        <select
+                                            className="select h-9 text-xs p-1 w-full"
+                                            value={link.source}
+                                            onChange={(e) => updateLink(idx, 'source', e.target.value)}
+                                        >
+                                            <option value="">Select</option>
+                                            {sankeyNodes.map((node) => (
+                                                <option key={node.id} value={node.id}>
+                                                    {node.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">Target</span>
+                                        <select
+                                            className="select h-9 text-xs p-1 w-full"
+                                            value={link.target}
+                                            onChange={(e) => updateLink(idx, 'target', e.target.value)}
+                                        >
+                                            <option value="">Select</option>
+                                            {sankeyNodes.map((node) => (
+                                                <option key={node.id} value={node.id}>
+                                                    {node.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">Value</span>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            className="input h-9 text-xs p-1 w-full"
+                                            value={link.value}
+                                            onChange={(e) => updateLink(idx, 'value', e.target.value)}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeLink(idx)}
+                                        className="btn btn-ghost btn-sm text-industrial-500 hover:text-red-400"
+                                        title="Remove link"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (isChart) {
+            return (
+                <div className="flex flex-wrap items-end gap-2">
+                    {entries.map((entry, idx) => (
+                        <div
+                            key={idx}
+                            className="flex items-end gap-2 rounded-md border border-industrial-800 bg-industrial-900/40 px-3 py-2"
+                        >
+                            <div className="flex flex-col min-w-[140px]">
+                                <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                                    {chartDefinition.dimensionLabel}
+                                </span>
+                                <input
+                                    type="text"
+                                    className="input h-10 text-sm px-3"
+                                    value={entry.key}
+                                    onChange={(e) => updateEntry(idx, 'key', e.target.value)}
+                                    placeholder={chartDefinition.defaultDimensionValue}
+                                />
+                            </div>
+                            <div className="flex flex-col min-w-[120px]">
+                                <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                                    {chartDefinition.valueLabel}
+                                </span>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    className="input h-10 text-sm font-mono px-3"
+                                    value={entry.value}
+                                    onChange={(e) => updateEntry(idx, 'value', e.target.value)}
+                                    placeholder="0"
+                                />
+                            </div>
+                            {chartDefinition.requiresColor && (
+                                <div className="flex flex-col min-w-[110px]">
+                                    <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                                        Color
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <ColorPicker
+                                            value={entry.color || chartPalette[idx % chartPalette.length]}
+                                            onChange={(color) => updateEntry(idx, 'color', color)}
+                                            align="right"
+                                        />
+                                        <input
+                                            type="text"
+                                            className="input h-9 text-sm font-mono px-2"
+                                            value={entry.color || ''}
+                                            onChange={(e) => updateEntry(idx, 'color', e.target.value)}
+                                            placeholder="#RRGGBB"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {entries.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => removeEntry(idx)}
+                                    className="btn btn-ghost btn-sm text-industrial-500 hover:text-red-400"
+                                    title="Remove value"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addEntry}
+                        className="btn btn-secondary btn-sm h-10 px-3"
+                        title={isCategoryChart ? 'Add another segment' : 'Add another point'}
+                    >
+                        + Value
+                    </button>
+                </div>
+            );
+        }
+
+        if (kpi.visualizationType === 'text') {
+            return (
+                <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[240px]">
+                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">Text</span>
+                        <input
+                            type="text"
+                            className="input h-10 text-sm"
+                            value={entries[0]?.value ?? ''}
+                            onChange={(e) => updateEntry(0, 'value', e.target.value)}
+                            placeholder="Enter text value"
+                        />
+                    </div>
+                    <div className="w-[150px]">
+                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">Date</span>
+                        <input
+                            type="date"
+                            className="input h-10 text-sm"
+                            value={date}
+                            onChange={(e) => {
+                                setDate(e.target.value);
+                                markDirty();
+                            }}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col min-w-[140px]">
+                    <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                        {chartDefinition.valueLabel || 'Value'}
+                    </span>
+                    <input
+                        type="number"
+                        step="any"
+                        className="input h-10 text-sm font-mono"
+                        value={entries[0]?.value ?? 0}
+                        onChange={(e) => updateEntry(0, 'value', e.target.value)}
+                        placeholder="0"
+                    />
+                </div>
+                <div className="flex flex-col w-[150px]">
+                    <span className="text-[10px] uppercase tracking-wide text-industrial-500">Date</span>
+                    <input
+                        type="date"
+                        className="input h-10 text-sm"
+                        value={date}
+                        onChange={(e) => {
+                            setDate(e.target.value);
+                            markDirty();
+                        }}
+                    />
+                </div>
+                <label className="flex items-center gap-2 text-xs text-industrial-400 whitespace-nowrap">
+                    <input
+                        type="checkbox"
+                        className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                        checked={reverseTrend}
+                        onChange={(e) => {
+                            setReverseTrend(e.target.checked);
+                            markDirty();
+                        }}
+                    />
+                    <span>Down trend is positive</span>
+                </label>
+            </div>
+        );
     };
+
+    const renderNotes = () => (
+        <div className="flex flex-col gap-2 h-full">
+            <textarea
+                ref={notesRef}
+                className="input w-full min-h-[120px] resize-none text-sm"
+                rows={3}
+                value={notes}
+                onChange={(e) => {
+                    setNotes(e.target.value);
+                    markDirty();
+                }}
+                placeholder="Context or follow-ups"
+            />
+        </div>
+    );
 
     return (
         <React.Fragment key={kpi.id}>
-            <tr className="align-top border-t border-industrial-800/60">
-                <td className="px-4 py-3">
-                    <div className="font-semibold text-industrial-100">{kpi.name}</div>
+            {/* Line 1: compact metadata bar and save action */}
+            <tr className={`align-top border-t border-industrial-850/60 ${rowBg}`}>
+                <td className="px-4 py-2" colSpan={3}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-semibold text-industrial-100 truncate">{kpi.name}</span>
+                        {subtitleFull && (
+                            <span
+                                className="text-sm text-industrial-500 truncate max-w-[240px] whitespace-nowrap"
+                                title={subtitleFull}
+                            >
+                                {subtitleFull}
+                            </span>
+                        )}
+                        {subtitleFull && <span className="text-industrial-700">·</span>}
+                        <span className="text-xs text-industrial-500 whitespace-nowrap">{formattedUpdated}</span>
+                    </div>
                 </td>
-            <td className="px-4 py-3">
-                <div
-                    className="text-xs text-industrial-500 whitespace-nowrap overflow-hidden text-ellipsis w-[160px]"
-                    title={subtitleFull}
-                >
-                    {subtitle}
-                </div>
-            </td>
-                <td className="px-4 py-3">
-                    <div className="text-xs text-industrial-300">{kpi.date ? new Date(kpi.date).toLocaleString() : '—'}</div>
-                </td>
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3">
-                    <div className="flex flex-col gap-2 items-stretch">
+                <td className="px-4 py-2 text-right align-middle">
+                    <div className="flex items-center justify-end gap-3">
+                        {error && (
+                            <span className="text-[11px] text-red-400 flex items-center gap-1 whitespace-nowrap max-w-[140px] truncate">
+                                <AlertTriangle size={12} />
+                                {error}
+                            </span>
+                        )}
+                        {!error && success && (
+                            <span className="text-[11px] text-verdigris-400 flex items-center gap-1 whitespace-nowrap max-w-[120px] truncate">
+                                <CheckCircle2 size={12} />
+                                Saved
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={submit}
                             disabled={saving}
-                            className="btn btn-secondary btn-sm flex items-center justify-center gap-2"
+                            className={`btn btn-secondary btn-sm flex items-center gap-2 ${dirty ? 'bg-verdigris-600 hover:bg-verdigris-500 text-industrial-950' : ''}`}
                         >
                             {saving ? 'Saving...' : (
                                 <>
@@ -170,67 +723,17 @@ function MetricUpdateRow({ kpi, onUpdate }: MetricUpdateRowProps) {
                                 </>
                             )}
                         </button>
-                        {error && <div className="text-[10px] text-red-400">{error}</div>}
-                        {success && <div className="text-[10px] text-verdigris-400">Saved</div>}
                     </div>
                 </td>
             </tr>
-            <tr>
-                <td colSpan={3} className="px-4 py-3" />
-                <td className="px-4 py-3 w-[320px]">
-                    <div className="space-y-3">
-                        <div className="flex items-baseline justify-between">
-                            <p className="text-[11px] uppercase tracking-wider text-industrial-400 font-semibold">Values</p>
-                            {isChart && (
-                                <span className="text-[11px] text-verdigris-400 font-mono tracking-wide">multi-value</span>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            {(isChart ? entries : entries.slice(0, 1)).map((entry, idx) => (
-                                <div
-                                    key={entry.key || idx}
-                                    className="grid grid-cols-[140px_1fr] gap-3 items-center"
-                                >
-                                    <span className="text-[11px] text-industrial-500">{entry.key || `Value ${idx + 1}`}</span>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        className="input w-full font-mono"
-                                        value={entry.value}
-                                        onChange={(e) => {
-                                            const next = [...entries];
-                                            next[idx] = { ...entry, value: e.target.value };
-                                            setEntries(next);
-                                        }}
-                                    />
-                                </div>
-                            ))}
-                            {!isChart && (
-                                <>
-                                    <input
-                                        type="date"
-                                        className="input w-full"
-                                        value={date}
-                                        onChange={(e) => setDate(e.target.value)}
-                                    />
-                                    <p className="text-[10px] text-industrial-500">Adjust the date if this value is for a different day.</p>
-                                </>
-                            )}
-                        </div>
-                    </div>
+            {/* Line 2: chart-type-aware inputs plus compact notes rail */}
+            <tr className={`border-b border-industrial-850/60 align-top ${rowBg}`}>
+                <td className="px-4 pb-3 pt-0 h-full" colSpan={2}>
+                    {renderValueInputs()}
                 </td>
-                <td className="px-4 py-3 w-[320px]">
-                    <div className="space-y-2">
-                        <p className="text-[11px] uppercase tracking-wider text-industrial-400 font-semibold">Notes</p>
-                        <textarea
-                            className="input w-full min-h-[70px]"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Add notes"
-                        />
-                    </div>
+                <td className="px-4 pb-3 pt-0 align-top h-full" colSpan={2}>
+                    {renderNotes()}
                 </td>
-                <td className="px-4 py-3" />
             </tr>
         </React.Fragment>
     );
@@ -248,6 +751,10 @@ export default function AssigneeUpdatePage() {
         loading: contextLoading
     } = useScorecards();
     const refreshAttempted = React.useRef(false);
+    const submittersRef = useRef<Map<string, () => Promise<boolean>>>(new Map());
+    const [savingAll, setSavingAll] = useState(false);
+    const [saveAllStatus, setSaveAllStatus] = useState<'success' | 'error' | null>(null);
+    const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
 
     const data = useMemo<{ scorecard: Scorecard; kpis: KPI[]; assigneeEmail: string } | null>(() => {
         if (contextLoading || !token) return null;
@@ -261,6 +768,42 @@ export default function AssigneeUpdatePage() {
         }
         return null;
     }, [contextLoading, getKPIsByAssigneeToken, getKPIByToken, token]);
+
+    const registerSubmit = useCallback((id: string, submitFn?: () => Promise<boolean>) => {
+        const map = submittersRef.current;
+        if (submitFn) {
+            map.set(id, submitFn);
+        } else {
+            map.delete(id);
+        }
+    }, []);
+
+    const handleDirtyChange = useCallback((id: string, isDirty: boolean) => {
+        setDirtyMap((prev) => {
+            if (prev[id] === isDirty) return prev;
+            return { ...prev, [id]: isDirty };
+        });
+    }, []);
+
+    const hasDirty = useMemo(() => Object.values(dirtyMap).some(Boolean), [dirtyMap]);
+
+    const handleSaveAll = useCallback(async () => {
+        if (savingAll) return;
+        const submitters = Array.from(submittersRef.current.values());
+        if (!submitters.length) return;
+        setSavingAll(true);
+        setSaveAllStatus(null);
+
+        let failed = false;
+        for (const submit of submitters) {
+            const ok = await submit();
+            if (!ok) failed = true;
+        }
+
+        setSaveAllStatus(failed ? 'error' : 'success');
+        setSavingAll(false);
+        setTimeout(() => setSaveAllStatus(null), 2500);
+    }, [savingAll]);
 
     useEffect(() => {
         if (!contextLoading && !data && !refreshAttempted.current) {
@@ -320,10 +863,35 @@ export default function AssigneeUpdatePage() {
                             </div>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className="text-xs font-mono text-industrial-400">{assigneeEmail}</div>
-                        <div className="text-[11px] text-industrial-500">
-                            {kpis.length} metric{kpis.length !== 1 ? 's' : ''} assigned
+                    <div className="flex flex-1 justify-end items-center gap-4 text-right">
+                        <div className="text-right">
+                            <div className="text-xs font-mono text-industrial-400">{assigneeEmail}</div>
+                            <div className="text-[11px] text-industrial-500">
+                                {kpis.length} metric{kpis.length !== 1 ? 's' : ''} assigned
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {saveAllStatus === 'success' && (
+                                <span className="text-[11px] text-verdigris-400 whitespace-nowrap">All saved</span>
+                            )}
+                            {saveAllStatus === 'error' && (
+                                <span className="text-[11px] text-red-400 whitespace-nowrap">Some saves failed</span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={handleSaveAll}
+                                disabled={savingAll}
+                                className={`btn btn-secondary btn-sm flex items-center gap-2 ${hasDirty ? 'bg-verdigris-600 hover:bg-verdigris-500 text-industrial-950' : ''}`}
+                            >
+                                {savingAll ? (
+                                    'Saving…'
+                                ) : (
+                                    <>
+                                        <Save size={14} />
+                                        Save All
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -335,35 +903,36 @@ export default function AssigneeUpdatePage() {
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm table-fixed">
                             <colgroup>
-                                <col className="w-[14%]" />
-                                <col className="w-[16%]" />
-                                <col className="w-[14%]" />
+                                <col className="w-[38%]" />
+                                <col className="w-[34%]" />
                                 <col className="w-[20%]" />
-                                <col className="w-[24%]" />
-                                <col className="w-[12%]" />
+                                <col className="w-[8%]" />
                             </colgroup>
                             <thead className="bg-industrial-900/70 text-industrial-400 uppercase text-[11px]">
                                 <tr>
-                                    <th className="px-4 py-3 text-left">KPI</th>
-                                    <th className="px-4 py-3 text-left">Subtitle</th>
-                                    <th className="px-4 py-3 text-left">Last Updated</th>
-                                    <th className="px-4 py-3 text-left">Value</th>
-                                    <th className="px-4 py-3 text-left">Notes</th>
-                                    <th className="px-4 py-3 text-left">Save</th>
+                                    <th className="px-4 py-2 text-left"></th>
+                                    <th className="px-4 py-2 text-left"></th>
+                                    <th className="px-4 py-2 text-left"></th>
+                                    <th className="px-4 py-2 text-left"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-industrial-800">
-                                {kpis.map(kpi => (
+                            <tbody className="bg-industrial-950">
+                                {kpis.map((kpi, idx) => (
                                     <MetricUpdateRow
                                         key={kpi.id}
                                         kpi={kpi}
                                         onUpdate={async (updates) => {
-                                            if (kpi.updateToken) {
-                                                await updateKPIByToken(kpi.updateToken, updates, assigneeEmail);
-                                            } else {
-                                                console.error('KPI missing update token');
-                                            }
-                                        }}
+                                            const tokenToUse = kpi.updateToken || token;
+                            if (tokenToUse) {
+                                await updateKPIByToken(tokenToUse, updates, assigneeEmail, kpi.id);
+                            } else {
+                                console.error('KPI missing update token');
+                            }
+                        }}
+                                        registerSubmit={registerSubmit}
+                                        onDirtyChange={handleDirtyChange}
+                                        fallbackToken={token}
+                                        rowIndex={idx}
                                     />
                                 ))}
                             </tbody>
