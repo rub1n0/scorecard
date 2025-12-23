@@ -40,10 +40,26 @@ export const validateVisualizationData = (
     return { isValid: false, errors };
   }
 
+  const requiresDualValues = chartType === "multiAxisLine";
+
   dataPoints.forEach((dp, idx) => {
     const label = dp.date?.trim();
     if (!label) {
       errors.push(`Row ${idx + 1}: ${definition.dimensionLabel} is required.`);
+    }
+
+    if (requiresDualValues) {
+      const primary = Array.isArray(dp.valueArray) ? dp.valueArray[0] : dp.value;
+      const secondary = Array.isArray(dp.valueArray) ? dp.valueArray[1] : undefined;
+      if (!isFiniteNumber(primary)) {
+        errors.push(`Row ${idx + 1}: primary ${definition.valueLabel} is required.`);
+      }
+      if (!isFiniteNumber(secondary)) {
+        errors.push(
+          `Row ${idx + 1}: ${definition.secondaryValueLabel || "Secondary value"} is required.`
+        );
+      }
+      return;
     }
 
     if (definition.usesLabeledValues) {

@@ -7,6 +7,9 @@ export type ChartDefinition = {
   description: string;
   dimensionLabel: string;
   valueLabel: string;
+  secondaryValueLabel?: string;
+  primaryLabelKey?: string;
+  secondaryLabelKey?: string;
   defaultDimensionValue: string;
   usesLabeledValues: boolean;
   requiresColor: boolean;
@@ -104,11 +107,11 @@ export const chartTypeConfig: Record<ChartType, ChartDefinition> = {
     valueLabel: "Score",
     defaultDimensionValue: "Dimension",
     usesLabeledValues: true,
-    requiresColor: true,
+    requiresColor: false,
     apexType: "radar",
     height: 320,
     dimensionInput: "text",
-    requiredFields: ["Dimension", "Value", "Color"],
+    requiredFields: ["Dimension", "Value"],
   },
   radialBar: {
     displayName: "Radial Bar",
@@ -122,6 +125,22 @@ export const chartTypeConfig: Record<ChartType, ChartDefinition> = {
     height: 320,
     dimensionInput: "text",
     requiredFields: ["Category", "Value", "Color"],
+  },
+  multiAxisLine: {
+    displayName: "Multi-axis Line",
+    description: "Plot two related values over time on separate axes.",
+    dimensionLabel: "Date",
+    valueLabel: "Primary Value",
+    secondaryValueLabel: "Secondary Value",
+    defaultDimensionValue: today(),
+    usesLabeledValues: false,
+    requiresColor: false,
+    apexType: "line",
+    height: 320,
+    dimensionInput: "date",
+    requiredFields: ["Date", "Primary Value", "Secondary Value"],
+    primaryLabelKey: "primaryLabel",
+    secondaryLabelKey: "secondaryLabel",
   },
   scatter: {
     displayName: "Scatter",

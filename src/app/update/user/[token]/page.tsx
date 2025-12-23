@@ -170,7 +170,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
             ? numeric
             : normalizeValue(latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
         return [{ key: '0', value: firstVal }];
-    }, [isChart, isSankey, historyPoints, kpi.value, kpi.visualizationType, latestPoint?.value]);
+    }, [isChart, isSankey, historyPoints, kpi.dataPoints, kpi.metrics, kpi.value, kpi.visualizationType, latestPoint?.value]);
 
     const [entries, setEntries] = useState<ValueEntry[]>(initialEntries);
     const initialSankey = useMemo(() => parseSankeyValue(kpi.value), [kpi.value]);
@@ -282,7 +282,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         setSankeyLinks((prev) => prev.filter((_, idx) => idx !== index));
     };
 
-    const buildUpdates = (): Partial<KPI> => {
+    const buildUpdates = useCallback((): Partial<KPI> => {
         if (isSankey) {
             const nodesForSave = (sankeyNodes.length ? sankeyNodes : [{ id: 'node-1', title: 'Node 1' }]).map(
                 (node, idx) => ({
@@ -350,7 +350,19 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
             notes: notes ?? '',
             date: date ? new Date(date).toISOString() : new Date().toISOString(),
         };
-    };
+    }, [
+        chartDefinition,
+        date,
+        entries,
+        isChart,
+        isSankey,
+        kpi.sankeySettings,
+        kpi.visualizationType,
+        notes,
+        reverseTrend,
+        sankeyLinks,
+        sankeyNodes,
+    ]);
 
     const submit = useCallback(async (): Promise<boolean> => {
         const tokenToUse = kpi.updateToken || fallbackToken;
@@ -374,7 +386,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         } finally {
             setSaving(false);
         }
-    }, [buildUpdates, kpi.id, onDirtyChange, kpi.updateToken, onUpdate]);
+    }, [buildUpdates, fallbackToken, kpi.id, onDirtyChange, kpi.updateToken, onUpdate]);
 
     useEffect(() => {
         registerSubmit?.(kpi.id, submit);

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql, asc } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import {
     assignments,
@@ -23,7 +23,7 @@ const buildScorecard = async (id: string) => {
     const kpiRows = await db.select().from(kpis).where(eq(kpis.scorecardId, sc.id));
     const kpiIds = kpiRows.map(k => k.id);
     const metricRows = kpiIds.length
-        ? await db.select().from(metrics).where(inArray(metrics.kpiId, kpiIds))
+        ? await db.select().from(metrics).where(inArray(metrics.kpiId, kpiIds)).orderBy(asc(metrics.date))
         : [];
     const metricsByKpi = new Map<string, typeof metricRows>();
     metricRows.forEach(mt => {
@@ -166,6 +166,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     await tx.delete(kpis).where(eq(kpis.scorecardId, id));
                 }
 
+                const normalizeStrokeColor = (value: unknown) => {
+                    if (Array.isArray(value) && value.length > 0) return value[0] ?? null;
+                    if (typeof value === 'string') return value;
+                    return null;
+                };
+
                 const kpiDefinitions = body.kpis.map((kpi: any, idx: number) => {
                     const chartSettingsCols = extractChartSettingColumns(kpi.chartSettings);
                     const normalizedDate = normalizeDateOnly(kpi.date);
@@ -188,7 +194,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                         prefix: kpi.prefix || null,
                         suffix: kpi.suffix || null,
                         strokeWidth: chartSettingsCols.strokeWidth ?? null,
-                        strokeColor: chartSettingsCols.strokeColor ?? null,
+                        strokeColor: chartSettingsCols.strokeColor ?? normalizeStrokeColor(kpi.strokeColor) ?? null,
                         strokeOpacity: chartSettingsCols.strokeOpacity ?? null,
                         showLegend: chartSettingsCols.showLegend ?? (kpi.chartSettings?.showLegend ?? true),
                         showGridlines:
@@ -218,10 +224,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     for (const definition of kpiDefinitions) {
                         const kpi = body.kpis.find((k: any) => k.id === definition.id);
 
+                        const visualizationType = kpi?.visualizationType || definition.visualizationType;
+                        const chartTypeForMetrics = visualizationType === 'chart' ? (kpi?.chartType || definition.chartType) : null;
+
                         // Insert metrics for ALL KPIs (before assignee check)
                         const points = ((kpi?.metrics && kpi.metrics.length ? kpi.metrics : kpi?.dataPoints) || []).map((dp: any) => {
                             const normalizedDate = normalizeDateOnly(dp.date);
-                            const value = normalizeValueForChartType(kpi?.chartType || definition.chartType, dp.labeledValues ?? dp.valueArray ?? dp.value);
+                            const value = normalizeValueForChartType(chartTypeForMetrics, dp.labeledValues ?? dp.valueArray ?? dp.value);
                             return {
                                 kpiId: definition.id,
                                 date: new Date(`${normalizedDate}T00:00:00.000Z`),

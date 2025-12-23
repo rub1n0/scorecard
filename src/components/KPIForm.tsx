@@ -24,7 +24,7 @@ interface KPIFormProps {
 
 const standardPalette = ['#5094af', '#36c9b8', '#dea821', '#ee7411', '#e0451f'];
 const sankeyPalette = ['#264653', '#2A9D8F', '#E9C46A', '#F4A261', '#E76F51'];
-const colorChartTypes: ChartType[] = ['bar', 'pie', 'donut', 'radar', 'radialBar'];
+const colorChartTypes: ChartType[] = ['bar', 'pie', 'donut', 'radialBar'];
 
 const today = () => new Date().toISOString().split('T')[0];
 const asRecord = (input: unknown): Record<string, unknown> | null =>
@@ -202,10 +202,26 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const [strokeOpacity, setStrokeOpacity] = useState(
         kpi?.chartSettings?.strokeOpacity ?? kpi?.strokeOpacity ?? 1
     );
+    const [strokeColor, setStrokeColor] = useState(() => {
+        const raw = kpi?.chartSettings?.strokeColor ?? kpi?.strokeColor;
+        if (Array.isArray(raw)) return raw[0] ?? standardPalette[0];
+        if (typeof raw === 'string' && raw.trim()) return raw;
+        return standardPalette[0];
+    });
+    const [secondaryStrokeColor, setSecondaryStrokeColor] = useState(() => {
+        const raw = kpi?.chartSettings?.strokeColor;
+        if (Array.isArray(raw)) return raw[1] ?? standardPalette[1];
+        return standardPalette[1];
+    });
+    const [primaryLabel, setPrimaryLabel] = useState(() => {
+        const current = (kpi?.chartSettings as { primaryLabel?: string } | undefined)?.primaryLabel;
+        return current || 'Value 1';
+    });
+    const [secondaryLabel, setSecondaryLabel] = useState(() => {
+        const current = (kpi?.chartSettings as { secondaryLabel?: string } | undefined)?.secondaryLabel;
+        return current || 'Value 2';
+    });
     const [fillOpacity, setFillOpacity] = useState(kpi?.chartSettings?.fillOpacity ?? 0.8);
-    const [strokeColor, setStrokeColor] = useState(
-        kpi?.chartSettings?.strokeColor ?? kpi?.strokeColor ?? standardPalette[0]
-    );
     const [showLegend, setShowLegend] = useState(kpi?.chartSettings?.showLegend ?? true);
     const [showGridlines, setShowGridlines] = useState(
         kpi?.chartSettings?.showGridLines ?? true
@@ -227,6 +243,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const [metricDate, setMetricDate] = useState(() => lastUpdated);
     const [metricLabel, setMetricLabel] = useState('');
     const [metricValue, setMetricValue] = useState('');
+    const [metricSecondValue, setMetricSecondValue] = useState('');
     const [metricColor, setMetricColor] = useState(standardPalette[0]);
 
     const [sankeyNodes, setSankeyNodes] = useState<SankeyNode[]>(() => parsedSankey.nodes);
@@ -248,11 +265,13 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const isChart = visualizationSelection === 'chart';
     const isNumberTrend = visualizationSelection === 'number_trend';
     const isSankeyChart = isChart && chartType === 'sankey';
-    const usesTimeSeries = isNumberTrend || (isChart && (chartType === 'line' || chartType === 'area'));
+    const isMultiAxisLine = isChart && chartType === 'multiAxisLine';
+    const usesTimeSeries = isNumberTrend || (isChart && (chartType === 'line' || chartType === 'area' || chartType === 'multiAxisLine'));
     const requiresColorPerRow = isChart && colorChartTypes.includes(chartType);
     const showFillControl = isChart && ['area', 'bar', 'pie', 'donut', 'radar', 'radialBar', 'sankey'].includes(chartType);
     const dimensionLabel = usesTimeSeries ? 'Date' : chartDefinition?.dimensionLabel ?? 'Label';
-    const valueLabel = chartDefinition?.valueLabel ?? 'Value';
+    const valueLabel = isMultiAxisLine ? primaryLabel : chartDefinition?.valueLabel ?? 'Value';
+    const secondaryValueLabel = isMultiAxisLine ? secondaryLabel : chartDefinition?.secondaryValueLabel ?? 'Value B';
 
     const handleChartTypeChange = (nextType: ChartType) => {
         setChartType(nextType);
@@ -267,13 +286,19 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                 }))
             );
         }
+        if (nextType !== 'multiAxisLine') {
+            setSecondaryStrokeColor(standardPalette[1]);
+        }
     };
 
     const handleAddDataPoint = () => {
         if (usesTimeSeries) {
+            const primaryVal = toNumber(metricValue || 0);
+            const secondaryVal = isMultiAxisLine ? toNumber(metricSecondValue || 0) : undefined;
             const newPoint: DataPoint = {
                 date: metricDate || today(),
-                value: toNumber(metricValue || 0),
+                value: primaryVal,
+                valueArray: isMultiAxisLine ? [primaryVal, secondaryVal ?? 0] : undefined,
             };
             const updated = sortDataPoints([...dataPoints, newPoint]);
             setDataPoints(updated);
@@ -290,14 +315,26 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             setMetricLabel('');
         }
         setMetricValue('');
+        setMetricSecondValue('');
         setMetricColor(standardPalette[(dataPoints.length + 1) % standardPalette.length]);
     };
 
-    const handleDataPointChange = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
+    const handleDataPointChange = (index: number, field: 'date' | 'value' | 'valueB' | 'color', newValue: string) => {
         setDataPoints((prev) => {
             const next = [...prev];
             if (field === 'date') next[index].date = newValue;
-            if (field === 'value') next[index].value = toNumber(newValue);
+            if (field === 'value') {
+                next[index].value = toNumber(newValue);
+                if (isMultiAxisLine) {
+                    const existing = Array.isArray(next[index].valueArray) ? next[index].valueArray : [];
+                    next[index].valueArray = [toNumber(newValue), existing[1] ?? 0];
+                }
+            }
+            if (field === 'valueB' && isMultiAxisLine) {
+                const existing = Array.isArray(next[index].valueArray) ? next[index].valueArray : [toNumber(String(next[index].value)), 0];
+                existing[1] = toNumber(newValue);
+                next[index].valueArray = existing;
+            }
             if (field === 'color') next[index].color = newValue;
             return next;
         });
@@ -351,7 +388,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         });
     };
 
-    const chartTypeOptions: ChartType[] = ['line', 'area', 'bar', 'pie', 'donut', 'radar', 'radialBar', 'sankey'];
+    const chartTypeOptions: ChartType[] = ['line', 'area', 'multiAxisLine', 'bar', 'pie', 'donut', 'radar', 'radialBar', 'sankey'];
     if (!chartTypeOptions.includes(chartType)) {
         chartTypeOptions.push(chartType);
     }
@@ -365,7 +402,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             );
         }
 
-        const gridCols = requiresColorPerRow
+        const gridCols = isMultiAxisLine
+            ? 'grid-cols-[1fr_1fr_1fr_auto]'
+            : requiresColorPerRow
             ? 'grid-cols-[1fr_1fr_auto_auto]'
             : 'grid-cols-[1fr_1fr_auto]';
 
@@ -374,43 +413,60 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                 <div className={`grid ${gridCols} gap-2 text-xs uppercase tracking-wide text-industrial-500`}>
                     <div>{dimensionLabel}</div>
                     <div>{valueLabel}</div>
-                    {requiresColorPerRow && <div className="text-center">Color</div>}
+                    {isMultiAxisLine && <div>{secondaryValueLabel}</div>}
+                    {requiresColorPerRow && !isMultiAxisLine && <div className="text-center">Color</div>}
                     <div />
                 </div>
-                {dataPoints.map((dp, idx) => (
-                    <div key={idx} className={`grid ${gridCols} gap-2 items-center`}>
-                        <input
-                            type={usesTimeSeries ? 'date' : 'text'}
-                            className="input"
-                            value={dp.date}
-                            onChange={(e) => handleDataPointChange(idx, 'date', e.target.value)}
-                            placeholder={dimensionLabel}
-                        />
-                        <input
-                            type="number"
-                            step="0.01"
-                            className="input"
-                            value={typeof dp.value === 'number' ? dp.value : toNumber(String(dp.value))}
-                            onChange={(e) => handleDataPointChange(idx, 'value', e.target.value)}
-                            placeholder={valueLabel}
-                        />
-                        {requiresColorPerRow && (
+                {dataPoints.map((dp, idx) => {
+                    const primaryVal =
+                        typeof dp.value === 'number' ? dp.value : toNumber(String(dp.value));
+                    const secondaryVal = Array.isArray(dp.valueArray) ? dp.valueArray[1] ?? 0 : '';
+
+                    return (
+                        <div key={idx} className={`grid ${gridCols} gap-2 items-center`}>
+                            <input
+                                type={usesTimeSeries ? 'date' : 'text'}
+                                className="input"
+                                value={dp.date}
+                                onChange={(e) => handleDataPointChange(idx, 'date', e.target.value)}
+                                placeholder={dimensionLabel}
+                            />
+                            <input
+                                type="number"
+                                step="0.01"
+                                className="input"
+                                value={primaryVal}
+                                onChange={(e) => handleDataPointChange(idx, 'value', e.target.value)}
+                                placeholder={valueLabel}
+                            />
+                            {isMultiAxisLine && (
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    className="input"
+                                    value={secondaryVal}
+                                    onChange={(e) => handleDataPointChange(idx, 'valueB', e.target.value)}
+                                    placeholder={secondaryValueLabel}
+                                />
+                            )}
+                        {requiresColorPerRow && !isMultiAxisLine && (
                             <ColorPicker
                                 value={dp.color || standardPalette[idx % standardPalette.length]}
                                 onChange={(color) => handleDataPointChange(idx, 'color', color)}
                                 align="right"
                             />
                         )}
-                        <button
-                            type="button"
-                            onClick={() => handleRemoveDataPoint(idx)}
-                            className="btn btn-icon btn-danger"
-                            title="Remove datapoint"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    </div>
-                ))}
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveDataPoint(idx)}
+                                className="btn btn-icon btn-danger"
+                                title="Remove datapoint"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
         );
     };
@@ -695,12 +751,14 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                 resolvedVisualization === 'chart' || resolvedVisualization === 'sankey'
                     ? {
                         strokeWidth,
-                        strokeColor,
+                        strokeColor: isMultiAxisLine ? [strokeColor, secondaryStrokeColor] : strokeColor,
                         strokeOpacity,
                         fillOpacity,
                         showLegend: isSankeyChart ? undefined : showLegend,
                         showGridLines: showGridlines,
                         showDataLabels: isSankeyChart ? undefined : showDataLabels,
+                        primaryLabel: isMultiAxisLine ? primaryLabel : undefined,
+                        secondaryLabel: isMultiAxisLine ? secondaryLabel : undefined,
                     }
                     : undefined,
             sankeySettings:
@@ -1099,19 +1157,42 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             </div>
                         )}
 
-                        {!isSankeyChart && (chartType === 'line' || chartType === 'area' || chartType === 'radar') && (
-                            <div className="form-group">
-                                <label className="form-label">Color</label>
-                                <div className="flex items-center gap-3">
-                                    <ColorPicker value={strokeColor} onChange={setStrokeColor} />
-                                    <input
-                                        type="text"
-                                        className="input font-mono flex-1"
-                                        value={strokeColor}
-                                        onChange={(e) => setStrokeColor(e.target.value)}
-                                        placeholder="#RRGGBB"
-                                    />
+                        {!isSankeyChart && (chartType === 'line' || chartType === 'area' || chartType === 'radar' || chartType === 'multiAxisLine') && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="form-group">
+                                    {isMultiAxisLine && (
+                                        <>
+                                            <label className="form-label">Primary Label</label>
+                                            <input
+                                                type="text"
+                                                className="input"
+                                                value={primaryLabel}
+                                                onChange={(e) => setPrimaryLabel(e.target.value || 'Value 1')}
+                                                placeholder="Value 1"
+                                            />
+                                        </>
+                                    )}
+                                    <div className="mt-3">
+                                        <label className="form-label">Color (Value 1)</label>
+                                        <ColorPicker value={strokeColor} onChange={setStrokeColor} />
+                                    </div>
                                 </div>
+                                {isMultiAxisLine && (
+                                    <div className="form-group">
+                                        <label className="form-label">Secondary Label</label>
+                                        <input
+                                            type="text"
+                                            className="input"
+                                            value={secondaryLabel}
+                                            onChange={(e) => setSecondaryLabel(e.target.value || 'Value 2')}
+                                            placeholder="Value 2"
+                                        />
+                                        <div className="mt-3">
+                                            <label className="form-label">Color (Value 2)</label>
+                                            <ColorPicker value={secondaryStrokeColor} onChange={setSecondaryStrokeColor} />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -1119,7 +1200,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             renderSankeyEditor()
                         ) : (
                             <div className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_auto] gap-3 items-end">
+                                <div className={`grid grid-cols-1 ${isMultiAxisLine ? 'md:grid-cols-[1.2fr_1fr_1fr_auto]' : 'md:grid-cols-[1.2fr_1fr_auto]'} gap-3 items-end`}>
                                     <div>
                                         <label className="form-label">{dimensionLabel}</label>
                                         <input
@@ -1144,6 +1225,18 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                             placeholder="0"
                                         />
                                     </div>
+                                    {isMultiAxisLine && (
+                                        <div>
+                                            <label className="form-label">{secondaryValueLabel}</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                value={metricSecondValue}
+                                                onChange={(e) => setMetricSecondValue(e.target.value)}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    )}
                                     {requiresColorPerRow ? (
                                         <div className="flex items-end gap-2">
                                             <ColorPicker value={metricColor} onChange={setMetricColor} align="right" />

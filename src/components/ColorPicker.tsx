@@ -78,7 +78,7 @@ export default function ColorPicker({ value, onChange, align = 'left' }: ColorPi
                                                     onChange(color);
                                                     setIsOpen(false);
                                                 }}
-                                                className={`w-10 h-10 rounded cursor-pointer border-2 transition-all hover:scale-110 ${value.toLowerCase() === color.toLowerCase()
+                                                className={`w-10 h-10 rounded cursor-pointer border-2 transition-all hover:scale-110 ${String(value || '').toLowerCase() === color.toLowerCase()
                                                     ? 'border-white ring-2 ring-industrial-500'
                                                     : 'border-industrial-800 hover:border-industrial-600'
                                                     }`}

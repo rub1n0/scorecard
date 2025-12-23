@@ -23,7 +23,13 @@ type NumberVisualizationProps = {
 const normalizeSparklineData = (dataPoints?: Metric[]) => {
   if (!dataPoints || dataPoints.length === 0) return [];
 
-  return dataPoints
+  const toTime = (dateValue: string | undefined) => {
+    const t = dateValue ? new Date(dateValue).getTime() : NaN;
+    return Number.isFinite(t) ? t : Date.now();
+  };
+
+  return [...dataPoints]
+    .sort((a, b) => toTime(a.date) - toTime(b.date))
     .map((dp) => {
       const raw =
         typeof dp.value === "number"
@@ -33,9 +39,14 @@ const normalizeSparklineData = (dataPoints?: Metric[]) => {
           : Array.isArray(dp.valueArray)
           ? dp.valueArray[0]
           : parseFloat(String(dp.value));
-      return Number.isFinite(raw) ? Number(raw) : null;
+      const y = Number.isFinite(raw) ? Number(raw) : null;
+      if (y === null) return null;
+      return { x: toTime(dp.date), y };
     })
-    .filter((val): val is number => val !== null);
+    .filter(
+      (val): val is { x: number; y: number } =>
+        val !== null && Number.isFinite(val.y)
+    );
 };
 
 export default function NumberVisualization({
@@ -79,7 +90,9 @@ export default function NumberVisualization({
   );
 
   const strokeOpacity = chartSettings?.strokeOpacity ?? 1;
-  const primaryColor = chartSettings?.strokeColor || "#457B9D";
+  const rawStrokeColor = chartSettings?.strokeColor;
+  const primaryColor =
+    (Array.isArray(rawStrokeColor) ? rawStrokeColor[0] : rawStrokeColor) || "#457B9D";
   const colorWithOpacity = (color: string, opacity: number) => {
     const clamped = Math.min(Math.max(opacity, 0), 1);
     const hex = color.replace("#", "");
@@ -156,6 +169,9 @@ export default function NumberVisualization({
                   type: "line",
                   sparkline: { enabled: true },
                   animations: { enabled: true, speed: 800 },
+                },
+                xaxis: {
+                  type: "datetime",
                 },
                 stroke: {
                   curve: "smooth",

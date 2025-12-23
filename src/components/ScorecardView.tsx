@@ -27,6 +27,7 @@ import {
   Trash2,
   Loader2,
   ExternalLink,
+  FileDown,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "./PageHeader";
@@ -61,7 +62,6 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   const searchParams = useSearchParams();
   const {
     addKPI,
-    addKPIs,
     updateKPI,
     deleteKPI,
     refreshScorecards,
@@ -86,6 +86,9 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   const [rowActionLoading, setRowActionLoading] = useState<
     Record<string, boolean>
   >({});
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -112,6 +115,102 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
       setRowActionLoading({});
     }
   }, [showLinksModal]);
+
+  type BackupPayload = {
+    version: string;
+    exportedAt: string;
+    meta: {
+      name: string;
+      description?: string;
+      scorecardId: string;
+      slug?: string;
+    };
+    sections: Section[];
+    assignees?: Record<string, string | null>;
+    kpis: Array<any>;
+  };
+
+  const fetchLatestScorecard = async (): Promise<Scorecard> => {
+    const response = await fetch(`/api/scorecards/${scorecard.id}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error("Failed to load latest scorecard");
+    }
+    return (await response.json()) as Scorecard;
+  };
+
+  const buildBackupPayload = async (): Promise<BackupPayload> => {
+    const latest = await fetchLatestScorecard();
+    const sectionNameById = new Map<string, string>();
+    (latest.sections || []).forEach((section) => {
+      if (section.id) {
+        sectionNameById.set(section.id, section.name);
+      }
+    });
+
+    const normalizeMetrics = (kpi: KPI) => {
+      const metricList =
+        (Array.isArray(kpi.metrics) && kpi.metrics.length
+          ? kpi.metrics
+          : Array.isArray(kpi.dataPoints)
+          ? kpi.dataPoints
+          : []) || [];
+      return metricList.map((dp: any) => {
+        const rest = { ...dp } as any;
+        delete rest.id;
+        return {
+          ...rest,
+          date: normalizeDateOnly(dp.date),
+        };
+      });
+    };
+
+    return {
+      version: "3.0",
+      exportedAt: new Date().toISOString(),
+      meta: {
+        name: latest.name,
+        description: latest.description,
+        scorecardId: latest.id,
+        slug: (latest as any).slug ?? undefined,
+      },
+      sections: latest.sections || [],
+      assignees: latest.assignees || {},
+      kpis: latest.kpis.map((kpi) => ({
+        ...kpi,
+        value: kpi.value || (kpi as any).valueJson || {},
+        valueJson: (kpi as any).valueJson || kpi.value || {},
+        sectionName: kpi.sectionId
+          ? sectionNameById.get(kpi.sectionId) ?? null
+          : null,
+        metrics: normalizeMetrics(kpi),
+        dataPoints: normalizeMetrics(kpi),
+      })),
+    };
+  };
+
+  const downloadBlob = (content: BlobPart, type: string, filename: string) => {
+    const dataBlob = new Blob([content], { type });
+    const url = URL.createObjectURL(dataBlob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const normalizeDateOnly = (value?: string) => {
+    if (!value) return new Date().toISOString().split("T")[0];
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return new Date().toISOString().split("T")[0];
+    }
+    return date.toISOString().split("T")[0];
+  };
 
   const handleAddKPI = (kpiData: Omit<KPI, "id">) => {
     addKPI(scorecard.id, kpiData);
@@ -234,65 +333,174 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     }
   };
 
-  const handleExportBackup = () => {
-    const sectionNameById = new Map<string, string>();
-    (scorecard.sections || []).forEach((section) => {
-      if (section.id) {
-        sectionNameById.set(section.id, section.name);
-      }
-    });
+  const handleExportBackup = async () => {
+    if (backupLoading) return;
+    setBackupLoading(true);
+    try {
+      const backup = await buildBackupPayload();
+      const dataStr = JSON.stringify(backup, null, 2);
+      const safeName =
+        scorecard.name.replace(/[^a-z0-9]/gi, "_") || "scorecard";
 
-    const backup = {
-      version: "2.0",
-      exportedAt: new Date().toISOString(),
-      meta: {
-        name: scorecard.name,
-        description: scorecard.description,
-        scorecardId: scorecard.id,
-        slug: (scorecard as any).slug ?? undefined,
-      },
-      sections: scorecard.sections,
-      assignees: scorecard.assignees,
-      kpis: scorecard.kpis.map((kpi) => ({
-        ...kpi,
-        // Capture section name so we can re-link on import even if IDs change
-        sectionName: kpi.sectionId
-          ? sectionNameById.get(kpi.sectionId) ?? null
-          : null,
-      })),
-    };
+      downloadBlob(
+        dataStr,
+        "application/json",
+        `${safeName}_backup_${new Date().toISOString().split("T")[0]}.json`
+      );
+      setShowManageDropdown(false);
+    } catch (error) {
+      alert(
+        `Failed to export backup: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setBackupLoading(false);
+    }
+  };
 
-    const dataStr = JSON.stringify(backup, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
+  const handleExportCsv = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      const backup = await buildBackupPayload();
+      const headers = [
+        "Scorecard",
+        "Scorecard ID",
+        "Section",
+        "KPI Name",
+        "Visualization",
+        "Chart Type",
+        "Metric Date",
+        "Metric Value",
+        "Metric Color",
+        "Latest Value",
+        "Assignees",
+        "Assignment",
+        "Notes",
+        "Target Value",
+        "Target Color",
+        "Reverse Trend",
+        "Prefix",
+        "Suffix",
+        "Show Legend",
+        "Show Grid Lines",
+        "Show Data Labels",
+        "Stroke Color",
+        "Stroke Width",
+        "Last Updated By",
+      ];
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${scorecard.name.replace(/[^a-z0-9]/gi, "_")}_backup_${
-      new Date().toISOString().split("T")[0]
-    }.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const escapeCsv = (value: unknown) => {
+        if (value === null || value === undefined) return "";
+        const str =
+          typeof value === "string" ? value : JSON.stringify(value ?? "");
+        return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
 
-    setShowManageDropdown(false);
+      const rows: string[] = [headers.map(escapeCsv).join(",")];
+      backup.kpis.forEach((kpi: any, idx: number) => {
+        const metrics =
+          (Array.isArray(kpi.metrics) && kpi.metrics.length
+            ? kpi.metrics
+            : Array.isArray(kpi.dataPoints)
+            ? kpi.dataPoints
+            : []) || [];
+        const baseValue = kpi.valueJson || kpi.value || {};
+        const renderedValue =
+          typeof baseValue === "object" ? JSON.stringify(baseValue) : baseValue;
+        const assignees = [
+          ...(kpi.assignees || []),
+          ...(kpi.assignee ? [kpi.assignee] : []),
+        ]
+          .filter(Boolean)
+          .join("; ");
+
+        const buildRow = (dp: any) =>
+          [
+            backup.meta?.name || scorecard.name,
+            backup.meta?.scorecardId || scorecard.id,
+            kpi.sectionName || "",
+            kpi.name || kpi.kpiName || `KPI ${idx + 1}`,
+            kpi.visualizationType || "",
+            kpi.chartType || "",
+            normalizeDateOnly(dp?.date || kpi.date),
+            dp?.value !== undefined
+              ? dp.value
+              : dp?.valueArray || dp?.labeledValues || "",
+            dp?.color || "",
+            renderedValue,
+            assignees,
+            kpi.assignment || "",
+            kpi.notes || "",
+            kpi.targetValue ?? "",
+            kpi.targetColor ?? "",
+            kpi.reverseTrend ? "true" : "false",
+            kpi.prefix || "",
+            kpi.suffix || "",
+            kpi.showLegend ?? "",
+            kpi.showGridLines ?? "",
+            kpi.showDataLabels ?? "",
+            kpi.strokeColor || "",
+            kpi.strokeWidth ?? "",
+            kpi.lastUpdatedBy || "",
+          ]
+            .map(escapeCsv)
+            .join(",");
+
+        if (metrics.length) {
+          metrics.forEach((dp: any) => rows.push(buildRow(dp)));
+        } else {
+          rows.push(buildRow({ date: kpi.date, value: renderedValue }));
+        }
+      });
+
+      const safeName =
+        scorecard.name.replace(/[^a-z0-9]/gi, "_") || "scorecard";
+      downloadBlob(
+        rows.join("\n"),
+        "text/csv",
+        `${safeName}_export_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      setShowManageDropdown(false);
+    } catch (error) {
+      alert(
+        `Failed to export CSV: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || restoreLoading) return;
 
     try {
+      setRestoreLoading(true);
       const text = await file.text();
-      const backup = JSON.parse(text);
+      const rawBackup = JSON.parse(text);
 
-      // Validate backup structure
-      if (
-        !backup.kpis ||
-        !Array.isArray(backup.kpis) ||
-        backup.kpis.length === 0
-      ) {
+      const backup: BackupPayload = {
+        version: rawBackup.version || rawBackup.meta?.version || "1.0",
+        exportedAt: rawBackup.exportedAt || rawBackup.meta?.exportedAt || "",
+        meta: {
+          name: rawBackup.meta?.name || rawBackup.name || "Scorecard",
+          description: rawBackup.meta?.description ?? rawBackup.description ?? "",
+          scorecardId: rawBackup.meta?.scorecardId || scorecard.id,
+          slug: rawBackup.meta?.slug,
+        },
+        sections: Array.isArray(rawBackup.sections) ? rawBackup.sections : [],
+        assignees:
+          rawBackup.assignees && typeof rawBackup.assignees === "object"
+            ? rawBackup.assignees
+            : {},
+        kpis: Array.isArray(rawBackup.kpis) ? rawBackup.kpis : [],
+      };
+
+      if (!backup.kpis || backup.kpis.length === 0) {
         throw new Error("Invalid backup file: missing KPIs data");
       }
 
@@ -306,30 +514,20 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         }
       });
 
-      const backupName = backup.meta?.name || backup.name || "Scorecard";
+      const backupName = backup.meta?.name || "Scorecard";
       const backupVersion = backup.version || "1.0";
 
-      // Confirm with user
       const confirmed = confirm(
-        `Import backup "${backupName}" (v${backupVersion}) from ${
+        `Restore backup "${backupName}" (v${backupVersion}) from ${
           backup.exportedAt
             ? new Date(backup.exportedAt).toLocaleDateString()
             : "unknown date"
         }?\n\n` +
-          `This will add ${backup.kpis.length} metrics and ${backupSections.length} sections to this scorecard.`
+          `This will replace metrics, sections, and tokens on "${scorecard.name}". New update links will be generated.`
       );
 
       if (!confirmed) return;
 
-      const existingSections = scorecard.sections || [];
-      const existingSectionsByName = new Map<string, Section>();
-      existingSections.forEach((section) => {
-        existingSectionsByName.set(section.name.toLowerCase(), section);
-      });
-
-      const sectionIdMap = new Map<string, string>(); // map backup sectionId -> current/new sectionId
-      const newSections: Section[] = [];
-      let nextOrder = existingSections.length;
       const availableColors = [
         "verdigris",
         "tuscan-sun",
@@ -337,108 +535,177 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         "burnt-peach",
         "charcoal-blue",
       ];
-      let colorIndex = existingSections.length % availableColors.length;
+      let colorIndex = 0;
+      const sectionsToPersist: Section[] = [];
+      const sectionIdMap = new Map<string, string>();
 
-      const ensureSection = (
-        incomingName?: string | null,
-        incomingId?: string | null
-      ) => {
-        if (!incomingName && incomingId && sectionIdMap.has(incomingId)) {
-          return sectionIdMap.get(incomingId);
-        }
+      const ensureSectionByName = (name?: string | null) => {
+        const normalized = (name || "").trim();
+        if (!normalized) return undefined;
 
-        if (!incomingName) return undefined;
+        const existing = sectionsToPersist.find(
+          (s) => s.name.toLowerCase() === normalized.toLowerCase()
+        );
+        if (existing) return existing.id;
 
-        const key = incomingName.toLowerCase();
-        const existing = existingSectionsByName.get(key);
-        if (existing) {
-          if (incomingId) sectionIdMap.set(incomingId, existing.id);
-          return existing.id;
-        }
-
-        const newSection: Section = {
+        const section: Section = {
           id: generateId(),
-          name: incomingName,
+          name: normalized,
           color: availableColors[colorIndex % availableColors.length],
-          order: nextOrder++,
+          order: sectionsToPersist.length,
         };
         colorIndex++;
-        newSections.push(newSection);
-        existingSectionsByName.set(key, newSection);
-        if (incomingId) sectionIdMap.set(incomingId, newSection.id);
-        return newSection.id;
+        sectionsToPersist.push(section);
+        return section.id;
       };
 
-      // First, import sections from the backup payload (if present)
-      backupSections.forEach((section: Section) => {
-        const targetId = ensureSection(section.name, section.id);
-        if (!targetId) return;
-        // If this was a brand-new section, preserve incoming color/order when possible
-        const created = newSections.find((s) => s.id === targetId);
-        if (created && section.color) {
-          created.color = section.color;
-        }
-        if (created && typeof section.order === "number") {
-          created.order = section.order;
-        }
+      backupSections.forEach((section: Section, idx: number) => {
+        const id = ensureSectionByName(section.name || `Section ${idx + 1}`);
+        if (!id) return;
+        sectionIdMap.set(section.id || id, id);
+        const target = sectionsToPersist.find((s) => s.id === id);
+        if (!target) return;
+        target.color = section.color || target.color;
+        target.opacity = section.opacity ?? target.opacity;
+        target.order =
+          typeof section.order === "number" ? section.order : target.order;
       });
 
-      // Prepare KPIs with remapped section IDs and without stale IDs
-      const kpisToImport = backup.kpis.map((kpi: any) => {
-        const { sectionId, sectionName, metrics, dataPoints, valueJson, ...rest } = kpi;
+      const { generateUpdateToken } = await import("@/utils/tokenUtils");
+
+      const kpisToRestore: KPI[] = backup.kpis.map((kpi: any, idx: number) => {
+        const { sectionId, sectionName, metrics, dataPoints, valueJson, ...rest } =
+          kpi;
 
         const inferredName =
           sectionName ||
           (sectionId ? backupSectionNameById.get(sectionId) : undefined);
-        const resolvedSectionId = ensureSection(
-          inferredName ?? null,
-          sectionId ?? null
-        );
+        const resolvedSectionId =
+          (sectionId && sectionIdMap.get(sectionId)) ||
+          ensureSectionByName(inferredName ?? null);
 
-        const sourceMetrics = Array.isArray(metrics)
-          ? metrics
-          : Array.isArray(dataPoints)
-          ? dataPoints
-          : undefined;
-        const sanitizedMetrics = sourceMetrics?.map((dp: any) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { id: _metricId, ...cleanDp } = dp;
-          return cleanDp;
+        if (sectionId && !sectionIdMap.has(sectionId) && resolvedSectionId) {
+          sectionIdMap.set(sectionId, resolvedSectionId);
+        }
+
+        const metricEntries =
+          (Array.isArray(metrics) && metrics.length
+            ? metrics
+            : Array.isArray(dataPoints) && dataPoints.length
+            ? dataPoints
+            : []) || [];
+
+        const sanitizedMetrics = metricEntries.map((dp: any) => {
+          const cleanDp = { ...dp } as any;
+          delete cleanDp.id;
+          return {
+            ...cleanDp,
+            date: normalizeDateOnly(
+              cleanDp.date || rest.date || backup.exportedAt
+            ),
+          };
         });
+
+        const baseValue = valueJson ?? rest.value ?? {};
+        const assigneeList = Array.from(
+          new Set(
+            [
+              ...(rest.assignees || []),
+              ...(rest.assignee ? [rest.assignee] : []),
+            ].filter(Boolean)
+          )
+        );
+        const requiresToken =
+          assigneeList.length > 0 || Boolean(rest.updateToken);
 
         return {
-          ...rest,
-          sectionId: resolvedSectionId ?? undefined,
+          ...(rest as KPI),
+          id: rest.id || generateId(),
+          name: rest.name || rest.kpiName || `KPI ${idx + 1}`,
+          kpiName: rest.kpiName || rest.name || `KPI ${idx + 1}`,
+          sectionId: resolvedSectionId || undefined,
           metrics: sanitizedMetrics,
           dataPoints: sanitizedMetrics,
-          // Never restore old tokens directly
-          updateToken: undefined,
-          valueJson: valueJson ?? rest.value,
-        } as Omit<KPI, "id">;
+          value: baseValue,
+          assignees: assigneeList.length ? assigneeList : undefined,
+          assignee: assigneeList[0],
+          updateToken: requiresToken ? generateUpdateToken() : undefined,
+          visible: rest.visible ?? true,
+          order: rest.order ?? idx,
+          date: normalizeDateOnly(rest.date || backup.exportedAt),
+        };
       });
 
-      // Persist any new sections discovered during import
-      if (newSections.length > 0) {
-        await updateScorecard(scorecard.id, {
-          sections: [...existingSections, ...newSections],
-        });
-        await refreshScorecards();
+      const translateSectionEmail = (email: string) => {
+        if (!email.startsWith("__section__:")) return email;
+        const key = email.replace("__section__:", "");
+        const mapped =
+          key === "unassigned" ? "unassigned" : sectionIdMap.get(key) || key;
+        return `__section__:${mapped}`;
+      };
+
+      const assigneeEmails = new Set<string>();
+      Object.keys(backup.assignees || {}).forEach((email) =>
+        assigneeEmails.add(translateSectionEmail(email))
+      );
+      kpisToRestore.forEach((kpi) => {
+        (kpi.assignees || []).forEach((email) => assigneeEmails.add(email));
+        if (kpi.assignee) assigneeEmails.add(kpi.assignee);
+      });
+
+      const regeneratedAssignees: Record<string, string> = {};
+      assigneeEmails.forEach((email) => {
+        if (email) {
+          regeneratedAssignees[email] = generateUpdateToken();
+        }
+      });
+
+      const normalizedSections = sectionsToPersist
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((section, idx) => ({ ...section, order: idx }));
+
+      const payload = {
+        name: backup.meta?.name || scorecard.name,
+        description:
+          backup.meta?.description !== undefined
+            ? backup.meta.description
+            : scorecard.description,
+        sections: normalizedSections,
+        kpis: kpisToRestore.map((kpi) => {
+          const rest = { ...kpi } as any;
+          delete rest.sectionName;
+          return rest;
+        }),
+        assignees: regeneratedAssignees,
+      };
+
+      const response = await fetch(`/api/scorecards/${scorecard.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to restore backup");
       }
 
-      await addKPIs(scorecard.id, kpisToImport);
-
-      alert("Backup imported successfully!");
+      await refreshScorecards();
+      alert(
+        "Backup imported successfully! New update links have been generated."
+      );
+      setShowManageDropdown(false);
     } catch (error) {
       alert(
         `Failed to import backup: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
-    }
-
-    // Reset file input
-    if (e.target) {
-      e.target.value = "";
+    } finally {
+      setRestoreLoading(false);
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -684,21 +951,46 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                   <button
                     onClick={() => {
                       setShowManageDropdown(false);
-                      handleExportBackup();
+                      void handleExportBackup();
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors"
+                    disabled={backupLoading}
+                    className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Download size={14} />
-                    Backup
+                    {backupLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} />
+                    )}
+                    Backup (JSON)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowManageDropdown(false);
+                      void handleExportCsv();
+                    }}
+                    disabled={exportLoading}
+                    className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {exportLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <FileDown size={14} />
+                    )}
+                    Export CSV
                   </button>
                   <button
                     onClick={() => {
                       setShowManageDropdown(false);
                       fileInputRef.current?.click();
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors"
+                    disabled={restoreLoading}
+                    className="w-full text-left px-4 py-2 text-sm text-industrial-300 hover:bg-industrial-800 hover:text-industrial-100 flex items-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Upload size={14} />
+                    {restoreLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
                     Restore
                   </button>
                   <div className="border-t border-industrial-800 my-1"></div>

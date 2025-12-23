@@ -9,6 +9,7 @@ export type ChartType =
     | 'donut'
     | 'radar'
     | 'radialBar'
+    | 'multiAxisLine'
     | 'scatter'
     | 'heatmap'
     | 'sankey';
@@ -33,12 +34,14 @@ export type DataPoint = Metric;
 
 export interface ChartSettings {
     strokeWidth?: number;
-    strokeColor?: string;
+    strokeColor?: string | string[];
     strokeOpacity?: number;
     showLegend?: boolean;
     showGridLines?: boolean;
     showDataLabels?: boolean;
     fillOpacity?: number;
+    primaryLabel?: string;
+    secondaryLabel?: string;
 }
 
 export interface Section {

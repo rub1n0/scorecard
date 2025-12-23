@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Scorecard, KPI, Section } from '@/types';
+import { Scorecard, KPI, Section, Metric } from '@/types';
+import { normalizeDateOnly } from '@/utils/metricNormalization';
 
 const clientFetch = (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
 const newId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
@@ -455,6 +456,52 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             const nextVisible = updates.visible ?? kpi.visible ?? true;
             const hasTargetValue = Object.prototype.hasOwnProperty.call(updates, 'targetValue');
             const hasTargetColor = Object.prototype.hasOwnProperty.call(updates, 'targetColor');
+            const existingMetrics = (kpi.metrics && kpi.metrics.length ? kpi.metrics : kpi.dataPoints) || [];
+            const incomingMetrics = (updates.metrics && updates.metrics.length
+                ? updates.metrics
+                : updates.dataPoints && updates.dataPoints.length
+                    ? updates.dataPoints
+                    : []) as KPI['metrics'];
+
+            const mergeMetrics = (current: KPI['metrics'], incoming: KPI['metrics']) => {
+                if (!incoming || incoming.length === 0) return current || [];
+                const byKey = new Map<string, Metric>();
+
+                const metricKey = (dateValue: unknown) => {
+                    if (typeof dateValue === 'string') {
+                        const parsed = new Date(dateValue);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            return normalizeDateOnly(parsed);
+                        }
+                        return dateValue;
+                    }
+                    if (dateValue instanceof Date || typeof dateValue === 'number') {
+                        return normalizeDateOnly(dateValue as Date);
+                    }
+                    return String(dateValue ?? '');
+                };
+
+                const normalizeMetric = (dp: Metric): Metric => {
+                    const copy: Metric = { ...dp };
+                    if (!copy.date) {
+                        copy.date = new Date().toISOString();
+                    }
+                    return copy;
+                };
+
+                current?.forEach((dp) => {
+                    const normalized = normalizeMetric(dp);
+                    byKey.set(metricKey(normalized.date), normalized);
+                });
+                incoming.forEach((dp) => {
+                    const normalized = normalizeMetric(dp);
+                    byKey.set(metricKey(normalized.date), normalized);
+                });
+
+                return Array.from(byKey.values());
+            };
+
+            const mergedMetrics = mergeMetrics(existingMetrics, incomingMetrics);
             const payload = {
                 // Keep immutable identity fields
                 id: kpi.id,
@@ -470,9 +517,9 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 suffixOpacity: updates.suffixOpacity ?? kpi.suffixOpacity,
                 targetValue: hasTargetValue ? updates.targetValue : kpi.targetValue,
                 targetColor: hasTargetColor ? updates.targetColor : kpi.targetColor,
-                // Ensure metrics/dataPoints are present for replacement
-                metrics: updates.metrics ?? updates.dataPoints ?? kpi.metrics ?? kpi.dataPoints ?? [],
-                dataPoints: updates.dataPoints ?? updates.metrics ?? kpi.dataPoints ?? kpi.metrics ?? [],
+                // Ensure metrics/dataPoints append to history instead of replacing
+                metrics: mergedMetrics,
+                dataPoints: mergedMetrics,
                 // Housekeeping
                 visible: nextVisible,
                 lastUpdatedBy: updatedBy,

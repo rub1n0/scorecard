@@ -62,8 +62,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
 
+        const normalizeStrokeColor = (value: unknown) => {
+            if (Array.isArray(value) && value.length > 0) return value[0] ?? null;
+            return (typeof value === 'string' && value.trim()) ? value : null;
+        };
+        const primaryStrokeColor = normalizeStrokeColor(body?.strokeColor ?? chartSettings.strokeColor);
+
         const updates: Partial<typeof kpis.$inferInsert> = {
-            chartSettings: body?.chartSettings ?? undefined,
+            chartSettings: body?.chartSettings ?? existing.chartSettings ?? undefined,
             sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
             subtitle: body?.subtitle ?? undefined,
             notes: body?.notes ?? undefined,
@@ -83,7 +89,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             visible: body?.visible ?? undefined,
             date: body?.date ? new Date(normalizeDateOnly(body.date)) : undefined,
             strokeWidth: chartSettings.strokeWidth ?? body?.strokeWidth ?? undefined,
-            strokeColor: chartSettings.strokeColor ?? body?.strokeColor ?? undefined,
+            strokeColor: primaryStrokeColor ?? existing.strokeColor ?? null,
             strokeOpacity: chartSettings.strokeOpacity ?? body?.strokeOpacity ?? undefined,
             showLegend: chartSettings.showLegend ?? body?.showLegend ?? undefined,
             showGridlines: chartSettings.showGridlines ?? (typeof body?.showGridLines === 'boolean' ? body.showGridLines : undefined),
@@ -105,14 +111,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ? body.dataPoints
                 : null;
 
+        const visualizationType = body?.visualizationType ?? existing.visualizationType;
+        const chartTypeForMetrics = visualizationType === 'chart'
+            ? (body?.chartType ?? existing.chartType ?? null)
+            : null;
+
         // Apply updates and optionally replace metrics in a transaction
         await db.transaction(async (tx) => {
             // If metrics are provided (even an empty array), replace them
             if (incomingMetrics !== null) {
                 await tx.delete(metrics).where(eq(metrics.kpiId, id));
 
-                const chartType = updates.chartType ?? existing.chartType ?? null;
-                const { points, latestValue, valueJson, latestDate } = buildPersistedMetrics(id, chartType, incomingMetrics);
+                const { points, latestValue, valueJson, latestDate } = buildPersistedMetrics(id, chartTypeForMetrics, incomingMetrics);
 
                 if (points.length) {
                     await tx.insert(metrics).values(points);

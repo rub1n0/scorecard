@@ -137,8 +137,10 @@ const normalizeMultiAxis = (dataPoints: Metric[]): MultiAxisData | null => {
       };
     })
     .filter(
-      (p): p is { x: number; left: number; right: number } =>
-        Boolean(p) && Number.isFinite(p.left) && Number.isFinite(p.right)
+      (p): p is { x: number; left: number; right: number } => {
+        if (!p) return false;
+        return Number.isFinite(p.left) && Number.isFinite(p.right);
+      }
     )
     .sort((a, b) => a.x - b.x);
 
@@ -153,6 +155,7 @@ const normalizeMultiAxis = (dataPoints: Metric[]): MultiAxisData | null => {
 
 type AxisSeries = { name: string; data: number[] }[];
 type NonAxisSeries = number[];
+type MultiAxisSeries = { name: string; data: MultiAxisSeriesPoint[] }[];
 type ApexChartTypeLocal = NonNullable<ApexOptions["chart"]>["type"];
 
 const normalizeCategorical = (
@@ -242,7 +245,8 @@ const buildChartOptions = (
   })();
 
   const baseColors =
-    normalizedStrokeColors.length > 0 && !isMultiValueChartType(chartType)
+    normalizedStrokeColors.length > 0 &&
+    (!isMultiValueChartType(chartType) || chartType === "radar")
       ? [normalizedStrokeColors[0], normalizedStrokeColors[1] || defaultPalette[1]]
       : defaultPalette;
   const fillOpacity = chartSettings?.fillOpacity ?? 0.8;
@@ -275,20 +279,16 @@ const buildChartOptions = (
     dataLabels: {
       enabled: chartSettings?.showDataLabels ?? false,
       style: {
-        fontSize: "14px",
+        fontSize: "13px",
         fontFamily: "Inter, sans-serif",
         fontWeight: "700",
-        colors: ["#0f172a"],
+        colors: ["#e5e7eb"],
       },
-      offsetY: -8,
+      offsetY: -6,
       background: {
-        enabled: true,
-        foreColor: "#0f172a",
-        borderRadius: 6,
-        borderWidth: 0,
-        padding: 6,
-        opacity: 0.92,
+        enabled: false,
       },
+      dropShadow: { enabled: false },
     },
     stroke: {
       ...strokeOptions,
@@ -588,6 +588,16 @@ const buildChartOptions = (
   }
 
   if (chartType === "radar") {
+    const radarStrokeRaw =
+      (Array.isArray(chartSettings?.strokeColor) && chartSettings.strokeColor.length
+        ? chartSettings.strokeColor[0]
+        : chartSettings?.strokeColor) ||
+      normalizedStrokeColors[0] ||
+      baseColors[0];
+    const radarStroke = typeof radarStrokeRaw === "string" ? radarStrokeRaw : baseColors[0];
+    const radarStrokeWithOpacity = withOpacity(radarStroke, strokeOpacity) || radarStroke;
+    const radarFill = withOpacity(radarStroke, fillOpacity) || radarStroke;
+
     options.xaxis = {
       categories:
         chartData.kind === "categorical" ? chartData.categories : undefined,
@@ -606,26 +616,22 @@ const buildChartOptions = (
     options.markers = {
       size: 3,
       colors: ["#18181b"],
-      strokeColors: "#3b82f6",
+      strokeColors: radarStrokeWithOpacity,
       strokeWidth: 2,
     };
 
-    if (
-      chartSettings?.strokeColor &&
-      chartData.kind === "categorical" &&
-      chartData.colors.filter(Boolean).length !== chartData.categories.length
-    ) {
-      options.colors = Array(chartData.categories.length).fill(
-        chartSettings.strokeColor
-      );
-    } else {
-      if (
-        chartData.kind === "categorical" &&
-        chartData.colors.filter(Boolean).length === chartData.categories.length
-      ) {
-        options.colors = chartData.colors;
-      }
-    }
+    options.stroke = {
+      ...options.stroke,
+      colors: [radarStrokeWithOpacity],
+    };
+
+    // Always honor the chart-level color for radar to avoid stale per-dimension colors.
+    options.colors = [radarStroke];
+    options.fill = {
+      ...(options.fill || {}),
+      opacity: fillOpacity,
+      colors: [radarFill],
+    };
   }
 
   return options;
@@ -674,7 +680,7 @@ export default function ChartVisualization({
     { primary: primaryLabel, secondary: secondaryLabel }
   );
 
-  const series: AxisSeries | NonAxisSeries =
+  const series: AxisSeries | NonAxisSeries | MultiAxisSeries =
     chartType === "pie" || chartType === "donut" || chartType === "radialBar"
       ? chartData.kind === "categorical"
         ? chartData.values

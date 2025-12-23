@@ -56,6 +56,26 @@ export const normalizeDateOnly = (value?: string | Date): string => {
  * For multi-value chart types, arrays are enforced even if a single number is provided.
  */
 export const normalizeValueForChartType = (chartType: string | null | undefined, raw: unknown): number | number[] | LabeledValue[] => {
+    if (chartType === 'multiAxisLine') {
+        if (Array.isArray(raw)) {
+            const values = raw.map(toFiniteNumber).filter((n): n is number => n !== null);
+            const [a, b] = [values[0] ?? 0, values[1] ?? 0];
+            return [a, b];
+        }
+
+        if (raw && typeof raw === 'object') {
+            const record = raw as Record<string, unknown>;
+            const values = [
+                toFiniteNumber(record.a ?? record.primary ?? record[0] ?? Object.values(record)[0]),
+                toFiniteNumber(record.b ?? record.secondary ?? record[1] ?? Object.values(record)[1]),
+            ].map((n) => n ?? 0);
+            return [values[0], values[1] ?? 0];
+        }
+
+        const num = toFiniteNumber(raw);
+        return [num ?? 0, 0];
+    }
+
     const multi = isMultiValueChartType(chartType);
 
     if (multi) {
@@ -92,8 +112,26 @@ export const normalizeValueForChartType = (chartType: string | null | undefined,
 export const serializeValueForStorage = (chartType: string | null | undefined, raw: unknown) => normalizeValueForChartType(chartType, raw);
 
 export const mapMetricValue = (chartType: string | null | undefined, rawDate: unknown, rawValue: unknown, color?: string | null) => {
-    const normalizedValue = normalizeValueForChartType(chartType, rawValue);
     const date = normalizeDateOnly(typeof rawDate === 'string' || rawDate instanceof Date ? rawDate : undefined);
+
+    if (chartType === 'multiAxisLine') {
+        const rawArray = Array.isArray(rawValue)
+            ? rawValue
+            : rawValue && typeof rawValue === 'object'
+                ? Object.values(rawValue as Record<string, unknown>)
+                : [rawValue];
+        const values = rawArray.map((v) => toFiniteNumber(v) ?? 0);
+        const primary = values[0] ?? 0;
+        const secondary = values[1] ?? 0;
+        return {
+            date,
+            value: primary,
+            valueArray: [primary, secondary],
+            color: color || undefined,
+        };
+    }
+
+    const normalizedValue = normalizeValueForChartType(chartType, rawValue);
 
     if (Array.isArray(normalizedValue)) {
         // Handle LabeledValue array
@@ -136,10 +174,19 @@ export const buildChartSettings = (row: {
     showGridLines?: boolean | number | null;
     showDataLabels?: boolean | number | null;
 }): ChartSettings => {
-    const jsonSettings = (row.chartSettings || {}) as ChartSettings & { showGridlines?: boolean; showGridLines?: boolean };
+    const jsonSettings = (row.chartSettings || {}) as Partial<ChartSettings> & {
+        showGridlines?: boolean;
+        showGridLines?: boolean;
+    };
+    const strokeColorFromJson = jsonSettings.strokeColor;
+    const normalizeStroke = (value: unknown) => {
+        if (Array.isArray(value) && value.length > 0) return value as string[];
+        if (typeof value === 'string') return value;
+        return undefined;
+    };
     return {
         strokeWidth: row.strokeWidth ?? jsonSettings.strokeWidth,
-        strokeColor: row.strokeColor ?? jsonSettings.strokeColor,
+        strokeColor: normalizeStroke(strokeColorFromJson) ?? row.strokeColor ?? undefined,
         strokeOpacity: row.strokeOpacity ?? jsonSettings.strokeOpacity,
         fillOpacity: row.fillOpacity ?? jsonSettings.fillOpacity,
         showLegend: (typeof row.showLegend === 'number' ? Boolean(row.showLegend) : row.showLegend) ?? jsonSettings.showLegend,
@@ -149,14 +196,21 @@ export const buildChartSettings = (row: {
             jsonSettings.showGridLines ??
             (jsonSettings as { showGridlines?: boolean }).showGridlines,
         showDataLabels: (typeof row.showDataLabels === 'number' ? Boolean(row.showDataLabels) : row.showDataLabels) ?? jsonSettings.showDataLabels,
+        primaryLabel: (jsonSettings as { primaryLabel?: string }).primaryLabel,
+        secondaryLabel: (jsonSettings as { secondaryLabel?: string }).secondaryLabel,
     };
 };
 
 export const extractChartSettingColumns = (settings?: (ChartSettings & { showGridlines?: boolean }) | null) => {
     if (!settings) return {};
+    const normalizeStrokeColor = (value: unknown) => {
+        if (Array.isArray(value) && value.length > 0) return value[0] ?? null;
+        if (typeof value === 'string') return value;
+        return undefined;
+    };
     return {
         strokeWidth: settings.strokeWidth,
-        strokeColor: settings.strokeColor,
+        strokeColor: normalizeStrokeColor(settings.strokeColor),
         strokeOpacity: settings.strokeOpacity,
         fillOpacity: settings.fillOpacity,
         showLegend: settings.showLegend,
