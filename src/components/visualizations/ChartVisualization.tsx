@@ -21,7 +21,7 @@ type ChartVisualizationProps = {
 const defaultPalette = ["#5094af", "#36c9b8", "#dea821", "#ee7411", "#e0451f"];
 
 const withOpacity = (color: string | undefined, opacity: number) => {
-  if (!color) return color;
+  if (!color || typeof color !== "string") return color;
   const clamped = Math.min(Math.max(opacity, 0), 1);
   const hex = color.replace("#", "");
   if (hex.length === 3 || hex.length === 6) {
@@ -41,6 +41,13 @@ type TimeSeriesData = {
   points: { label: string; displayLabel: string; value: number }[];
 };
 
+type MultiAxisSeriesPoint = { x: number; y: number };
+type MultiAxisData = {
+  kind: "multiAxis";
+  left: MultiAxisSeriesPoint[];
+  right: MultiAxisSeriesPoint[];
+};
+
 type CategoricalData = {
   kind: "categorical";
   categories: string[];
@@ -48,7 +55,7 @@ type CategoricalData = {
   colors: (string | undefined)[];
 };
 
-type NormalizedChartData = TimeSeriesData | CategoricalData | null;
+type NormalizedChartData = TimeSeriesData | CategoricalData | MultiAxisData | null;
 
 type DataLabelFormatterOptions = {
   w?: { globals?: { series?: ApexNonAxisChartSeries } };
@@ -108,6 +115,40 @@ const normalizeTimeSeries = (dataPoints: Metric[]): TimeSeriesData | null => {
   if (!points.length) return null;
 
   return { kind: "timeseries", points };
+};
+
+const normalizeMultiAxis = (dataPoints: Metric[]): MultiAxisData | null => {
+  const points = [...dataPoints]
+    .map((dp) => {
+      const time = dp.date ? new Date(dp.date).getTime() : NaN;
+      if (!Number.isFinite(time)) return null;
+      const arr = Array.isArray(dp.valueArray)
+        ? dp.valueArray
+        : Array.isArray(dp.value)
+        ? dp.value
+        : [dp.value];
+      const left = normalizeNumber(arr?.[0]);
+      const right = normalizeNumber(arr?.[1]);
+      if (left === null || right === null) return null;
+      return {
+        x: time,
+        left,
+        right,
+      };
+    })
+    .filter(
+      (p): p is { x: number; left: number; right: number } =>
+        Boolean(p) && Number.isFinite(p.left) && Number.isFinite(p.right)
+    )
+    .sort((a, b) => a.x - b.x);
+
+  if (!points.length) return null;
+
+  return {
+    kind: "multiAxis",
+    left: points.map((p) => ({ x: p.x, y: p.left })),
+    right: points.map((p) => ({ x: p.x, y: p.right })),
+  };
 };
 
 type AxisSeries = { name: string; data: number[] }[];
@@ -175,7 +216,8 @@ const buildChartOptions = (
   chartType: ChartType,
   definition: ChartDefinition,
   chartSettings: ChartSettings | undefined,
-  chartData: Exclude<NormalizedChartData, null>
+  chartData: Exclude<NormalizedChartData, null>,
+  labels?: { primary: string; secondary?: string }
 ) => {
   const strokeOptions: ApexOptions["stroke"] = {
     curve: "smooth",
@@ -184,9 +226,24 @@ const buildChartOptions = (
 
   const strokeOpacity = chartSettings?.strokeOpacity ?? 1.0;
 
+  const normalizedStrokeColors = (() => {
+    if (Array.isArray(chartSettings?.strokeColor)) {
+      return chartSettings?.strokeColor.filter(
+        (c): c is string => typeof c === "string"
+      );
+    }
+    if (
+      typeof chartSettings?.strokeColor === "string" &&
+      chartSettings.strokeColor.trim()
+    ) {
+      return [chartSettings.strokeColor];
+    }
+    return [];
+  })();
+
   const baseColors =
-    chartSettings?.strokeColor && !isMultiValueChartType(chartType)
-      ? [chartSettings.strokeColor]
+    normalizedStrokeColors.length > 0 && !isMultiValueChartType(chartType)
+      ? [normalizedStrokeColors[0], normalizedStrokeColors[1] || defaultPalette[1]]
       : defaultPalette;
   const fillOpacity = chartSettings?.fillOpacity ?? 0.8;
   const legendDefault =
@@ -218,16 +275,25 @@ const buildChartOptions = (
     dataLabels: {
       enabled: chartSettings?.showDataLabels ?? false,
       style: {
-        fontSize: "17px",
-        fontFamily: "monospace",
-        fontWeight: "bold",
-        colors: ["#f4f4f5"],
+        fontSize: "14px",
+        fontFamily: "Inter, sans-serif",
+        fontWeight: "700",
+        colors: ["#0f172a"],
+      },
+      offsetY: -8,
+      background: {
+        enabled: true,
+        foreColor: "#0f172a",
+        borderRadius: 6,
+        borderWidth: 0,
+        padding: 6,
+        opacity: 0.92,
       },
     },
     stroke: {
       ...strokeOptions,
-      colors: (chartSettings?.strokeColor && !isMultiValueChartType(chartType))
-        ? [withOpacity(chartSettings.strokeColor, strokeOpacity)]
+      colors: (normalizedStrokeColors.length > 0 && !isMultiValueChartType(chartType))
+        ? [withOpacity(normalizedStrokeColors[0], strokeOpacity)]
         : baseColors.map((color) => withOpacity(color, strokeOpacity)),
     },
     grid: {
@@ -247,8 +313,8 @@ const buildChartOptions = (
     tooltip: {
       theme: "dark",
       style: {
-        fontSize: "12px",
-        fontFamily: "monospace",
+        fontSize: "13px",
+        fontFamily: "Inter, sans-serif",
       },
       y: {
         formatter: (val: number) => val.toLocaleString(),
@@ -261,10 +327,10 @@ const buildChartOptions = (
     legend: {
       show: chartSettings?.showLegend ?? legendDefault,
       labels: {
-        colors: "#d4d4d8",
+        colors: "#e5e7eb",
       },
-      fontSize: "14px",
-      fontFamily: "monospace",
+      fontSize: "13px",
+      fontFamily: "Inter, sans-serif",
     },
     fill: {
       type: "solid",
@@ -310,6 +376,95 @@ const buildChartOptions = (
       },
       axisBorder: { show: false },
       axisTicks: { show: false },
+    };
+  }
+
+  if (chartData.kind === "multiAxis") {
+    options.chart = {
+      ...options.chart,
+      stacked: false,
+      animations: { enabled: true, speed: 700 },
+    };
+    options.xaxis = {
+      type: "datetime",
+      labels: {
+        style: {
+          colors: "#94a3b8",
+          fontSize: "12px",
+          fontFamily: "Inter, sans-serif",
+        },
+      },
+    };
+    options.yaxis = [
+      {
+        seriesName: labels?.primary || definition.valueLabel,
+        labels: {
+          style: {
+            colors: "#cbd5e1",
+            fontSize: "12px",
+            fontFamily: "Inter, sans-serif",
+          },
+        },
+        title: {
+          text: labels?.primary || definition.valueLabel,
+          style: {
+            color: "#cbd5e1",
+            fontSize: "12px",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 600,
+          },
+        },
+      },
+      {
+        opposite: true,
+        seriesName: labels?.secondary || definition.secondaryValueLabel || "Secondary",
+        labels: {
+          style: {
+            colors: "#cbd5e1",
+            fontSize: "12px",
+            fontFamily: "Inter, sans-serif",
+          },
+        },
+        title: {
+          text: labels?.secondary || definition.secondaryValueLabel || "Secondary",
+          style: {
+            color: "#cbd5e1",
+            fontSize: "12px",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 600,
+          },
+        },
+      },
+    ];
+    options.stroke = {
+      ...options.stroke,
+      width: [chartSettings?.strokeWidth ?? 2, chartSettings?.strokeWidth ?? 2],
+      curve: "smooth",
+      colors: [
+        Array.isArray(chartSettings?.strokeColor)
+          ? chartSettings.strokeColor[0]
+          : normalizedStrokeColors[0] || baseColors[0],
+        Array.isArray(chartSettings?.strokeColor)
+          ? chartSettings.strokeColor[1] ?? defaultPalette[1]
+          : normalizedStrokeColors[1] || baseColors[1] || defaultPalette[1],
+      ].map((c) => withOpacity(c, strokeOpacity)),
+    };
+    options.colors = [
+      Array.isArray(chartSettings?.strokeColor)
+        ? chartSettings.strokeColor[0]
+        : normalizedStrokeColors[0] || baseColors[0],
+      Array.isArray(chartSettings?.strokeColor)
+        ? chartSettings.strokeColor[1] ?? defaultPalette[1]
+        : normalizedStrokeColors[1] || baseColors[1] || defaultPalette[1],
+    ].map((c) => withOpacity(c, strokeOpacity));
+    options.legend = {
+      show: chartSettings?.showLegend ?? true,
+      labels: { colors: "#d4d4d8" },
+    };
+    options.tooltip = {
+      ...options.tooltip,
+      shared: true,
+      x: { show: true },
     };
   }
 
@@ -483,13 +638,25 @@ export default function ChartVisualization({
   chartSettings,
 }: ChartVisualizationProps) {
   const definition = getChartDefinition(chartType);
+  const primaryLabel =
+    (chartSettings as ChartSettings & { primaryLabel?: string })?.primaryLabel ||
+    definition.valueLabel ||
+    `${name} A`;
+  const secondaryLabel =
+    (chartSettings as ChartSettings & { secondaryLabel?: string })?.secondaryLabel ||
+    definition.secondaryValueLabel ||
+    `${name} B`;
 
   const chartData = useMemo<NormalizedChartData>(() => {
+    const def = getChartDefinition(chartType);
+    if (chartType === "multiAxisLine") {
+      return normalizeMultiAxis(dataPoints);
+    }
     if (isMultiValueChartType(chartType)) {
-      return normalizeCategorical(dataPoints, chartType, definition);
+      return normalizeCategorical(dataPoints, chartType, def);
     }
     return normalizeTimeSeries(dataPoints);
-  }, [chartType, dataPoints, definition]);
+  }, [chartType, dataPoints]);
 
   if (!chartData) {
     return (
@@ -503,7 +670,8 @@ export default function ChartVisualization({
     chartType,
     definition,
     chartSettings,
-    chartData
+    chartData,
+    { primary: primaryLabel, secondary: secondaryLabel }
   );
 
   const series: AxisSeries | NonAxisSeries =
@@ -511,6 +679,17 @@ export default function ChartVisualization({
       ? chartData.kind === "categorical"
         ? chartData.values
         : []
+      : chartData.kind === "multiAxis"
+      ? [
+          {
+            name: primaryLabel,
+            data: chartData.left,
+          },
+          {
+            name: secondaryLabel,
+            data: chartData.right,
+          },
+        ]
       : [
           {
             name,
