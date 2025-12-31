@@ -18,7 +18,7 @@ type SankeyLink = { source: string; target: string; value: number };
 interface KPIFormProps {
     kpi?: KPI;
     sections?: Section[];
-    onSave: (kpi: Omit<KPI, 'id'>) => void;
+    onSave: (kpi: Omit<KPI, 'id'>) => void | Promise<void>;
     onCancel: () => void;
 }
 
@@ -229,6 +229,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const [showDataLabels, setShowDataLabels] = useState(
         kpi?.chartSettings?.showDataLabels ?? false
     );
+    const [syncAxisScales, setSyncAxisScales] = useState(
+        kpi?.chartSettings?.syncAxisScales ?? false
+    );
 
     const [dataPoints, setDataPoints] = useState<DataPoint[]>(() => {
         const basePoints = hydrateDataPoints(kpi);
@@ -256,6 +259,8 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     );
 
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const chartDefinition = useMemo(
         () => (chartType !== 'sankey' ? getChartDefinition(chartType) : null),
@@ -288,6 +293,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         }
         if (nextType !== 'multiAxisLine') {
             setSecondaryStrokeColor(standardPalette[1]);
+            setSyncAxisScales(false);
         }
     };
 
@@ -642,9 +648,10 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         </div>
     );
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setValidationErrors([]);
+        setSubmitError(null);
 
         const resolvedVisualization: VisualizationType =
             visualizationSelection === 'number_trend'
@@ -743,7 +750,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             subtitle: subtitle || undefined,
             value: valueRecord,
             date: lastUpdated,
-            notes: notes || undefined,
+            notes: notes ?? '',
             visualizationType: resolvedVisualization,
             chartType: resolvedVisualization === 'chart' || resolvedVisualization === 'sankey' ? chartType : undefined,
             trendValue: resolvedVisualization === 'number' ? trendValue : undefined,
@@ -759,6 +766,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         showDataLabels: isSankeyChart ? undefined : showDataLabels,
                         primaryLabel: isMultiAxisLine ? primaryLabel : undefined,
                         secondaryLabel: isMultiAxisLine ? secondaryLabel : undefined,
+                        syncAxisScales: isMultiAxisLine ? syncAxisScales : undefined,
                     }
                     : undefined,
             sankeySettings:
@@ -773,9 +781,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             sectionId: sectionId || undefined,
             visible,
             reverseTrend: resolvedVisualization === 'number' ? reverseTrend : undefined,
-            prefix: prefix || undefined,
+            prefix: prefix === '' ? '' : prefix,
             prefixOpacity,
-            suffix: suffix || undefined,
+            suffix: suffix === '' ? '' : suffix,
             suffixOpacity,
             targetValue: normalizedTarget,
             targetColor:
@@ -784,7 +792,15 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                     : undefined,
         };
 
-        onSave(kpiData);
+        try {
+            setIsSaving(true);
+            await Promise.resolve(onSave(kpiData));
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to save KPI.';
+            setSubmitError(message);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -1109,6 +1125,17 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                             />
                                             <span className="text-sm text-industrial-300">Show Data Labels</span>
                                         </label>
+                                        {isMultiAxisLine && (
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                                                    checked={syncAxisScales}
+                                                    onChange={(e) => setSyncAxisScales(e.target.checked)}
+                                                />
+                                                <span className="text-sm text-industrial-300">Sync axes</span>
+                                            </label>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1264,13 +1291,18 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         ))}
                     </div>
                 )}
+                {submitError && (
+                    <div className="border border-red-700/70 bg-red-900/20 text-red-200 rounded-md p-3 text-sm">
+                        {submitError}
+                    </div>
+                )}
 
                 <div className="form-actions">
                     <button type="button" onClick={onCancel} className="btn btn-secondary">
                         Cancel
                     </button>
-                    <button type="submit" className="btn btn-primary">
-                        {kpi ? 'Update KPI' : 'Create KPI'}
+                    <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                        {isSaving ? 'Saving...' : kpi ? 'Update KPI' : 'Create KPI'}
                     </button>
                 </div>
             </form>

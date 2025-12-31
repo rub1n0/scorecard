@@ -65,6 +65,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     updateKPI,
     deleteKPI,
     refreshScorecards,
+    fetchScorecardById,
     updateScorecard,
     regenerateAssigneeToken,
     deleteAssigneeToken,
@@ -212,19 +213,34 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     return date.toISOString().split("T")[0];
   };
 
-  const handleAddKPI = (kpiData: Omit<KPI, "id">) => {
-    addKPI(scorecard.id, kpiData);
+  const handleAddKPI = async (kpiData: Omit<KPI, "id">) => {
+    await addKPI(scorecard.id, kpiData);
     setShowKPIForm(false);
   };
 
-  const handleEditKPI = (kpi: KPI) => {
-    setEditingKPI(kpi);
+  const handleEditKPI = async (kpi: KPI) => {
+    try {
+      const response = await fetch(`/api/kpis/${kpi.id}`, { cache: "no-store" });
+      if (response.ok) {
+        const latestKPI = (await response.json()) as KPI;
+        setEditingKPI(latestKPI);
+        setShowKPIForm(true);
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to fetch latest KPI:", error);
+    }
+
+    const latestScorecard = await fetchScorecardById(scorecard.id);
+    const fallbackKPI =
+      latestScorecard?.kpis.find((item) => item.id === kpi.id) || kpi;
+    setEditingKPI(fallbackKPI);
     setShowKPIForm(true);
   };
 
-  const handleUpdateKPI = (kpiData: Omit<KPI, "id">) => {
+  const handleUpdateKPI = async (kpiData: Omit<KPI, "id">) => {
     if (editingKPI) {
-      updateKPI(scorecard.id, editingKPI.id, kpiData);
+      await updateKPI(scorecard.id, editingKPI.id, kpiData);
       setShowKPIForm(false);
       setEditingKPI(undefined);
     }

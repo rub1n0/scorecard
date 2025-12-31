@@ -109,7 +109,7 @@ export const chartTypeConfig: Record<ChartType, ChartDefinition> = {
     usesLabeledValues: true,
     requiresColor: false,
     apexType: "radar",
-    height: 320,
+    height: 400,
     dimensionInput: "text",
     requiredFields: ["Dimension", "Value"],
   },

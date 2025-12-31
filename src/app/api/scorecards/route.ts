@@ -13,7 +13,7 @@ import {
     sections,
     users,
 } from '../../../../db/schema';
-import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly } from '@/utils/metricNormalization';
+import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, resolveVisualizationType } from '@/utils/metricNormalization';
 import { buildPersistedMetrics } from '@/utils/metricPersistence';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
@@ -68,6 +68,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
 
     const kpisPayload = kpiRows.map(kpi => {
         const chartSettings = buildChartSettings(kpi);
+        const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
         const metricEntries = metricsByKpi.get(kpi.id) || [];
 
         return {
@@ -75,12 +76,13 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             name: kpi.kpiName || kpi.name,
             kpiName: kpi.kpiName || kpi.name,
             subtitle: kpi.subtitle || undefined,
-            visualizationType: kpi.visualizationType as any,
+            visualizationType: resolvedVisualizationType,
             chartType: kpi.chartType || undefined,
             reverseTrend: kpi.reverseTrend,
             updateToken: kpi.updateToken || undefined,
             assignment: kpi.assignment || undefined,
             date: kpi.date ? new Date(kpi.date).toISOString() : new Date().toISOString(),
+            updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
             prefix: kpi.prefix || undefined,
             suffix: kpi.suffix || undefined,
             trendValue: kpi.trendValue ?? undefined,
@@ -221,6 +223,7 @@ export async function PUT(req: NextRequest) {
                         const normalizedDate = normalizeDateOnly(kpi.date);
                         const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
                         const name = kpi.name || kpi.kpiName || `KPI ${idx + 1}`;
+                        const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
 
                     return {
                         id: kpi.id || crypto.randomUUID(),
@@ -230,7 +233,7 @@ export async function PUT(req: NextRequest) {
                         kpiName: kpi.kpiName || name,
                         subtitle: kpi.subtitle || null,
                         assignment: kpi.assignment || null,
-                        visualizationType: kpi.visualizationType || 'number',
+                        visualizationType: resolvedVisualizationType,
                         chartType: kpi.chartType || null,
                         reverseTrend: Boolean(kpi.reverseTrend),
                         updateToken: kpi.updateToken || null,
@@ -268,8 +271,10 @@ export async function PUT(req: NextRequest) {
                     for (const definition of kpiDefinitions) {
                         const kpiSource = body.kpis.find((k: any) => (k.id || definition.id) === definition.id);
 
-                        const visualizationType = kpiSource?.visualizationType || definition.visualizationType;
-                        const chartTypeForMetrics = visualizationType === 'chart' ? (kpiSource?.chartType || definition.chartType) : null;
+                        const chartTypeCandidate = kpiSource?.chartType || definition.chartType;
+                        const rawVisualizationType = kpiSource?.visualizationType || definition.visualizationType;
+                        const resolvedVisualizationType = resolveVisualizationType(rawVisualizationType, chartTypeCandidate);
+                        const chartTypeForMetrics = resolvedVisualizationType === 'chart' ? chartTypeCandidate : null;
 
                         // Insert metrics for ALL KPIs (before assignee check)
                         const sourceMetrics = (kpiSource?.metrics && kpiSource.metrics.length ? kpiSource.metrics : kpiSource?.dataPoints) || [];

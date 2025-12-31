@@ -1,49 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import { kpiValues, kpis, metrics, scorecards, sections } from '../../../../../db/schema';
-import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly } from '@/utils/metricNormalization';
+import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, resolveVisualizationType } from '@/utils/metricNormalization';
 import { buildPersistedMetrics, IncomingMetric } from '@/utils/metricPersistence';
+
+const buildKpiResponse = async (id: string) => {
+    const [row] = await db
+        .select({
+            kpi: kpis,
+            section: sections,
+            scorecard: scorecards,
+        })
+        .from(kpis)
+        .leftJoin(sections, eq(kpis.sectionId, sections.id))
+        .leftJoin(scorecards, eq(kpis.scorecardId, scorecards.id))
+        .where(eq(kpis.id, id));
+
+    if (!row) return null;
+
+    const values = await db.select().from(kpiValues).where(eq(kpiValues.kpiId, id));
+    const metricRows = await db
+        .select()
+        .from(metrics)
+        .where(eq(metrics.kpiId, id));
+
+    const chartSettings = buildChartSettings(row.kpi);
+    const resolvedVisualizationType = resolveVisualizationType(row.kpi.visualizationType, row.kpi.chartType);
+    const metricsForKpi = metricRows.map((dp) => mapMetricValue(row.kpi.chartType, dp.date, dp.value, dp.color));
+    const value = (row.kpi.valueJson as Record<string, number | string>) || {};
+
+    return {
+        ...row.kpi,
+        name: row.kpi.kpiName || row.kpi.name,
+        kpiName: row.kpi.kpiName || row.kpi.name,
+        value,
+        valueJson: row.kpi.valueJson ?? value,
+        chartSettings,
+        visualizationType: resolvedVisualizationType,
+        section: row.section || null,
+        scorecard: row.scorecard || null,
+        values,
+        metrics: metricsForKpi,
+        dataPoints: metricsForKpi,
+        sankeySettings: (row.kpi as { sankeySettings?: unknown }).sankeySettings || null,
+        targetValue: (row.kpi as { targetValue?: unknown }).targetValue ?? null,
+        targetColor: (row.kpi as { targetColor?: string | null }).targetColor ?? null,
+    };
+};
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const [row] = await db
-            .select({
-                kpi: kpis,
-                section: sections,
-                scorecard: scorecards,
-            })
-            .from(kpis)
-            .leftJoin(sections, eq(kpis.sectionId, sections.id))
-            .leftJoin(scorecards, eq(kpis.scorecardId, scorecards.id))
-            .where(eq(kpis.id, id));
-
-        if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-        const values = await db.select().from(kpiValues).where(eq(kpiValues.kpiId, id));
-        const metricRows = await db
-            .select()
-            .from(metrics)
-            .where(eq(metrics.kpiId, id));
-
-        const chartSettings = buildChartSettings(row.kpi);
-        const metricsForKpi = metricRows.map((dp) => mapMetricValue(row.kpi.chartType, dp.date, dp.value, dp.color));
-
-        return NextResponse.json({
-            ...row.kpi,
-            name: row.kpi.kpiName || row.kpi.name,
-            kpiName: row.kpi.kpiName || row.kpi.name,
-            chartSettings,
-            section: row.section || null,
-            scorecard: row.scorecard || null,
-            values,
-            metrics: metricsForKpi,
-            dataPoints: metricsForKpi,
-            sankeySettings: (row.kpi as { sankeySettings?: unknown }).sankeySettings || null,
-            targetValue: (row.kpi as { targetValue?: unknown }).targetValue ?? null,
-            targetColor: (row.kpi as { targetColor?: string | null }).targetColor ?? null,
-        });
+        const payload = await buildKpiResponse(id);
+        if (!payload) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return NextResponse.json(payload);
     } catch (error) {
         console.error('[kpis/:id][GET]', error);
         return NextResponse.json({ error: 'Failed to fetch KPI' }, { status: 500 });
@@ -61,6 +72,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
+        const chartTypeCandidate = body?.chartType ?? existing.chartType ?? null;
+        const resolvedVisualizationType = resolveVisualizationType(
+            body?.visualizationType ?? existing.visualizationType ?? null,
+            chartTypeCandidate
+        );
 
         const normalizeStrokeColor = (value: unknown) => {
             if (Array.isArray(value) && value.length > 0) return value[0] ?? null;
@@ -73,8 +89,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
             subtitle: body?.subtitle ?? undefined,
             notes: body?.notes ?? undefined,
-            chartType: body?.chartType ?? existing.chartType ?? undefined,
-            visualizationType: body?.visualizationType ?? existing.visualizationType ?? undefined,
+            chartType: chartTypeCandidate ?? undefined,
+            visualizationType: resolvedVisualizationType,
             assignment: body?.assignment ?? undefined,
             reverseTrend: body?.reverseTrend !== undefined ? Boolean(body.reverseTrend) : undefined,
             prefix: body?.prefix ?? undefined,
@@ -111,10 +127,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ? body.dataPoints
                 : null;
 
-        const visualizationType = body?.visualizationType ?? existing.visualizationType;
-        const chartTypeForMetrics = visualizationType === 'chart'
-            ? (body?.chartType ?? existing.chartType ?? null)
-            : null;
+        const chartTypeForMetrics = resolvedVisualizationType === 'chart' ? chartTypeCandidate : null;
+
+        const oldValue = existing.valueJson ?? null;
+        const oldUpdatedAt = existing.updatedAt ?? null;
+        const newValue = updates.valueJson ?? body?.value ?? body?.valueJson ?? null;
+        let rowsUpdated: number | null = null;
 
         // Apply updates and optionally replace metrics in a transaction
         await db.transaction(async (tx) => {
@@ -142,10 +160,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             }
 
             await tx.update(kpis).set(updates).where(eq(kpis.id, id));
+            const rowCountResult = await tx.execute(sql`select row_count() as count`);
+            const rowCountRows = Array.isArray(rowCountResult) && Array.isArray(rowCountResult[0])
+                ? rowCountResult[0]
+                : [];
+            const countValue = rowCountRows[0]
+                ? (rowCountRows[0] as { count?: number | string }).count
+                : undefined;
+            const parsedCount = typeof countValue === 'number' ? countValue : Number(countValue);
+            rowsUpdated = Number.isFinite(parsedCount) ? parsedCount : null;
         });
 
-        const [row] = await db.select().from(kpis).where(eq(kpis.id, id));
-        return row ? NextResponse.json(row) : NextResponse.json({ error: 'Not found' }, { status: 404 });
+        const updated = await buildKpiResponse(id);
+
+        console.info('[kpis/:id][PUT]', {
+            kpiId: id,
+            oldValue,
+            newValue,
+            updatedAtBefore: oldUpdatedAt instanceof Date ? oldUpdatedAt.toISOString() : oldUpdatedAt,
+            updatedAtAfter: updated?.updatedAt
+                ? new Date(updated.updatedAt as unknown as string).toISOString()
+                : null,
+            rowsUpdated,
+        });
+
+        return updated ? NextResponse.json(updated) : NextResponse.json({ error: 'Not found' }, { status: 404 });
     } catch (error) {
         console.error('[kpis/:id][PUT]', error);
         return NextResponse.json({ error: 'Failed to update KPI' }, { status: 500 });

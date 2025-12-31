@@ -102,20 +102,34 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
 
     const latestPoint = historyPoints[0];
     const isSankey = kpi.visualizationType === 'sankey' || kpi.chartType === 'sankey';
-    const isChart = kpi.visualizationType === 'chart';
+    const isChart = kpi.visualizationType === 'chart' || (!!kpi.chartType && !isSankey);
     const chartDefinition = useMemo(
         () => getChartDefinition(kpi.chartType || 'line'),
         [kpi.chartType]
     );
     const isCategoryChart = isChart && isMultiValueChartType(kpi.chartType || 'line');
-    type ValueEntry = { key: string; value: number | string; color?: string };
+    const primaryAxisLabel = useMemo(
+        () =>
+            (kpi.chartSettings as { primaryLabel?: string } | undefined)?.primaryLabel ||
+            chartDefinition.valueLabel ||
+            'Value 1',
+        [chartDefinition.valueLabel, kpi.chartSettings]
+    );
+    const secondaryAxisLabel = useMemo(
+        () =>
+            (kpi.chartSettings as { secondaryLabel?: string } | undefined)?.secondaryLabel ||
+            chartDefinition.secondaryValueLabel ||
+            'Value 2',
+        [chartDefinition.secondaryValueLabel, kpi.chartSettings]
+    );
+    type ValueEntry = { key: string; value: number | string; valueB?: number | string; color?: string };
 
     const markDirty = useCallback(() => {
         setDirty(true);
         onDirtyChange?.(kpi.id, true);
     }, [kpi.id, onDirtyChange]);
 
-    // Helper to normalize array values to single number
+    // Helpers to normalize metric values
     const normalizeValue = (v: number | string | number[] | undefined): number | string => {
         if (Array.isArray(v)) return v[0] ?? 0;
         return v ?? 0;
@@ -127,28 +141,64 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         }
         if (isChart) {
             const metricSource = (kpi.metrics && kpi.metrics.length ? kpi.metrics : kpi.dataPoints) || [];
+            if (isCategoryChart) {
+                const labeledValues = metricSource
+                    .map((dp) => dp.labeledValues)
+                    .find((list) => Array.isArray(list) && list.length);
+
+                if (labeledValues && labeledValues.length) {
+                    return labeledValues.map((lv, idx) => ({
+                        key: typeof lv.label === 'string' && lv.label.trim()
+                            ? lv.label
+                            : `${chartDefinition.defaultDimensionValue || 'Value'} ${idx + 1}`,
+                        value: typeof lv.value === 'number' ? lv.value : Number(lv.value) || 0,
+                        color: lv.color || (chartDefinition.requiresColor ? chartPalette[idx % chartPalette.length] : undefined),
+                    }));
+                }
+
+                const valueEntries = Object.entries(kpi.value || {});
+                const useValueEntries = valueEntries.length > 1 || (valueEntries.length === 1 && valueEntries[0][0] !== '0');
+                if (useValueEntries) {
+                    return valueEntries.map(([key, val], idx) => ({
+                        key: key || `${chartDefinition.defaultDimensionValue || 'Value'} ${idx + 1}`,
+                        value: typeof val === 'number' ? val : Number(val) || 0,
+                        color: chartDefinition.requiresColor ? chartPalette[idx % chartPalette.length] : undefined,
+                    }));
+                }
+
+                if (metricSource.length && Array.isArray(metricSource[0].valueArray)) {
+                    return metricSource[0].valueArray.map((val, idx) => ({
+                        key: `${chartDefinition.defaultDimensionValue || 'Value'} ${idx + 1}`,
+                        value: typeof val === 'number' ? val : Number(val) || 0,
+                        color: chartDefinition.requiresColor ? chartPalette[idx % chartPalette.length] : undefined,
+                    }));
+                }
+            }
             const fromMetrics =
                 metricSource.length > 0
                     ? [...metricSource]
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                         .map((dp, idx) => ({
                             key: dp.date,
-                            value: Array.isArray(dp.value) ? dp.value[0] ?? 0 : dp.value,
+                            value: Array.isArray(dp.valueArray) ? dp.valueArray[0] : Array.isArray(dp.value) ? dp.value[0] ?? 0 : dp.value,
+                            valueB: Array.isArray(dp.valueArray) ? dp.valueArray[1] ?? 0 : Array.isArray(dp.value) ? dp.value[1] ?? 0 : 0,
                             color: dp.color || chartPalette[idx % chartPalette.length],
                         }))
                     : [];
 
-            const base: { key: string; value: number | string | number[]; color?: string }[] = fromMetrics.length
+            const base: ValueEntry[] = fromMetrics.length
                 ? fromMetrics
                 : (historyPoints.length
                     ? historyPoints.map(({ date, value }, idx) => ({
                         key: date,
-                        value,
+                        value: Array.isArray(value) ? value[0] ?? 0 : value,
+                        valueB: Array.isArray(value) ? value[1] ?? 0 : undefined,
                         color: chartPalette[idx % chartPalette.length],
                     }))
                     : Object.entries(kpi.value || {}).map(([key, val], idx) => ({
                         key,
-                        value: val as number | string,
+                        value: Array.isArray(val as unknown as unknown[]) ? Number((val as unknown as unknown[])[0]) || 0 : (typeof val === 'number' ? val : Number(val) || 0),
+                        valueB: Array.isArray(val as unknown as unknown[]) ? Number((val as unknown as unknown[])[1]) || 0 : undefined,
                         color: chartPalette[idx % chartPalette.length],
                     })));
             return base.map(dp => ({
@@ -158,6 +208,9 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
                     : Array.isArray(dp.value)
                         ? (dp.value[0] ?? 0)
                         : Number(dp.value) || 0,
+                valueB: typeof dp.valueB === 'number'
+                    ? dp.valueB
+                    : Number(dp.valueB) || (kpi.chartType === 'multiAxisLine' ? 0 : undefined),
                 color: dp.color,
             }));
         }
@@ -170,7 +223,20 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
             ? numeric
             : normalizeValue(latestPoint?.value ?? Object.values(kpi.value || {}).find(v => typeof v === 'number') ?? 0);
         return [{ key: '0', value: firstVal }];
-    }, [isChart, isSankey, historyPoints, kpi.dataPoints, kpi.metrics, kpi.value, kpi.visualizationType, latestPoint?.value]);
+    }, [
+        chartDefinition.defaultDimensionValue,
+        chartDefinition.requiresColor,
+        historyPoints,
+        isCategoryChart,
+        isChart,
+        isSankey,
+        kpi.chartType,
+        kpi.dataPoints,
+        kpi.metrics,
+        kpi.value,
+        kpi.visualizationType,
+        latestPoint?.value,
+    ]);
 
     const [entries, setEntries] = useState<ValueEntry[]>(initialEntries);
     const initialSankey = useMemo(() => parseSankeyValue(kpi.value), [kpi.value]);
@@ -185,14 +251,15 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
     const [success, setSuccess] = useState(false);
     const [dirty, setDirty] = useState(false);
     const subtitleFull = kpi.subtitle || '';
-    const formattedUpdated = kpi.date
+    const updatedTimestamp = kpi.updatedAt ?? kpi.date;
+    const formattedUpdated = updatedTimestamp
         ? `Updated ${new Intl.DateTimeFormat('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
-        }).format(new Date(kpi.date))}`
+        }).format(new Date(updatedTimestamp))}`
         : 'Not updated yet';
 
     useEffect(() => {
@@ -204,7 +271,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
 
     const rowBg = rowIndex % 2 === 0 ? 'bg-industrial-950' : 'bg-industrial-900/40';
 
-    const updateEntry = (index: number, field: 'key' | 'value' | 'color', nextValue: string) => {
+    const updateEntry = (index: number, field: 'key' | 'value' | 'valueB' | 'color', nextValue: string) => {
         markDirty();
         setEntries((prev) =>
             prev.map((entry, idx) => (idx === index ? { ...entry, [field]: nextValue } : entry))
@@ -219,6 +286,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
             {
                 key: `${baseLabel} ${prev.length + 1}`,
                 value: 0,
+                valueB: kpi.chartType === 'multiAxisLine' ? 0 : undefined,
                 color: chartDefinition.requiresColor
                     ? chartPalette[prev.length % chartPalette.length]
                     : undefined,
@@ -308,16 +376,21 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         if (isChart) {
             const valueRecord: Record<string, number> = {};
             const needsColor = chartDefinition.requiresColor;
-            entries.forEach(e => {
-                const num = typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0;
-                valueRecord[e.key] = num;
-            });
+            const isMultiAxis = kpi.chartType === 'multiAxisLine';
             const dataPoints = entries.map((e, idx) => {
-                const num = typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0;
+                const primary = typeof e.value === 'number' ? e.value : parseFloat(String(e.value)) || 0;
+                const secondary = isMultiAxis
+                    ? (typeof e.valueB === 'number' ? e.valueB : parseFloat(String(e.valueB ?? 0)) || 0)
+                    : undefined;
+                const entryKey = isCategoryChart
+                    ? (String(e.key || '').trim() || `${chartDefinition.defaultDimensionValue || 'Value'} ${idx + 1}`)
+                    : e.key;
                 const color = needsColor ? e.color || chartPalette[idx % chartPalette.length] : undefined;
+                valueRecord[entryKey] = primary;
                 return {
-                    date: e.key,
-                    value: num,
+                    date: entryKey,
+                    value: primary,
+                    ...(isMultiAxis ? { valueArray: [primary, secondary ?? 0] } : {}),
                     ...(color ? { color } : {}),
                 };
             });
@@ -341,6 +414,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
 
         const num = parseFloat(String(entries[0]?.value ?? 0));
         const safeNum = isNaN(num) ? 0 : num;
+        const metricDate = date ? new Date(date).toISOString() : new Date().toISOString();
 
         return {
             value: { '0': safeNum },
@@ -348,6 +422,8 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
             reverseTrend,
             // Allow blank notes to clear existing text
             notes: notes ?? '',
+            metrics: [{ date: metricDate, value: safeNum }],
+            dataPoints: [{ date: metricDate, value: safeNum }],
             date: date ? new Date(date).toISOString() : new Date().toISOString(),
         };
     }, [
@@ -362,12 +438,17 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         reverseTrend,
         sankeyLinks,
         sankeyNodes,
+        kpi.chartType,
     ]);
 
     const submit = useCallback(async (): Promise<boolean> => {
         const tokenToUse = kpi.updateToken || fallbackToken;
         if (!tokenToUse) {
             setError('Missing update token for this KPI.');
+            return false;
+        }
+        if (isChart && kpi.chartType === 'radar' && entries.filter((e) => String(e.key || '').trim() !== '').length < 3) {
+            setError('Radar charts need at least 3 values.');
             return false;
         }
         setSaving(true);
@@ -386,7 +467,7 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         } finally {
             setSaving(false);
         }
-    }, [buildUpdates, fallbackToken, kpi.id, onDirtyChange, kpi.updateToken, onUpdate]);
+    }, [buildUpdates, entries, fallbackToken, isChart, kpi.chartType, kpi.id, onDirtyChange, kpi.updateToken, onUpdate]);
 
     useEffect(() => {
         registerSubmit?.(kpi.id, submit);
@@ -524,79 +605,104 @@ function MetricUpdateRow({ kpi, onUpdate, registerSubmit, onDirtyChange, fallbac
         }
 
         if (isChart) {
+            const showSecondary = kpi.chartType === 'multiAxisLine';
+            const needsMinRadarValues = kpi.chartType === 'radar';
+            const radarEntriesCount = entries.filter((e) => String(e.key || '').trim() !== '').length;
             return (
-                <div className="flex flex-wrap items-end gap-2">
-                    {entries.map((entry, idx) => (
-                        <div
-                            key={idx}
-                            className="flex items-end gap-2 rounded-md border border-industrial-800 bg-industrial-900/40 px-3 py-2"
-                        >
-                            <div className="flex flex-col min-w-[140px]">
-                                <span className="text-[10px] uppercase tracking-wide text-industrial-500">
-                                    {chartDefinition.dimensionLabel}
-                                </span>
-                                <input
-                                    type="text"
-                                    className="input h-10 text-sm px-3"
-                                    value={entry.key}
-                                    onChange={(e) => updateEntry(idx, 'key', e.target.value)}
-                                    placeholder={chartDefinition.defaultDimensionValue}
-                                />
-                            </div>
-                            <div className="flex flex-col min-w-[120px]">
-                                <span className="text-[10px] uppercase tracking-wide text-industrial-500">
-                                    {chartDefinition.valueLabel}
-                                </span>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    className="input h-10 text-sm font-mono px-3"
-                                    value={entry.value}
-                                    onChange={(e) => updateEntry(idx, 'value', e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
-                            {chartDefinition.requiresColor && (
-                                <div className="flex flex-col min-w-[110px]">
+                <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-end gap-2">
+                        {entries.map((entry, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-end gap-2 rounded-md border border-industrial-800 bg-industrial-900/40 px-3 py-2"
+                            >
+                                <div className="flex flex-col min-w-[140px]">
                                     <span className="text-[10px] uppercase tracking-wide text-industrial-500">
-                                        Color
+                                        {chartDefinition.dimensionLabel}
                                     </span>
-                                    <div className="flex items-center gap-2">
-                                        <ColorPicker
-                                            value={entry.color || chartPalette[idx % chartPalette.length]}
-                                            onChange={(color) => updateEntry(idx, 'color', color)}
-                                            align="right"
-                                        />
+                                    <input
+                                        type="text"
+                                        className="input h-10 text-sm px-3"
+                                        value={entry.key}
+                                        onChange={(e) => updateEntry(idx, 'key', e.target.value)}
+                                        placeholder={chartDefinition.defaultDimensionValue}
+                                    />
+                                </div>
+                                <div className="flex flex-col min-w-[120px]">
+                                    <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                                        {primaryAxisLabel}
+                                    </span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        className="input h-10 text-sm font-mono px-3"
+                                        value={entry.value}
+                                        onChange={(e) => updateEntry(idx, 'value', e.target.value)}
+                                        placeholder="0"
+                                    />
+                                </div>
+                                {showSecondary && (
+                                    <div className="flex flex-col min-w-[120px]">
+                                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                                            {secondaryAxisLabel}
+                                        </span>
                                         <input
-                                            type="text"
-                                            className="input h-9 text-sm font-mono px-2"
-                                            value={entry.color || ''}
-                                            onChange={(e) => updateEntry(idx, 'color', e.target.value)}
-                                            placeholder="#RRGGBB"
+                                            type="number"
+                                            step="any"
+                                            className="input h-10 text-sm font-mono px-3"
+                                            value={entry.valueB ?? 0}
+                                            onChange={(e) => updateEntry(idx, 'valueB', e.target.value)}
+                                            placeholder="0"
                                         />
                                     </div>
-                                </div>
-                            )}
-                            {entries.length > 1 && (
-                                <button
-                                    type="button"
-                                    onClick={() => removeEntry(idx)}
-                                    className="btn btn-ghost btn-sm text-industrial-500 hover:text-red-400"
-                                    title="Remove value"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            )}
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={addEntry}
-                        className="btn btn-secondary btn-sm h-10 px-3"
-                        title={isCategoryChart ? 'Add another segment' : 'Add another point'}
-                    >
-                        + Value
-                    </button>
+                                )}
+                                {chartDefinition.requiresColor && (
+                                    <div className="flex flex-col min-w-[110px]">
+                                        <span className="text-[10px] uppercase tracking-wide text-industrial-500">
+                                            Color
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <ColorPicker
+                                                value={entry.color || chartPalette[idx % chartPalette.length]}
+                                                onChange={(color) => updateEntry(idx, 'color', color)}
+                                                align="right"
+                                            />
+                                            <input
+                                                type="text"
+                                                className="input h-9 text-sm font-mono px-2"
+                                                value={entry.color || ''}
+                                                onChange={(e) => updateEntry(idx, 'color', e.target.value)}
+                                                placeholder="#RRGGBB"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                {entries.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeEntry(idx)}
+                                        className="btn btn-ghost btn-sm text-industrial-500 hover:text-red-400"
+                                        title="Remove value"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={addEntry}
+                            className="btn btn-secondary btn-sm h-10 px-3"
+                            title={isCategoryChart ? 'Add another segment' : 'Add another point'}
+                        >
+                            + Value
+                        </button>
+                    </div>
+                    {needsMinRadarValues && radarEntriesCount < 3 && (
+                        <p className="text-[11px] text-amber-400 font-mono">
+                            Radar charts need at least 3 values to render properly.
+                        </p>
+                    )}
                 </div>
             );
         }
@@ -801,8 +907,15 @@ export default function AssigneeUpdatePage() {
 
     const handleSaveAll = useCallback(async () => {
         if (savingAll) return;
-        const submitters = Array.from(submittersRef.current.values());
-        if (!submitters.length) return;
+        const submitters = Array.from(submittersRef.current.entries())
+            .filter(([id]) => dirtyMap[id])
+            .map(([, submit]) => submit);
+
+        if (!submitters.length) {
+            setSaveAllStatus(null);
+            return;
+        }
+
         setSavingAll(true);
         setSaveAllStatus(null);
 
@@ -815,7 +928,7 @@ export default function AssigneeUpdatePage() {
         setSaveAllStatus(failed ? 'error' : 'success');
         setSavingAll(false);
         setTimeout(() => setSaveAllStatus(null), 2500);
-    }, [savingAll]);
+    }, [dirtyMap, savingAll]);
 
     useEffect(() => {
         if (!contextLoading && !data && !refreshAttempted.current) {

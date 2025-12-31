@@ -42,6 +42,7 @@ export interface ChartSettings {
     fillOpacity?: number;
     primaryLabel?: string;
     secondaryLabel?: string;
+    syncAxisScales?: boolean;
 }
 
 export interface Section {
@@ -91,6 +92,7 @@ export interface KPI {
         showLegend?: boolean;
         showLabels?: boolean;
     };
+    updatedAt?: string;
 }
 
 export interface Scorecard {

@@ -380,6 +380,24 @@ const buildChartOptions = (
   }
 
   if (chartData.kind === "multiAxis") {
+    const syncedBounds = (() => {
+      const shouldSync = chartSettings?.syncAxisScales;
+      if (!shouldSync) return null;
+      const allValues = [...chartData.left, ...chartData.right]
+        .map((point) => point.y)
+        .filter((val) => Number.isFinite(val));
+      if (!allValues.length) return null;
+      const minVal = Math.min(...allValues);
+      const maxVal = Math.max(...allValues);
+      const range = maxVal - minVal;
+      const paddingBase = Math.max(Math.abs(minVal), Math.abs(maxVal), 1);
+      const padding = range === 0 ? paddingBase * 0.05 : range * 0.05;
+      return {
+        min: minVal === maxVal ? minVal - padding : minVal,
+        max: minVal === maxVal ? maxVal + padding : maxVal,
+      };
+    })();
+
     options.chart = {
       ...options.chart,
       stacked: false,
@@ -414,6 +432,7 @@ const buildChartOptions = (
             fontWeight: 600,
           },
         },
+        ...(syncedBounds || {}),
       },
       {
         opposite: true,
@@ -434,6 +453,7 @@ const buildChartOptions = (
             fontWeight: 600,
           },
         },
+        ...(syncedBounds || {}),
       },
     ];
     options.stroke = {

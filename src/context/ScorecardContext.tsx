@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { v4 as uuidv4 } from 'uuid';
 import { Scorecard, KPI, Section, Metric } from '@/types';
 import { normalizeDateOnly } from '@/utils/metricNormalization';
+import { getChartDefinition } from '@/components/visualizations/chartConfig';
 
 const clientFetch = (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
 const newId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
@@ -25,6 +26,7 @@ interface ScorecardContextType {
     updateScorecard: (id: string, updates: Partial<Scorecard>) => Promise<void>;
     deleteScorecard: (id: string) => Promise<void>;
     getScorecard: (id: string) => Scorecard | undefined;
+    fetchScorecardById: (scorecardId: string) => Promise<Scorecard | null>;
     addKPI: (scorecardId: string, kpi: Omit<KPI, 'id'>) => Promise<void>;
     addKPIs: (scorecardId: string, kpis: Omit<KPI, 'id'>[]) => Promise<void>;
     updateKPI: (scorecardId: string, kpiId: string, updates: Partial<KPI>) => Promise<void>;
@@ -72,7 +74,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
     const fetchScorecards = useCallback(async () => {
         try {
-            const response = await clientFetch('/api/scorecards');
+            const response = await clientFetch('/api/scorecards', { cache: 'no-store' });
             if (response.ok) {
                 const data = await response.json();
                 setScorecards(
@@ -91,7 +93,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
 
     const fetchScorecardById = useCallback(async (scorecardId: string): Promise<Scorecard | null> => {
         try {
-            const response = await clientFetch(`/api/scorecards/${scorecardId}`);
+            const response = await clientFetch(`/api/scorecards/${scorecardId}`, { cache: 'no-store' });
             if (!response.ok) return null;
             const updated = await response.json();
             setScorecards(prev => {
@@ -457,17 +459,27 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             const hasTargetValue = Object.prototype.hasOwnProperty.call(updates, 'targetValue');
             const hasTargetColor = Object.prototype.hasOwnProperty.call(updates, 'targetColor');
             const existingMetrics = (kpi.metrics && kpi.metrics.length ? kpi.metrics : kpi.dataPoints) || [];
+            const hasIncomingMetrics = Array.isArray(updates.metrics) || Array.isArray(updates.dataPoints);
             const incomingMetrics = (updates.metrics && updates.metrics.length
                 ? updates.metrics
                 : updates.dataPoints && updates.dataPoints.length
                     ? updates.dataPoints
                     : []) as KPI['metrics'];
+            const chartTypeForMerge = updates.chartType ?? kpi.chartType ?? 'line';
+            const chartDefinition = getChartDefinition(chartTypeForMerge);
+            const dimensionIsText = chartDefinition.dimensionInput === 'text';
+            const isMultiValue = chartDefinition.usesLabeledValues;
 
             const mergeMetrics = (current: KPI['metrics'], incoming: KPI['metrics']) => {
                 if (!incoming || incoming.length === 0) return current || [];
                 const byKey = new Map<string, Metric>();
 
                 const metricKey = (dateValue: unknown) => {
+                    if (dimensionIsText) {
+                        return typeof dateValue === 'string' && dateValue.trim()
+                            ? dateValue.trim()
+                            : String(dateValue ?? '');
+                    }
                     if (typeof dateValue === 'string') {
                         const parsed = new Date(dateValue);
                         if (!Number.isNaN(parsed.getTime())) {
@@ -501,7 +513,9 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 return Array.from(byKey.values());
             };
 
-            const mergedMetrics = mergeMetrics(existingMetrics, incomingMetrics);
+            const mergedMetrics = hasIncomingMetrics
+                ? (isMultiValue ? incomingMetrics : mergeMetrics(existingMetrics, incomingMetrics))
+                : existingMetrics;
             const payload = {
                 // Keep immutable identity fields
                 id: kpi.id,
@@ -523,7 +537,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 // Housekeeping
                 visible: nextVisible,
                 lastUpdatedBy: updatedBy,
-                date: new Date().toISOString(),
+                date: updates.date ?? new Date().toISOString(),
             };
 
             const response = await clientFetch(`/api/kpis/${kpi.id}`, {
@@ -537,7 +551,33 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 throw new Error('Failed to update KPI');
             }
 
-            await fetchScorecards();
+            const updatedPayload = await response.json();
+            const normalizedValue =
+                updatedPayload?.value ??
+                (updatedPayload as { valueJson?: KPI['value'] })?.valueJson ??
+                kpi.value;
+            const normalizedMetrics = (Array.isArray(updatedPayload?.metrics)
+                ? updatedPayload.metrics
+                : Array.isArray(updatedPayload?.dataPoints)
+                    ? updatedPayload.dataPoints
+                    : mergedMetrics) as KPI['metrics'];
+            const updatedKpi: KPI = {
+                ...kpi,
+                ...updatedPayload,
+                value: normalizedValue,
+                metrics: normalizedMetrics,
+                dataPoints: normalizedMetrics,
+            };
+
+            setScorecards(prev =>
+                prev.map(sc => {
+                    if (sc.id !== scorecard.id) return sc;
+                    return {
+                        ...sc,
+                        kpis: sc.kpis.map(existing => (existing.id === kpi.id ? updatedKpi : existing)),
+                    };
+                })
+            );
             return;
         }
         throw new Error('Invalid update token');
@@ -621,6 +661,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 updateScorecard,
                 deleteScorecard,
                 getScorecard,
+                fetchScorecardById,
                 addKPI,
                 addKPIs,
                 updateKPI,

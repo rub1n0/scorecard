@@ -40,6 +40,10 @@ export const validateVisualizationData = (
     return { isValid: false, errors };
   }
 
+  if (chartType === "radar" && dataPoints.length < 3) {
+    errors.push("Add at least 3 values for a radar chart.");
+  }
+
   const requiresDualValues = chartType === "multiAxisLine";
 
   dataPoints.forEach((dp, idx) => {

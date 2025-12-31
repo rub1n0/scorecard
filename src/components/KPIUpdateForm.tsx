@@ -29,7 +29,25 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         () => kpi.visualizationType === 'chart' && isMultiValueChartType(kpi.chartType || 'line'),
         [kpi.visualizationType, kpi.chartType]
     );
+    const isMultiAxisLine = useMemo(
+        () => kpi.visualizationType === 'chart' && kpi.chartType === 'multiAxisLine',
+        [kpi.visualizationType, kpi.chartType]
+    );
     const showColorColumn = kpi.visualizationType === 'chart' && chartDefinition.requiresColor;
+    const primaryAxisLabel = useMemo(
+        () =>
+            (kpi.chartSettings as { primaryLabel?: string } | undefined)?.primaryLabel ||
+            chartDefinition.valueLabel ||
+            'Value 1',
+        [kpi.chartSettings, chartDefinition.valueLabel]
+    );
+    const secondaryAxisLabel = useMemo(
+        () =>
+            (kpi.chartSettings as { secondaryLabel?: string } | undefined)?.secondaryLabel ||
+            chartDefinition.secondaryValueLabel ||
+            'Value 2',
+        [kpi.chartSettings, chartDefinition.secondaryValueLabel]
+    );
 
     // Helper function to normalize dates to YYYY-MM-DD format
     const normalizeDate = (dateStr: string): string => {
@@ -46,6 +64,11 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         return dateStr;
     };
 
+    const toNumber = (value: unknown, fallback = 0): number => {
+        const num = typeof value === 'number' ? value : parseFloat(String(value));
+        return Number.isFinite(num) ? num : fallback;
+    };
+
     // Sort metrics by date and normalize date format
     useEffect(() => {
         const incoming = kpi.metrics || kpi.dataPoints;
@@ -55,29 +78,47 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                 new Date(b.date).getTime() - new Date(a.date).getTime()
             );
             // Normalize dates to YYYY-MM-DD format for date inputs
-            const normalized = sorted.map(dp => ({
-                ...dp,
-                date: normalizeDate(dp.date)
-            }));
+            const normalized = sorted.map(dp => {
+                if (isMultiAxisLine) {
+                    const rawArray = Array.isArray(dp.valueArray)
+                        ? dp.valueArray
+                        : Array.isArray(dp.value)
+                            ? dp.value
+                            : [dp.value];
+                    const primary = toNumber(rawArray[0], 0);
+                    const secondary = toNumber(rawArray[1], 0);
+                    return {
+                        ...dp,
+                        value: primary,
+                        valueArray: [primary, secondary],
+                        date: normalizeDate(dp.date),
+                    };
+                }
+                return {
+                    ...dp,
+                    date: normalizeDate(dp.date)
+                };
+            });
             setMetrics(normalized);
         }
-    }, [kpi]);
+    }, [isMultiAxisLine, kpi]);
 
     // Determine what columns to show based on chart type
     const getColumnConfig = () => {
         if (kpi.visualizationType === 'text') {
-            return { dateLabel: 'Date', showValue: false, showColor: false };
+            return { dateLabel: 'Date', showValue: false, showSecondaryValue: false, showColor: false };
         }
 
         if (kpi.visualizationType === 'chart') {
             return {
                 dateLabel: chartDefinition.dimensionLabel,
                 showValue: true,
+                showSecondaryValue: isMultiAxisLine,
                 showColor: chartDefinition.requiresColor,
             };
         }
 
-        return { dateLabel: 'Date', showValue: true, showColor: false };
+        return { dateLabel: 'Date', showValue: true, showSecondaryValue: false, showColor: false };
     };
 
     const columnConfig = getColumnConfig();
@@ -100,7 +141,9 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
 
         const newMetricColor = latestPoint?.color || (showColorColumn ? defaultColors[metrics.length % defaultColors.length] : undefined);
 
-        const newPoint: Metric = isMultiValueChart
+        const newPoint: Metric = isMultiAxisLine
+            ? { date: defaultLabel, value: 0, valueArray: [0, 0] }
+            : isMultiValueChart
             ? { date: defaultLabel, value: [0], valueArray: [0], labeledValues: inheritedLabeledValues, color: newMetricColor }
             : { date: defaultLabel, value: 0, color: showColorColumn ? defaultColors[metrics.length % defaultColors.length] : undefined };
 
@@ -168,12 +211,23 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
         }
     };
 
-    const handleUpdateMetric = (index: number, field: 'date' | 'value' | 'color', newValue: string) => {
+    const handleUpdateMetric = (index: number, field: 'date' | 'value' | 'valueB' | 'color', newValue: string) => {
         const updated = [...metrics];
         if (field === 'date') {
             updated[index].date = newValue;
         } else if (field === 'value') {
-            updated[index].value = parseFloat(newValue) || 0;
+            const nextVal = parseFloat(newValue) || 0;
+            updated[index].value = nextVal;
+            if (isMultiAxisLine) {
+                const arr = Array.isArray(updated[index].valueArray) ? [...updated[index].valueArray] : [];
+                arr[0] = nextVal;
+                updated[index].valueArray = [toNumber(arr[0], 0), toNumber(arr[1], 0)];
+            }
+        } else if (field === 'valueB' && isMultiAxisLine) {
+            const nextVal = parseFloat(newValue) || 0;
+            const arr = Array.isArray(updated[index].valueArray) ? [...updated[index].valueArray] : [toNumber(updated[index].value, 0), 0];
+            arr[1] = nextVal;
+            updated[index].valueArray = [toNumber(arr[0], 0), toNumber(arr[1], 0)];
         } else if (field === 'color') {
             updated[index].color = newValue;
         }
@@ -290,7 +344,14 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                         <thead className="bg-industrial-900/50 text-industrial-400 uppercase text-xs">
                             <tr>
                                 <th className="px-4 py-3">{columnConfig.dateLabel}</th>
-                                {columnConfig.showValue && <th className="px-4 py-3">Value</th>}
+                                {columnConfig.showValue && (
+                                    <th className="px-4 py-3">
+                                        {isMultiAxisLine ? primaryAxisLabel : 'Value'}
+                                    </th>
+                                )}
+                                {columnConfig.showSecondaryValue && (
+                                    <th className="px-4 py-3">{secondaryAxisLabel}</th>
+                                )}
                                 {columnConfig.showColor && <th className="px-4 py-3 w-20">Color</th>}
                                 <th className="px-4 py-3 w-10"></th>
                             </tr>
@@ -298,12 +359,77 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
                         <tbody className="divide-y divide-industrial-800/50">
                             {metrics.length === 0 ? (
                                 <tr>
-                                    <td colSpan={columnConfig.showColor ? 4 : columnConfig.showValue ? 3 : 2} className="px-4 py-8 text-center text-industrial-500 italic">
+                                    <td colSpan={
+                                        (columnConfig.showColor ? 1 : 0) +
+                                        (columnConfig.showSecondaryValue ? 1 : 0) +
+                                        (columnConfig.showValue ? 1 : 0) + 2
+                                    } className="px-4 py-8 text-center text-industrial-500 italic">
                                         No data points yet. Add one to start tracking.
                                     </td>
                                 </tr>
                             ) : (
                                 metrics.map((point, index) => {
+
+                                    if (isMultiAxisLine) {
+                                        const primaryValue = toNumber(
+                                            Array.isArray(point.valueArray)
+                                                ? point.valueArray[0]
+                                                : Array.isArray(point.value)
+                                                    ? point.value[0]
+                                                    : point.value,
+                                            0
+                                        );
+                                        const secondaryValue = toNumber(
+                                            Array.isArray(point.valueArray)
+                                                ? point.valueArray[1]
+                                                : Array.isArray(point.value)
+                                                    ? point.value[1]
+                                                    : undefined,
+                                            0
+                                        );
+                                        return (
+                                            <tr key={index} className="hover:bg-industrial-800/30 transition-colors">
+                                                <td className="px-4 py-2">
+                                                    <input
+                                                        type="date"
+                                                        className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0"
+                                                        value={point.date}
+                                                        onChange={(e) => handleUpdateMetric(index, 'date', e.target.value)}
+                                                        placeholder={chartDefinition.dimensionLabel}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
+                                                        value={primaryValue}
+                                                        onChange={(e) => handleUpdateMetric(index, 'value', e.target.value)}
+                                                        placeholder={primaryAxisLabel}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        className="bg-transparent border-none focus:ring-0 text-industrial-200 w-full p-0 font-mono"
+                                                        value={secondaryValue}
+                                                        onChange={(e) => handleUpdateMetric(index, 'valueB', e.target.value)}
+                                                        placeholder={secondaryAxisLabel}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveMetric(index)}
+                                                        className="text-industrial-500 hover:text-red-400 transition-colors"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
 
                                     // For multi-value charts, show expanded row with individual value inputs
                                     if (isMultiValueChart) {

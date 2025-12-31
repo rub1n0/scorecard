@@ -13,7 +13,7 @@ import {
     sections,
     users,
 } from '../../../../../db/schema';
-import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
+import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, normalizeValueForChartType, resolveVisualizationType } from '@/utils/metricNormalization';
 
 const buildScorecard = async (id: string) => {
     const [sc] = await db.select().from(scorecards).where(eq(scorecards.id, id));
@@ -56,6 +56,7 @@ const buildScorecard = async (id: string) => {
 
     const kpisPayload = kpiRows.map(kpi => {
         const chartSettings = buildChartSettings(kpi);
+        const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
         const metricsForKpi = metricsByKpi.get(kpi.id) || [];
 
         return {
@@ -63,12 +64,13 @@ const buildScorecard = async (id: string) => {
             name: kpi.kpiName || kpi.name,
             kpiName: kpi.kpiName || kpi.name,
             subtitle: kpi.subtitle || undefined,
-            visualizationType: kpi.visualizationType as any,
+            visualizationType: resolvedVisualizationType,
             chartType: kpi.chartType || undefined,
             reverseTrend: kpi.reverseTrend,
             updateToken: kpi.updateToken || undefined,
             assignment: kpi.assignment || undefined,
             date: kpi.date ? new Date(kpi.date).toISOString() : new Date().toISOString(),
+            updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
             prefix: kpi.prefix || undefined,
             suffix: kpi.suffix || undefined,
             trendValue: kpi.trendValue ?? undefined,
@@ -177,6 +179,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     const normalizedDate = normalizeDateOnly(kpi.date);
                     const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
                     const name = kpi.name || kpi.kpiName || `KPI ${idx + 1}`;
+                    const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
 
                     return {
                         id: kpi.id || crypto.randomUUID(),
@@ -186,7 +189,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                         kpiName: kpi.kpiName || name,
                         subtitle: kpi.subtitle || null,
                         assignment: kpi.assignment || null,
-                        visualizationType: kpi.visualizationType || 'number',
+                        visualizationType: resolvedVisualizationType,
                         chartType: kpi.chartType || null,
                         reverseTrend: Boolean(kpi.reverseTrend),
                         updateToken: kpi.updateToken || null,
@@ -224,8 +227,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     for (const definition of kpiDefinitions) {
                         const kpi = body.kpis.find((k: any) => k.id === definition.id);
 
-                        const visualizationType = kpi?.visualizationType || definition.visualizationType;
-                        const chartTypeForMetrics = visualizationType === 'chart' ? (kpi?.chartType || definition.chartType) : null;
+                        const chartTypeCandidate = kpi?.chartType || definition.chartType;
+                        const rawVisualizationType = kpi?.visualizationType || definition.visualizationType;
+                        const resolvedVisualizationType = resolveVisualizationType(rawVisualizationType, chartTypeCandidate);
+                        const chartTypeForMetrics = resolvedVisualizationType === 'chart' ? chartTypeCandidate : null;
 
                         // Insert metrics for ALL KPIs (before assignee check)
                         const points = ((kpi?.metrics && kpi.metrics.length ? kpi.metrics : kpi?.dataPoints) || []).map((dp: any) => {

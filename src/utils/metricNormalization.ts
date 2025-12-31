@@ -1,4 +1,4 @@
-import { ChartSettings, ChartType, LabeledValue } from '@/types';
+import { ChartSettings, ChartType, LabeledValue, VisualizationType } from '@/types';
 
 const MULTI_VALUE_TYPES = new Set<ChartType | string>(['radar', 'bar', 'column', 'pie', 'donut', 'radialBar']);
 
@@ -37,6 +37,18 @@ const parseMultiValueString = (value: string): number[] => {
 export const isMultiValueChartType = (chartType?: string | null) => {
     if (!chartType) return false;
     return MULTI_VALUE_TYPES.has(chartType as ChartType);
+};
+
+export const resolveVisualizationType = (
+    visualizationType?: string | null,
+    chartType?: string | null
+): VisualizationType => {
+    if (chartType === 'sankey') return 'sankey';
+    if (chartType) return 'chart';
+    if (visualizationType === 'text' || visualizationType === 'chart' || visualizationType === 'sankey' || visualizationType === 'number') {
+        return visualizationType;
+    }
+    return 'number';
 };
 
 export const normalizeDateOnly = (value?: string | Date): string => {
@@ -198,6 +210,7 @@ export const buildChartSettings = (row: {
         showDataLabels: (typeof row.showDataLabels === 'number' ? Boolean(row.showDataLabels) : row.showDataLabels) ?? jsonSettings.showDataLabels,
         primaryLabel: (jsonSettings as { primaryLabel?: string }).primaryLabel,
         secondaryLabel: (jsonSettings as { secondaryLabel?: string }).secondaryLabel,
+        syncAxisScales: (jsonSettings as { syncAxisScales?: boolean }).syncAxisScales,
     };
 };
 
@@ -216,5 +229,6 @@ export const extractChartSettingColumns = (settings?: (ChartSettings & { showGri
         showLegend: settings.showLegend,
         showGridlines: settings.showGridLines ?? (settings as { showGridlines?: boolean }).showGridlines,
         showDataLabels: settings.showDataLabels,
+        syncAxisScales: settings.syncAxisScales,
     };
 };
