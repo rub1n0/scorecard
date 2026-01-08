@@ -8,7 +8,7 @@ import Modal from './Modal';
 import ColorPicker from './ColorPicker';
 import { chartTypeConfig, getChartDefinition } from './visualizations/chartConfig';
 import { validateVisualizationData } from '@/utils/chartValidation';
-import { Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 
 type VisualizationSelection = 'number_trend' | 'text' | 'chart';
 
@@ -271,6 +271,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const isNumberTrend = visualizationSelection === 'number_trend';
     const isSankeyChart = isChart && chartType === 'sankey';
     const isMultiAxisLine = isChart && chartType === 'multiAxisLine';
+    const allowBarOrdering = isChart && (chartType === 'bar' || chartType === 'column');
     const usesTimeSeries = isNumberTrend || (isChart && (chartType === 'line' || chartType === 'area' || chartType === 'multiAxisLine'));
     const requiresColorPerRow = isChart && colorChartTypes.includes(chartType);
     const showFillControl = isChart && ['area', 'bar', 'pie', 'donut', 'radar', 'radialBar', 'sankey'].includes(chartType);
@@ -348,6 +349,16 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
 
     const handleRemoveDataPoint = (index: number) => {
         setDataPoints((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const moveDataPoint = (from: number, to: number) => {
+        setDataPoints((prev) => {
+            if (to < 0 || to >= prev.length) return prev;
+            const next = [...prev];
+            const [item] = next.splice(from, 1);
+            next.splice(to, 0, item);
+            return next;
+        });
     };
 
     const handleAddNode = () => {
@@ -462,14 +473,38 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                 align="right"
                             />
                         )}
-                            <button
-                                type="button"
-                                onClick={() => handleRemoveDataPoint(idx)}
-                                className="btn btn-icon btn-danger"
-                                title="Remove datapoint"
-                            >
-                                <Trash2 size={16} />
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                                {allowBarOrdering && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveDataPoint(idx, idx - 1)}
+                                            className="btn btn-icon btn-secondary"
+                                            title="Move up"
+                                            disabled={idx === 0}
+                                        >
+                                            <ArrowUp size={16} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveDataPoint(idx, idx + 1)}
+                                            className="btn btn-icon btn-secondary"
+                                            title="Move down"
+                                            disabled={idx === dataPoints.length - 1}
+                                        >
+                                            <ArrowDown size={16} />
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveDataPoint(idx)}
+                                    className="btn btn-icon btn-danger"
+                                    title="Remove datapoint"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
                         </div>
                     );
                 })}
@@ -662,7 +697,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         ? 'sankey'
                         : 'chart';
 
-        const sortedPoints = sortDataPoints(dataPoints);
+        const sortedPoints = allowBarOrdering ? [...dataPoints] : sortDataPoints(dataPoints);
         if (resolvedVisualization === 'chart') {
             const { isValid, errors } = validateVisualizationData('chart', chartType, sortedPoints);
             if (!isValid) {

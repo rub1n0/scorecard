@@ -247,9 +247,12 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
 
         try {
             // Sort data points
-            const sortedPoints = [...metrics].sort((a, b) =>
-                new Date(a.date).getTime() - new Date(b.date).getTime()
-            );
+            const shouldPreserveOrder = kpi.visualizationType === 'chart' && (kpi.chartType === 'bar' || kpi.chartType === 'column');
+            const sortedPoints = shouldPreserveOrder
+                ? [...metrics]
+                : [...metrics].sort((a, b) =>
+                    new Date(a.date).getTime() - new Date(b.date).getTime()
+                );
 
             if (kpi.visualizationType === 'chart') {
                 const { isValid, errors } = validateVisualizationData(
