@@ -243,6 +243,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
         const nextVisible = updates.visible ?? currentKPI.visible ?? true;
         const hasTargetValue = Object.prototype.hasOwnProperty.call(updates, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(updates, 'targetColor');
+        const hasChartType = Object.prototype.hasOwnProperty.call(updates, 'chartType');
         const payload: Partial<KPI> = {
             ...currentKPI,
             ...updates,
@@ -254,7 +255,7 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
             targetColor: hasTargetColor ? updates.targetColor : currentKPI.targetColor,
             metrics: updates.metrics ?? updates.dataPoints ?? currentKPI.metrics ?? currentKPI.dataPoints ?? [],
             dataPoints: updates.dataPoints ?? updates.metrics ?? currentKPI.dataPoints ?? currentKPI.metrics ?? [],
-            chartType: updates.chartType ?? currentKPI.chartType,
+            chartType: hasChartType ? updates.chartType : currentKPI.chartType,
             visualizationType: updates.visualizationType ?? currentKPI.visualizationType,
             visible: nextVisible,
         };

@@ -14,6 +14,15 @@ import {
     users,
 } from '../../../../db/schema';
 import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, resolveVisualizationType } from '@/utils/metricNormalization';
+
+const computeTrendFromMetrics = (metricsForKpi: Array<{ date: string; value: number | unknown }>) => {
+    if (metricsForKpi.length < 2) return undefined;
+    const sorted = [...metricsForKpi].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const latest = sorted[sorted.length - 1];
+    const prev = sorted[sorted.length - 2];
+    if (typeof latest.value !== 'number' || typeof prev.value !== 'number') return undefined;
+    return latest.value - prev.value;
+};
 import { buildPersistedMetrics } from '@/utils/metricPersistence';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
@@ -70,6 +79,8 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
         const chartSettings = buildChartSettings(kpi);
         const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
         const metricEntries = metricsByKpi.get(kpi.id) || [];
+        const mappedMetrics = metricEntries.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color));
+        const computedTrend = computeTrendFromMetrics(mappedMetrics);
 
         return {
             id: kpi.id,
@@ -85,7 +96,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
             prefix: kpi.prefix || undefined,
             suffix: kpi.suffix || undefined,
-            trendValue: kpi.trendValue ?? undefined,
+            trendValue: computedTrend ?? kpi.trendValue ?? undefined,
             value: (kpi.valueJson as any) || {},
             targetValue: (kpi as any).targetValue ?? undefined,
             targetColor: (kpi as any).targetColor ?? undefined,
@@ -103,8 +114,8 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             sectionId: kpi.sectionId || undefined,
             visible: kpi.visible ?? true,
             assignees: assigneesByKpi.get(kpi.id) || [],
-            metrics: metricEntries.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color)),
-            dataPoints: metricEntries.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color)),
+            metrics: mappedMetrics,
+            dataPoints: mappedMetrics,
         };
     });
 

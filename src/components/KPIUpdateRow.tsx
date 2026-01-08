@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { KPI } from '@/types';
+import { normalizeDateOnly } from '@/utils/metricNormalization';
 import { Save } from 'lucide-react';
 
 type KPIUpdateRowProps = {
@@ -101,15 +102,42 @@ export default function KPIUpdateRow({ kpi, onUpdate }: KPIUpdateRowProps) {
 
         const num = parseFloat(String(entries[0]?.value ?? 0));
         const safeNum = isNaN(num) ? 0 : num;
+        const metricDate = date ? new Date(date).toISOString() : new Date().toISOString();
+        const normalizedMetricDate = normalizeDateOnly(metricDate);
+        const sourceMetrics = (kpi.metrics && kpi.metrics.length ? kpi.metrics : kpi.dataPoints) || [];
+        const extractNumber = (value: number | number[] | string | undefined) => {
+            if (Array.isArray(value)) return value[0] ?? 0;
+            if (typeof value === 'number') return value;
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+        const mergedByDate = new Map<string, { date: string; value: number }>();
+
+        sourceMetrics.forEach((dp) => {
+            const normalizedDate = normalizeDateOnly(dp.date);
+            mergedByDate.set(normalizedDate, {
+                date: normalizedDate,
+                value: extractNumber(dp.value as number | number[] | string | undefined),
+            });
+        });
+
+        mergedByDate.set(normalizedMetricDate, { date: normalizedMetricDate, value: safeNum });
+
+        const mergedMetrics = Array.from(mergedByDate.values()).sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        const latestPoint = mergedMetrics[mergedMetrics.length - 1];
+        const prevPoint = mergedMetrics.length > 1 ? mergedMetrics[mergedMetrics.length - 2] : undefined;
+        const trendValue = prevPoint ? latestPoint.value - prevPoint.value : 0;
 
         return {
-            value: { '0': safeNum },
-            trendValue: safeNum,
+            value: { '0': latestPoint?.value ?? safeNum },
+            trendValue,
             // Allow blank notes to persist
             notes: notes ?? '',
-            metrics: [{ date: date ? new Date(date).toISOString() : new Date().toISOString(), value: safeNum }],
-            dataPoints: [{ date: date ? new Date(date).toISOString() : new Date().toISOString(), value: safeNum }],
-            date: date ? new Date(date).toISOString() : new Date().toISOString(),
+            metrics: mergedMetrics,
+            dataPoints: mergedMetrics,
+            date: latestPoint?.date ? new Date(latestPoint.date).toISOString() : new Date().toISOString(),
         };
     };
 

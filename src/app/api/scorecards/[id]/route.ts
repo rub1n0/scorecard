@@ -15,6 +15,15 @@ import {
 } from '../../../../../db/schema';
 import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, normalizeValueForChartType, resolveVisualizationType } from '@/utils/metricNormalization';
 
+const computeTrendFromMetrics = (metricsForKpi: Array<{ date: string; value: number | unknown }>) => {
+    if (metricsForKpi.length < 2) return undefined;
+    const sorted = [...metricsForKpi].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const latest = sorted[sorted.length - 1];
+    const prev = sorted[sorted.length - 2];
+    if (typeof latest.value !== 'number' || typeof prev.value !== 'number') return undefined;
+    return latest.value - prev.value;
+};
+
 const buildScorecard = async (id: string) => {
     const [sc] = await db.select().from(scorecards).where(eq(scorecards.id, id));
     if (!sc) return null;
@@ -58,6 +67,8 @@ const buildScorecard = async (id: string) => {
         const chartSettings = buildChartSettings(kpi);
         const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
         const metricsForKpi = metricsByKpi.get(kpi.id) || [];
+        const mappedMetrics = metricsForKpi.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color));
+        const computedTrend = computeTrendFromMetrics(mappedMetrics);
 
         return {
             id: kpi.id,
@@ -73,7 +84,7 @@ const buildScorecard = async (id: string) => {
             updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
             prefix: kpi.prefix || undefined,
             suffix: kpi.suffix || undefined,
-            trendValue: kpi.trendValue ?? undefined,
+            trendValue: computedTrend ?? kpi.trendValue ?? undefined,
             value: (kpi.valueJson as any) || {},
             targetValue: (kpi as any).targetValue ?? undefined,
             targetColor: (kpi as any).targetColor ?? undefined,
@@ -90,8 +101,8 @@ const buildScorecard = async (id: string) => {
             sectionId: kpi.sectionId || undefined,
             visible: kpi.visible ?? true,
             assignees: assigneesByKpi.get(kpi.id) || [],
-            metrics: metricsForKpi.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color)),
-            dataPoints: metricsForKpi.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color)),
+            metrics: mappedMetrics,
+            dataPoints: mappedMetrics,
         };
     });
 

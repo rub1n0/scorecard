@@ -252,7 +252,11 @@ export default function KPIUpdateForm({ kpi, onUpdate }: KPIUpdateFormProps) {
             );
 
             if (kpi.visualizationType === 'chart') {
-                const { isValid, errors } = validateVisualizationData(kpi.visualizationType, kpi.chartType, sortedPoints);
+                const { isValid, errors } = validateVisualizationData(
+                    kpi.visualizationType,
+                    kpi.chartType ?? undefined,
+                    sortedPoints
+                );
                 if (!isValid) {
                     setValidationErrors(errors);
                     setIsSubmitting(false);

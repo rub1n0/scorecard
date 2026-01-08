@@ -752,7 +752,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             date: lastUpdated,
             notes: notes ?? '',
             visualizationType: resolvedVisualization,
-            chartType: resolvedVisualization === 'chart' || resolvedVisualization === 'sankey' ? chartType : undefined,
+            chartType: resolvedVisualization === 'chart' || resolvedVisualization === 'sankey' ? chartType : null,
             trendValue: resolvedVisualization === 'number' ? trendValue : undefined,
             chartSettings:
                 resolvedVisualization === 'chart' || resolvedVisualization === 'sankey'

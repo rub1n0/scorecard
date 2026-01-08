@@ -25,10 +25,19 @@ const buildKpiResponse = async (id: string) => {
         .from(metrics)
         .where(eq(metrics.kpiId, id));
 
-    const chartSettings = buildChartSettings(row.kpi);
-    const resolvedVisualizationType = resolveVisualizationType(row.kpi.visualizationType, row.kpi.chartType);
-    const metricsForKpi = metricRows.map((dp) => mapMetricValue(row.kpi.chartType, dp.date, dp.value, dp.color));
-    const value = (row.kpi.valueJson as Record<string, number | string>) || {};
+        const chartSettings = buildChartSettings(row.kpi);
+        const resolvedVisualizationType = resolveVisualizationType(row.kpi.visualizationType, row.kpi.chartType);
+        const metricsForKpi = metricRows.map((dp) => mapMetricValue(row.kpi.chartType, dp.date, dp.value, dp.color));
+        const value = (row.kpi.valueJson as Record<string, number | string>) || {};
+        let computedTrend: number | undefined;
+        if (metricsForKpi.length >= 2) {
+            const sorted = [...metricsForKpi].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const latest = sorted[sorted.length - 1];
+            const prev = sorted[sorted.length - 2];
+            if (typeof latest.value === 'number' && typeof prev.value === 'number') {
+                computedTrend = latest.value - prev.value;
+            }
+        }
 
     return {
         ...row.kpi,
@@ -46,6 +55,7 @@ const buildKpiResponse = async (id: string) => {
         sankeySettings: (row.kpi as { sankeySettings?: unknown }).sankeySettings || null,
         targetValue: (row.kpi as { targetValue?: unknown }).targetValue ?? null,
         targetColor: (row.kpi as { targetColor?: string | null }).targetColor ?? null,
+        trendValue: computedTrend ?? row.kpi.trendValue ?? null,
     };
 };
 
@@ -72,11 +82,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
-        const chartTypeCandidate = body?.chartType ?? existing.chartType ?? null;
-        const resolvedVisualizationType = resolveVisualizationType(
-            body?.visualizationType ?? existing.visualizationType ?? null,
-            chartTypeCandidate
-        );
+        const hasChartType = Object.prototype.hasOwnProperty.call(body || {}, 'chartType');
+        const chartTypeCandidate = hasChartType ? body?.chartType : existing.chartType ?? null;
+        const rawVisualizationType = body?.visualizationType ?? existing.visualizationType ?? null;
+        const isNonChartVisualization = rawVisualizationType === 'number' || rawVisualizationType === 'text';
+        const resolvedVisualizationType = isNonChartVisualization
+            ? rawVisualizationType
+            : resolveVisualizationType(rawVisualizationType, chartTypeCandidate);
+        const shouldClearChartType = isNonChartVisualization;
+        const finalChartType = shouldClearChartType ? null : chartTypeCandidate;
 
         const normalizeStrokeColor = (value: unknown) => {
             if (Array.isArray(value) && value.length > 0) return value[0] ?? null;
@@ -89,7 +103,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
             subtitle: body?.subtitle ?? undefined,
             notes: body?.notes ?? undefined,
-            chartType: chartTypeCandidate ?? undefined,
+            chartType: shouldClearChartType ? null : (hasChartType ? (finalChartType ?? null) : undefined),
             visualizationType: resolvedVisualizationType,
             assignment: body?.assignment ?? undefined,
             reverseTrend: body?.reverseTrend !== undefined ? Boolean(body.reverseTrend) : undefined,
@@ -140,7 +154,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             if (incomingMetrics !== null) {
                 await tx.delete(metrics).where(eq(metrics.kpiId, id));
 
-                const { points, latestValue, valueJson, latestDate } = buildPersistedMetrics(id, chartTypeForMetrics, incomingMetrics);
+                const { points, latestValue, valueJson, latestDate, trendValue } = buildPersistedMetrics(id, chartTypeForMetrics, incomingMetrics);
 
                 if (points.length) {
                     await tx.insert(metrics).values(points);
@@ -149,6 +163,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     }
                     if (updates.latestValue === undefined && latestValue !== undefined) {
                         updates.latestValue = latestValue;
+                    }
+                    if (trendValue !== undefined) {
+                        updates.trendValue = trendValue;
                     }
                     if (latestDate) {
                         updates.date = latestDate;

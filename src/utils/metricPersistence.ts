@@ -20,6 +20,7 @@ export type MetricPersistResult = {
   latestValue?: number;
   valueJson?: Record<string, number>;
   latestDate?: Date;
+  trendValue?: number;
 };
 
 /**
@@ -105,6 +106,7 @@ export const buildPersistedMetrics = (
 
   const sortedByDate = [...points].sort((a, b) => a.date.getTime() - b.date.getTime());
   const latest = sortedByDate[sortedByDate.length - 1];
+  const prev = sortedByDate.length > 1 ? sortedByDate[sortedByDate.length - 2] : undefined;
 
   const result: MetricPersistResult = { points, latestDate: latest.date };
 
@@ -130,6 +132,14 @@ export const buildPersistedMetrics = (
   } else {
     result.valueJson = { "0": latest.value as number };
     result.latestValue = latest.value as number;
+  }
+
+  if (prev) {
+    const latestNumber = typeof latest.value === "number" ? latest.value : undefined;
+    const prevNumber = typeof prev.value === "number" ? prev.value : undefined;
+    if (latestNumber !== undefined && prevNumber !== undefined) {
+      result.trendValue = latestNumber - prevNumber;
+    }
   }
 
   return result;

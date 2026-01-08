@@ -63,7 +63,7 @@ export interface KPI {
     date: string;
     notes?: string;
     visualizationType: VisualizationType;
-    chartType?: ChartType;
+    chartType?: ChartType | null;
     metrics?: Metric[]; // Historical metric entries for the KPI (formerly dataPoints)
     dataPoints?: Metric[]; // Legacy alias for backward compatibility
     trendValue?: number; // Percentage change for number display
