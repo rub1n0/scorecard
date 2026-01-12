@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { KPI, VisualizationType, ChartType, DataPoint, Section, CommentTextSize } from '@/types';
 import Modal from './Modal';
 import ColorPicker from './ColorPicker';
@@ -159,6 +159,7 @@ const toNumber = (value: string | number) => {
 };
 
 export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFormProps) {
+    const formId = useId();
     const initialSelection: VisualizationSelection = kpi
         ? kpi.visualizationType === 'text'
             ? 'text'
@@ -295,6 +296,108 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const valueLabel = isMultiAxisLine ? primaryLabel : chartDefinition?.valueLabel ?? 'Value';
     const secondaryValueLabel = isMultiAxisLine ? secondaryLabel : chartDefinition?.secondaryValueLabel ?? 'Value B';
     const isNewMetricDirty = metricValue.trim() !== '' || metricSecondValue.trim() !== '';
+
+    const buildDirtySnapshot = () => ({
+        kpiName,
+        subtitle,
+        sectionId,
+        visible,
+        prefix,
+        suffix,
+        prefixOpacity,
+        suffixOpacity,
+        lastUpdated,
+        notes,
+        textValue,
+        visualizationSelection,
+        chartType,
+        reverseTrend,
+        targetValue,
+        targetColor,
+        strokeWidth,
+        strokeOpacity,
+        strokeColor,
+        secondaryStrokeColor,
+        primaryLabel,
+        secondaryLabel,
+        useSubtitleStyleOnName,
+        primarySeriesType,
+        secondarySeriesType,
+        fillOpacity,
+        showLegend,
+        showGridlines,
+        showDataLabels,
+        syncAxisScales,
+        dataPoints,
+        metricDate,
+        metricLabel,
+        metricValue,
+        metricSecondValue,
+        metricColor,
+        sankeyNodes,
+        sankeyLinks,
+        showSankeyLegend,
+        showSankeyLabels,
+        commentTextSize,
+    });
+
+    const currentSnapshot = useMemo(
+        () => JSON.stringify(buildDirtySnapshot()),
+        [
+            kpiName,
+            subtitle,
+            sectionId,
+            visible,
+            prefix,
+            suffix,
+            prefixOpacity,
+            suffixOpacity,
+            lastUpdated,
+            notes,
+            textValue,
+            visualizationSelection,
+            chartType,
+            reverseTrend,
+            targetValue,
+            targetColor,
+            strokeWidth,
+            strokeOpacity,
+            strokeColor,
+            secondaryStrokeColor,
+            primaryLabel,
+            secondaryLabel,
+            useSubtitleStyleOnName,
+            primarySeriesType,
+            secondarySeriesType,
+            fillOpacity,
+            showLegend,
+            showGridlines,
+            showDataLabels,
+            syncAxisScales,
+            dataPoints,
+            metricDate,
+            metricLabel,
+            metricValue,
+            metricSecondValue,
+            metricColor,
+            sankeyNodes,
+            sankeyLinks,
+            showSankeyLegend,
+            showSankeyLabels,
+            commentTextSize,
+        ]
+    );
+
+    const initialSnapshotRef = React.useRef<string | null>(null);
+
+    useEffect(() => {
+        if (initialSnapshotRef.current === null) {
+            initialSnapshotRef.current = currentSnapshot;
+        }
+    }, [currentSnapshot]);
+
+    const isDirty =
+        initialSnapshotRef.current !== null && currentSnapshot !== initialSnapshotRef.current;
 
     const handleChartTypeChange = (nextType: ChartType) => {
         setChartType(nextType);
@@ -872,9 +975,19 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             isOpen={true}
             onClose={onCancel}
             title={kpi ? 'EDIT KPI' : 'NEW KPI'}
+            headerActions={
+                <button
+                    type="submit"
+                    form={formId}
+                    className={`btn btn-secondary h-10 ${isDirty ? 'bg-verdigris-600 text-industrial-950 border-verdigris-500 hover:bg-verdigris-500 hover:border-verdigris-400' : ''}`}
+                    disabled={isSaving}
+                >
+                    {isSaving ? 'Saving...' : kpi ? 'Update KPI' : 'Create KPI'}
+                </button>
+            }
             className="kpi-form-modal"
         >
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id={formId} onSubmit={handleSubmit} className="space-y-6">
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                     <div>
@@ -1405,14 +1518,6 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                     </div>
                 )}
 
-                <div className="form-actions">
-                    <button type="button" onClick={onCancel} className="btn btn-secondary">
-                        Cancel
-                    </button>
-                    <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                        {isSaving ? 'Saving...' : kpi ? 'Update KPI' : 'Create KPI'}
-                    </button>
-                </div>
             </form>
         </Modal>
     );

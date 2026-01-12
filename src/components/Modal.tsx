@@ -8,6 +8,7 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     subtitle?: string;
+    headerActions?: React.ReactNode;
     children: React.ReactNode;
     footer?: React.ReactNode;
     maxWidth?: string;
@@ -19,6 +20,7 @@ export default function Modal({
     onClose,
     title,
     subtitle,
+    headerActions,
     children,
     footer,
     maxWidth = 'max-w-2xl',
@@ -60,13 +62,16 @@ export default function Modal({
                             </p>
                         )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="btn btn-icon btn-secondary"
-                        aria-label="Close modal"
-                    >
-                        <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {headerActions}
+                        <button
+                            onClick={onClose}
+                            className="btn btn-icon btn-secondary"
+                            aria-label="Close modal"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar max-h-[70vh]">
