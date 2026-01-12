@@ -108,6 +108,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
             subtitle: hasSubtitle ? normalizedSubtitle : undefined,
             notes: body?.notes ?? undefined,
+            commentTextSize: body?.commentTextSize ?? undefined,
             chartType: shouldClearChartType ? null : (hasChartType ? (finalChartType ?? null) : undefined),
             visualizationType: resolvedVisualizationType,
             assignment: body?.assignment ?? undefined,

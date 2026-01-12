@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { KPI, VisualizationType, ChartType, DataPoint, Section } from '@/types';
+import { KPI, VisualizationType, ChartType, DataPoint, Section, CommentTextSize } from '@/types';
 import Modal from './Modal';
 import ColorPicker from './ColorPicker';
 import { chartTypeConfig, getChartDefinition } from './visualizations/chartConfig';
 import { validateVisualizationData } from '@/utils/chartValidation';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import MarkdownContent from './MarkdownContent';
 
 type VisualizationSelection = 'number_trend' | 'text' | 'chart';
 
@@ -187,6 +186,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         kpi?.date ? new Date(kpi.date).toISOString().split('T')[0] : today()
     );
     const [notes, setNotes] = useState(kpi?.notes ?? '');
+    const [commentTextSize, setCommentTextSize] = useState<CommentTextSize>(kpi?.commentTextSize ?? 'small');
     const [textValue, setTextValue] = useState(normalizeTextValue(kpi));
     const [visualizationSelection, setVisualizationSelection] =
         useState<VisualizationSelection>(initialSelection);
@@ -256,7 +256,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         }
         return basePoints;
     });
-    const [metricDate, setMetricDate] = useState(() => lastUpdated);
+    const [metricDate, setMetricDate] = useState(() => today());
     const [metricLabel, setMetricLabel] = useState('');
     const [metricValue, setMetricValue] = useState('');
     const [metricSecondValue, setMetricSecondValue] = useState('');
@@ -294,6 +294,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const dimensionLabel = usesTimeSeries ? 'Date' : chartDefinition?.dimensionLabel ?? 'Label';
     const valueLabel = isMultiAxisLine ? primaryLabel : chartDefinition?.valueLabel ?? 'Value';
     const secondaryValueLabel = isMultiAxisLine ? secondaryLabel : chartDefinition?.secondaryValueLabel ?? 'Value B';
+    const isNewMetricDirty = metricValue.trim() !== '' || metricSecondValue.trim() !== '';
 
     const handleChartTypeChange = (nextType: ChartType) => {
         setChartType(nextType);
@@ -852,6 +853,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                 resolvedVisualization === 'number' || resolvedVisualization === 'text'
                     ? normalizedTargetColor
                     : undefined,
+            commentTextSize,
         };
 
         try {
@@ -1009,6 +1011,20 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         <label className="form-label">Notes</label>
                         <span className="text-[11px] uppercase tracking-wide text-industrial-500">Markdown supported</span>
                     </div>
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                        <label className="text-xs uppercase tracking-wide text-industrial-500">Comment text size</label>
+                        <select
+                            className="select text-xs h-9 w-40"
+                            value={commentTextSize}
+                            onChange={(e) => setCommentTextSize(e.target.value as CommentTextSize)}
+                        >
+                            <option value="extra-small">Extra small</option>
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                            <option value="extra-large">Extra large</option>
+                        </select>
+                    </div>
                     <textarea
                         className="textarea"
                         value={notes}
@@ -1020,20 +1036,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             <div className="text-[11px] uppercase tracking-wide text-industrial-500 mb-2">
                                 Preview
                             </div>
-                            <div className="text-sm text-industrial-200 leading-relaxed space-y-2">
-                                <ReactMarkdown
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                        p: (props) => <p className="mb-2 last:mb-0" {...props} />,
-                                        ul: (props) => <ul className="list-disc ml-5 space-y-1" {...props} />,
-                                        ol: (props) => <ol className="list-decimal ml-5 space-y-1" {...props} />,
-                                        li: (props) => <li className="text-industrial-200" {...props} />,
-                                        strong: (props) => <strong className="font-semibold text-white" {...props} />,
-                                    }}
-                                >
-                                    {notes}
-                                </ReactMarkdown>
-                            </div>
+                            <MarkdownContent content={notes} size={commentTextSize} />
                         </div>
                     )}
                 </div>
@@ -1104,7 +1107,11 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                     placeholder="0"
                                 />
                             </div>
-                            <button type="button" className="btn btn-secondary h-10" onClick={handleAddDataPoint}>
+                            <button
+                                type="button"
+                                className={`btn btn-secondary h-10 ${isNewMetricDirty ? 'bg-verdigris-600 text-industrial-950 border-verdigris-500 hover:bg-verdigris-500 hover:border-verdigris-400' : ''}`}
+                                onClick={handleAddDataPoint}
+                            >
                                 <Plus size={14} /> Add Metric
                             </button>
                         </div>
@@ -1360,12 +1367,20 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                     {requiresColorPerRow ? (
                                         <div className="flex items-end gap-2">
                                             <ColorPicker value={metricColor} onChange={setMetricColor} align="right" />
-                                            <button type="button" className="btn btn-secondary h-10" onClick={handleAddDataPoint}>
+                                            <button
+                                                type="button"
+                                                className={`btn btn-secondary h-10 ${isNewMetricDirty ? 'bg-verdigris-600 text-industrial-950 border-verdigris-500 hover:bg-verdigris-500 hover:border-verdigris-400' : ''}`}
+                                                onClick={handleAddDataPoint}
+                                            >
                                                 <Plus size={14} /> Add Entry
                                             </button>
                                         </div>
                                     ) : (
-                                        <button type="button" className="btn btn-secondary h-10" onClick={handleAddDataPoint}>
+                                        <button
+                                            type="button"
+                                            className={`btn btn-secondary h-10 ${isNewMetricDirty ? 'bg-verdigris-600 text-industrial-950 border-verdigris-500 hover:bg-verdigris-500 hover:border-verdigris-400' : ''}`}
+                                            onClick={handleAddDataPoint}
+                                        >
                                             <Plus size={14} /> Add Entry
                                         </button>
                                     )}

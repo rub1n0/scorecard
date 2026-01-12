@@ -81,6 +81,7 @@ export const kpis = mysqlTable(
     sankeySettings: json('sankey_settings'),
     valueJson: json('value_json'),
     notes: text('notes'),
+    commentTextSize: varchar('comment_text_size', { length: 24 }),
     chartSettings: json('chart_settings'),
     order: int('order'),
     lastUpdatedBy: varchar('last_updated_by', { length: 255 }),

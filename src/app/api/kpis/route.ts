@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
             kpiName,
             subtitle: body?.subtitle || null,
             notes: body?.notes || null,
+            commentTextSize: body?.commentTextSize || null,
             chartType: body?.chartType || null,
             visualizationType: body?.visualizationType || (body?.chartType ? 'chart' : 'number'),
             assignment: body?.assignment || null,

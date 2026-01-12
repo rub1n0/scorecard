@@ -2,11 +2,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { KPI } from '@/types';
 import { Edit2, Trash2, Link as LinkIcon, Check } from 'lucide-react';
 import { ChartVisualization, NumberVisualization, SankeyVisualization, TextVisualization } from './visualizations';
+import MarkdownContent from './MarkdownContent';
 
 
 interface KPITileProps {
@@ -174,40 +173,7 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                 {hasNotes && (
                     <div className="md:w-1/2 flex flex-col flex-1 border-t md:border-t-0 md:border-l border-industrial-800 pt-4 md:pt-0 md:pl-6">
                         <span className="text-xs uppercase tracking-wide text-industrial-500 mb-2">Notes</span>
-                        <div className="text-sm text-industrial-200 leading-relaxed space-y-2">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    p: (props) => <p className="mb-2 last:mb-0" {...props} />,
-                                    ul: (props) => <ul className="list-disc ml-5 space-y-1" {...props} />,
-                                    ol: (props) => <ol className="list-decimal ml-5 space-y-1" {...props} />,
-                                    li: (props) => <li className="text-industrial-200" {...props} />,
-                                    table: (props) => (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse border border-industrial-800 text-sm" {...props} />
-                                        </div>
-                                    ),
-                                    thead: (props) => <thead className="bg-industrial-900" {...props} />,
-                                    tbody: (props) => <tbody {...props} />,
-                                    tr: (props) => <tr className="border-b border-industrial-800 last:border-0" {...props} />,
-                                    th: (props) => <th className="px-3 py-2 font-semibold text-industrial-100" {...props} />,
-                                    td: (props) => <td className="px-3 py-2 text-industrial-200 align-top" {...props} />,
-                                    code: (props) => {
-                                        const isInline = (props as { inline?: boolean }).inline === true;
-                                        const { inline: _inline, ...rest } = props as Record<string, unknown>;
-                                        void _inline;
-                                        return isInline ? (
-                                            <code className="bg-industrial-900 px-1.5 py-0.5 rounded text-xs text-amber-300" {...rest} />
-                                        ) : (
-                                            <code className="block bg-industrial-900 p-3 rounded text-xs text-amber-300 overflow-x-auto" {...rest} />
-                                        );
-                                    },
-                                    strong: (props) => <strong className="font-semibold text-white" {...props} />,
-                                }}
-                            >
-                                {kpi.notes || ''}
-                            </ReactMarkdown>
-                        </div>
+                        <MarkdownContent content={kpi.notes || ''} size={kpi.commentTextSize ?? 'small'} />
                     </div>
                 )}
             </div>

@@ -1,4 +1,5 @@
 export type VisualizationType = 'chart' | 'number' | 'text' | 'sankey';
+export type CommentTextSize = 'extra-small' | 'small' | 'medium' | 'large' | 'extra-large';
 
 export type ChartType =
     | 'line'
@@ -65,6 +66,7 @@ export interface KPI {
     value: Record<string, number | string>; // Stores key:value pairs. Single values as {"0": value}, categories as {category: value}
     date: string;
     notes?: string;
+    commentTextSize?: CommentTextSize;
     visualizationType: VisualizationType;
     chartType?: ChartType | null;
     metrics?: Metric[]; // Historical metric entries for the KPI (formerly dataPoints)

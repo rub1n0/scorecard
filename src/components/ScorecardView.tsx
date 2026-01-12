@@ -905,9 +905,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         icon={<BarChart3 size={18} className="text-industrial-100" />}
         label="Scorecard"
         title={scorecard.name}
-        subtitle={`${visibleKPIs.length} Visible Metrics • Updated ${new Date(
-          scorecard.updatedAt
-        ).toLocaleDateString()}`}
+        subtitle={`${visibleKPIs.length} Visible Metrics`}
         rightContent={
           <div className="relative" ref={dropdownRef}>
             <button
