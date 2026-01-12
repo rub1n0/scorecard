@@ -83,6 +83,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
         const hasChartType = Object.prototype.hasOwnProperty.call(body || {}, 'chartType');
+        const hasSubtitle = Object.prototype.hasOwnProperty.call(body || {}, 'subtitle');
+        const normalizedSubtitle =
+            typeof body?.subtitle === 'string'
+                ? body.subtitle.trim() || null
+                : body?.subtitle ?? null;
         const chartTypeCandidate = hasChartType ? body?.chartType : existing.chartType ?? null;
         const rawVisualizationType = body?.visualizationType ?? existing.visualizationType ?? null;
         const isNonChartVisualization = rawVisualizationType === 'number' || rawVisualizationType === 'text';
@@ -101,7 +106,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const updates: Partial<typeof kpis.$inferInsert> = {
             chartSettings: body?.chartSettings ?? existing.chartSettings ?? undefined,
             sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
-            subtitle: body?.subtitle ?? undefined,
+            subtitle: hasSubtitle ? normalizedSubtitle : undefined,
             notes: body?.notes ?? undefined,
             chartType: shouldClearChartType ? null : (hasChartType ? (finalChartType ?? null) : undefined),
             visualizationType: resolvedVisualizationType,

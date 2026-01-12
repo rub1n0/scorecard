@@ -155,7 +155,11 @@ const normalizeMultiAxis = (dataPoints: Metric[]): MultiAxisData | null => {
 
 type AxisSeries = { name: string; data: number[] }[];
 type NonAxisSeries = number[];
-type MultiAxisSeries = { name: string; data: MultiAxisSeriesPoint[] }[];
+type MultiAxisSeries = {
+  name: string;
+  data: MultiAxisSeriesPoint[];
+  type?: ApexChartTypeLocal;
+}[];
 type ApexChartTypeLocal = NonNullable<ApexOptions["chart"]>["type"];
 
 const normalizeCategorical = (
@@ -380,6 +384,10 @@ const buildChartOptions = (
   }
 
   if (chartData.kind === "multiAxis") {
+    const primarySeriesType =
+      chartSettings?.primarySeriesType === "area" ? "area" : "line";
+    const secondarySeriesType =
+      chartSettings?.secondarySeriesType === "area" ? "area" : "line";
     const syncedBounds = (() => {
       const shouldSync = chartSettings?.syncAxisScales;
       if (!shouldSync) return null;
@@ -480,6 +488,13 @@ const buildChartOptions = (
     options.legend = {
       show: chartSettings?.showLegend ?? true,
       labels: { colors: "#d4d4d8" },
+    };
+    options.fill = {
+      ...(options.fill || {}),
+      opacity: [
+        primarySeriesType === "area" ? fillOpacity : 0,
+        secondarySeriesType === "area" ? fillOpacity : 0,
+      ],
     };
     options.tooltip = {
       ...options.tooltip,
@@ -672,6 +687,14 @@ export default function ChartVisualization({
     (chartSettings as ChartSettings & { secondaryLabel?: string })?.secondaryLabel ||
     definition.secondaryValueLabel ||
     `${name} B`;
+  const primarySeriesType =
+    chartType === "multiAxisLine" && chartSettings?.primarySeriesType === "area"
+      ? "area"
+      : "line";
+  const secondarySeriesType =
+    chartType === "multiAxisLine" && chartSettings?.secondarySeriesType === "area"
+      ? "area"
+      : "line";
 
   const chartData = useMemo<NormalizedChartData>(() => {
     const def = getChartDefinition(chartType);
@@ -710,10 +733,12 @@ export default function ChartVisualization({
           {
             name: primaryLabel,
             data: chartData.left,
+            type: primarySeriesType,
           },
           {
             name: secondaryLabel,
             data: chartData.right,
+            type: secondarySeriesType,
           },
         ]
       : [

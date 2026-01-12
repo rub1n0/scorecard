@@ -42,6 +42,9 @@ export interface ChartSettings {
     fillOpacity?: number;
     primaryLabel?: string;
     secondaryLabel?: string;
+    primarySeriesType?: 'line' | 'area';
+    secondarySeriesType?: 'line' | 'area';
+    useSubtitleStyleOnName?: boolean;
     syncAxisScales?: boolean;
 }
 
@@ -57,7 +60,7 @@ export interface KPI {
     id: string;
     name: string;
     kpiName?: string; // normalized KPI name stored in the database
-    subtitle?: string; // Optional subtitle displayed under the name
+    subtitle?: string | null; // Optional subtitle displayed under the name
     assignment?: string; // Optional assignment/owner string
     value: Record<string, number | string>; // Stores key:value pairs. Single values as {"0": value}, categories as {category: value}
     date: string;

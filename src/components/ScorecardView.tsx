@@ -1077,7 +1077,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                       {section && (
                         <div className="h-24 rounded mb-4 flex items-center bg-transparent">
                           <h2
-                            className="text-7xl font-extrabold uppercase tracking-wider"
+                            className="text-7xl font-extrabold font-mono uppercase tracking-wider"
                             style={{ color: getColorVariable(section.color) }}
                           >
                             {section.name}
@@ -1085,7 +1085,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                         </div>
                       )}
                       {!section && (
-                        <h2 className="text-2xl font-bold text-industrial-200 uppercase tracking-wider mb-4">
+                        <h2 className="text-2xl font-bold font-mono text-industrial-200 uppercase tracking-wider mb-4">
                           General
                         </h2>
                       )}

@@ -14,6 +14,7 @@ type VisualizationSelection = 'number_trend' | 'text' | 'chart';
 
 type SankeyNode = { id: string; label: string; color?: string };
 type SankeyLink = { source: string; target: string; value: number };
+type MultiAxisSeriesType = 'line' | 'area';
 
 interface KPIFormProps {
     kpi?: KPI;
@@ -221,6 +222,18 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         const current = (kpi?.chartSettings as { secondaryLabel?: string } | undefined)?.secondaryLabel;
         return current || 'Value 2';
     });
+    const [useSubtitleStyleOnName, setUseSubtitleStyleOnName] = useState(() => {
+        const current = (kpi?.chartSettings as { useSubtitleStyleOnName?: boolean } | undefined)?.useSubtitleStyleOnName;
+        return Boolean(current);
+    });
+    const [primarySeriesType, setPrimarySeriesType] = useState<MultiAxisSeriesType>(() => {
+        const current = (kpi?.chartSettings as { primarySeriesType?: MultiAxisSeriesType } | undefined)?.primarySeriesType;
+        return current === 'area' ? 'area' : 'line';
+    });
+    const [secondarySeriesType, setSecondarySeriesType] = useState<MultiAxisSeriesType>(() => {
+        const current = (kpi?.chartSettings as { secondarySeriesType?: MultiAxisSeriesType } | undefined)?.secondarySeriesType;
+        return current === 'area' ? 'area' : 'line';
+    });
     const [fillOpacity, setFillOpacity] = useState(kpi?.chartSettings?.fillOpacity ?? 0.8);
     const [showLegend, setShowLegend] = useState(kpi?.chartSettings?.showLegend ?? true);
     const [showGridlines, setShowGridlines] = useState(
@@ -271,10 +284,13 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const isNumberTrend = visualizationSelection === 'number_trend';
     const isSankeyChart = isChart && chartType === 'sankey';
     const isMultiAxisLine = isChart && chartType === 'multiAxisLine';
+    const hasMultiAxisArea = isMultiAxisLine && (primarySeriesType === 'area' || secondarySeriesType === 'area');
     const allowBarOrdering = isChart && (chartType === 'bar' || chartType === 'column');
     const usesTimeSeries = isNumberTrend || (isChart && (chartType === 'line' || chartType === 'area' || chartType === 'multiAxisLine'));
     const requiresColorPerRow = isChart && colorChartTypes.includes(chartType);
-    const showFillControl = isChart && ['area', 'bar', 'pie', 'donut', 'radar', 'radialBar', 'sankey'].includes(chartType);
+    const showFillControl =
+        isChart &&
+        (['area', 'bar', 'pie', 'donut', 'radar', 'radialBar', 'sankey'].includes(chartType) || hasMultiAxisArea);
     const dimensionLabel = usesTimeSeries ? 'Date' : chartDefinition?.dimensionLabel ?? 'Label';
     const valueLabel = isMultiAxisLine ? primaryLabel : chartDefinition?.valueLabel ?? 'Value';
     const secondaryValueLabel = isMultiAxisLine ? secondaryLabel : chartDefinition?.secondaryValueLabel ?? 'Value B';
@@ -779,10 +795,15 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                 ? null
                 : targetColor || undefined;
 
+        const normalizedSubtitle = subtitle.trim();
+        const subtitleStyleOnName =
+            normalizedSubtitle === '' ? useSubtitleStyleOnName : false;
+
+        const baseChartSettings = { ...(kpi?.chartSettings || {}) };
         const kpiData: Omit<KPI, 'id'> = {
             name: kpiName,
             kpiName: kpiName,
-            subtitle: subtitle || undefined,
+            subtitle: normalizedSubtitle === '' ? null : normalizedSubtitle,
             value: valueRecord,
             date: lastUpdated,
             notes: notes ?? '',
@@ -801,9 +822,15 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         showDataLabels: isSankeyChart ? undefined : showDataLabels,
                         primaryLabel: isMultiAxisLine ? primaryLabel : undefined,
                         secondaryLabel: isMultiAxisLine ? secondaryLabel : undefined,
+                        primarySeriesType: isMultiAxisLine ? primarySeriesType : undefined,
+                        secondarySeriesType: isMultiAxisLine ? secondarySeriesType : undefined,
+                        useSubtitleStyleOnName: subtitleStyleOnName,
                         syncAxisScales: isMultiAxisLine ? syncAxisScales : undefined,
                     }
-                    : undefined,
+                    : {
+                        ...baseChartSettings,
+                        useSubtitleStyleOnName: subtitleStyleOnName,
+                    },
             sankeySettings:
                 resolvedVisualization === 'sankey'
                     ? {
@@ -870,6 +897,19 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             className="input"
                             placeholder="Optional context under the KPI name"
                         />
+                        {subtitle.trim() === '' && (
+                            <label className="mt-2 flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                                    checked={useSubtitleStyleOnName}
+                                    onChange={(e) => setUseSubtitleStyleOnName(e.target.checked)}
+                                />
+                                <span className="text-sm text-industrial-300">
+                                    Use subtitle styling for KPI name on tile
+                                </span>
+                            </label>
+                        )}
                     </div>
                 </div>
 
@@ -1232,6 +1272,15 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                                 onChange={(e) => setPrimaryLabel(e.target.value || 'Value 1')}
                                                 placeholder="Value 1"
                                             />
+                                            <label className="form-label mt-3">Primary Series</label>
+                                            <select
+                                                className="select"
+                                                value={primarySeriesType}
+                                                onChange={(e) => setPrimarySeriesType(e.target.value as MultiAxisSeriesType)}
+                                            >
+                                                <option value="line">Line</option>
+                                                <option value="area">Area</option>
+                                            </select>
                                         </>
                                     )}
                                     <div className="mt-3">
@@ -1249,6 +1298,15 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                             onChange={(e) => setSecondaryLabel(e.target.value || 'Value 2')}
                                             placeholder="Value 2"
                                         />
+                                        <label className="form-label mt-3">Secondary Series</label>
+                                        <select
+                                            className="select"
+                                            value={secondarySeriesType}
+                                            onChange={(e) => setSecondarySeriesType(e.target.value as MultiAxisSeriesType)}
+                                        >
+                                            <option value="line">Line</option>
+                                            <option value="area">Area</option>
+                                        </select>
                                         <div className="mt-3">
                                             <label className="form-label">Color (Value 2)</label>
                                             <ColorPicker value={secondaryStrokeColor} onChange={setSecondaryStrokeColor} />

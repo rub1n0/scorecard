@@ -18,6 +18,7 @@ interface KPITileProps {
 
 export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITileProps) {
     const hasNotes = Boolean(kpi.notes);
+    const useSubtitleStyleOnName = !kpi.subtitle && kpi.chartSettings?.useSubtitleStyleOnName;
 
     const renderVisualization = () => {
         if (isDragging) {
@@ -128,7 +129,15 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-sm text-industrial-400 mb-1 truncate">{kpi.name}</h3>
+                            <h3
+                                className={
+                                    useSubtitleStyleOnName
+                                        ? "text-xl font-semibold text-industrial-200 mb-0.5 uppercase tracking-wide truncate"
+                                        : "text-sm text-industrial-400 mb-1 truncate"
+                                }
+                            >
+                                {kpi.name}
+                            </h3>
                             {kpi.subtitle && (
                                 <p className="text-xl font-semibold text-industrial-200 mb-0.5 uppercase tracking-wide">
                                     {kpi.subtitle}

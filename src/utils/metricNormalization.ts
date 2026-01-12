@@ -210,6 +210,9 @@ export const buildChartSettings = (row: {
         showDataLabels: (typeof row.showDataLabels === 'number' ? Boolean(row.showDataLabels) : row.showDataLabels) ?? jsonSettings.showDataLabels,
         primaryLabel: (jsonSettings as { primaryLabel?: string }).primaryLabel,
         secondaryLabel: (jsonSettings as { secondaryLabel?: string }).secondaryLabel,
+        primarySeriesType: (jsonSettings as { primarySeriesType?: 'line' | 'area' }).primarySeriesType,
+        secondarySeriesType: (jsonSettings as { secondarySeriesType?: 'line' | 'area' }).secondarySeriesType,
+        useSubtitleStyleOnName: (jsonSettings as { useSubtitleStyleOnName?: boolean }).useSubtitleStyleOnName,
         syncAxisScales: (jsonSettings as { syncAxisScales?: boolean }).syncAxisScales,
     };
 };

@@ -127,7 +127,7 @@ export const chartTypeConfig: Record<ChartType, ChartDefinition> = {
     requiredFields: ["Category", "Value", "Color"],
   },
   multiAxisLine: {
-    displayName: "Multi-axis Line",
+    displayName: "Multi-axis",
     description: "Plot two related values over time on separate axes.",
     dimensionLabel: "Date",
     valueLabel: "Primary Value",
