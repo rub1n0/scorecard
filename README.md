@@ -30,7 +30,6 @@ A modern, self-hosted KPI (Key Performance Indicator) dashboard application buil
 - 📈 **KPI Tracking** - Track metrics with values, trends, and targets
 - 🎨 **Rich Visualizations** - Pie charts, bar charts, line graphs, and sparklines
 - 📁 **Section Management** - Organize KPIs into custom sections with colors and reordering
-- 📤 **CSV Import** - Bulk import KPIs from CSV files with smart date normalization
 - 🔄 **Real-time Updates** - Automatic UI updates when data changes
 
 ### Collaboration Features
@@ -242,20 +241,6 @@ git push heroku main
    - **Reverse Trend**: Option to mark downward trends as "Good" (Green)
 4. Click **"Save"**
 
-#### Importing Multiple KPIs via CSV
-
-1. Click **"Manage Scorecard"** → **"Import CSV"**
-2. Download the example CSV template
-3. Fill in your data:
-   ```csv
-   Name,Value,Target,Trend %,Notes,Category,Data Points,Chart Type,Section
-   Revenue,100000,120000,15,Q4 target,Sales,Jan:80000;Feb:90000;Mar:100000,line,Financial
-   ```
-4. Upload your CSV file
-5. Click **"Import"**
-
-> See [CSV_IMPORT_GUIDE.md](./CSV_IMPORT_GUIDE.md) for detailed CSV format documentation
-
 ### Organizing with Sections
 
 1. Click **"Manage Scorecard"** → **"Sections"**
@@ -372,7 +357,6 @@ kpi-scorecard/
 │   │   └── update/user/[token]/  # Bulk assignee update page
 │   ├── components/               # React components
 │   │   ├── AssignmentManager.tsx # Assignment management modal
-│   │   ├── CSVImport.tsx         # CSV import component
 │   │   ├── Dashboard.tsx         # Main dashboard
 │   │   ├── KPIForm.tsx           # KPI creation/edit form
 │   │   ├── KPITile.tsx           # KPI display card
@@ -386,7 +370,6 @@ kpi-scorecard/
 │   ├── types/
 │   │   └── index.ts              # TypeScript interfaces
 │   └── utils/
-│       ├── csvParser.ts          # CSV import logic
 │       └── tokenUtils.ts         # Token generation/validation
 ├── data/                         # Database storage (JSON files)
 ├── public/                       # Static assets

@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, canViewLinks, getScorecardRole } from '@/lib/scorecardAuth';
 import { kpis, scorecards, sections } from '../../../../db/schema';
 import { buildChartSettings, extractChartSettingColumns, normalizeDateOnly } from '@/utils/metricNormalization';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        const allowLinks = canViewLinks(role);
         const rows = await db
             .select({
                 kpi: kpis,
@@ -27,6 +30,7 @@ export async function GET() {
                 chartSettings: buildChartSettings(row.kpi),
                 section: row.section || null,
                 scorecard: row.scorecard || null,
+                updateToken: allowLinks ? row.kpi.updateToken : undefined,
             }))
         );
     } catch (error) {
@@ -37,9 +41,13 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const scorecardId = body?.scorecardId as string;
         if (!scorecardId) return badRequest('scorecardId is required');
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const kpiName = (body?.kpiName ?? body?.name ?? '').trim();
         if (!kpiName) return badRequest('kpiName is required');
         const sectionId = body?.sectionId ?? body?.section ?? null;

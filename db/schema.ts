@@ -23,6 +23,7 @@ export const scorecards = mysqlTable(
         name: varchar('name', { length: 255 }).notNull(),
         description: text('description'),
         bannerConfig: json('banner_config'),
+        creatorToken: varchar('creator_token', { length: 255 }),
         createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
     },

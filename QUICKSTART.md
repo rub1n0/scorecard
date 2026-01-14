@@ -144,7 +144,6 @@ New-NetFirewallRule -DisplayName "KPI Scorecard" -Direction Inbound -Protocol TC
 - ✅ Create and manage scorecards
 - ✅ Add KPIs with values, trends, and charts
 - ✅ Organize KPIs into sections
-- ✅ Import data via CSV
 - ✅ Assign KPIs to users
 - ✅ Token-based update links
 - ✅ Bulk assignment management

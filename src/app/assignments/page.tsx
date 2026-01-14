@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Copy, Filter, Loader2, Plus, Search, UserPlus, X, Users } from 'lucide-react';
 import { useScorecards } from '@/context/ScorecardContext';
 import PageHeader from '@/components/PageHeader';
+import { fetchWithScorecardRole, getScorecardRole } from '@/utils/scorecardClient';
+import { ScorecardRole } from '@/types';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DbSection = { id: string; name: string | null; scorecardId: string };
@@ -45,6 +47,18 @@ function AssignmentDashboardInner() {
     const [showMultiAssigned, setShowMultiAssigned] = useState(false);
     const [copyState, setCopyState] = useState<string>('');
     const [saving, setSaving] = useState(false);
+    const [role, setRole] = useState<ScorecardRole>('update');
+    const canEdit = role === 'edit';
+
+    useEffect(() => {
+        const stored = getScorecardRole();
+        if (stored) setRole(stored);
+    }, []);
+
+    const canManageScorecard = (scorecardId?: string | null) => {
+        if (!scorecardId) return false;
+        return canEdit;
+    };
 
     // Drawer form state
     const [selectedKPIId, setSelectedKPIId] = useState('');
@@ -62,13 +76,17 @@ function AssignmentDashboardInner() {
 
     useEffect(() => {
         const load = async () => {
+            if (!canEdit) {
+                setLoading(false);
+                return;
+            }
             try {
                 setLoading(true);
                 const [aRes, sRes, mRes, uRes] = await Promise.all([
-                    fetch('/api/assignments'),
-                    fetch('/api/sections'),
-                    fetch('/api/kpis'),
-                    fetch('/api/users'),
+                    fetchWithScorecardRole('/api/assignments'),
+                    fetchWithScorecardRole('/api/sections'),
+                    fetchWithScorecardRole('/api/kpis'),
+                    fetchWithScorecardRole('/api/users'),
                 ]);
                 const [aData, sData, mData, uData] = await Promise.all([
                     aRes.json(),
@@ -90,7 +108,7 @@ function AssignmentDashboardInner() {
             }
         };
         load();
-    }, []);
+    }, [canEdit]);
 
     const resetDrawerState = () => {
         setSelectedKPIId('');
@@ -99,6 +117,7 @@ function AssignmentDashboardInner() {
     };
 
     const openCreateForKPI = (kpi: DbKPI) => {
+        if (!canManageScorecard(kpi.scorecardId)) return;
         setDrawer({ type: 'create' });
         setSelectedKPIId(kpi.id);
         setSelectedSectionId(kpi.sectionId || '');
@@ -106,6 +125,11 @@ function AssignmentDashboardInner() {
     };
 
     const openDrawer = (mode: DrawerMode) => {
+        if (mode.type === 'edit') {
+            const scorecardId = mode.assignment.scorecard?.id || mode.assignment.kpi?.scorecardId || null;
+            if (!canManageScorecard(scorecardId)) return;
+        }
+        if (mode.type === 'bulk' && !canEdit) return;
         setDrawer(mode);
         resetDrawerState();
         if (mode.type === 'edit') {
@@ -194,7 +218,7 @@ function AssignmentDashboardInner() {
         setSaving(true);
         try {
             if (isEdit) {
-                await fetch('/api/assignments', {
+                await fetchWithScorecardRole('/api/assignments', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -204,7 +228,7 @@ function AssignmentDashboardInner() {
                     }),
                 });
             } else {
-                await fetch('/api/assignments', {
+                await fetchWithScorecardRole('/api/assignments', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -215,7 +239,7 @@ function AssignmentDashboardInner() {
                 });
             }
             // Refresh assignments list
-            const res = await fetch('/api/assignments');
+            const res = await fetchWithScorecardRole('/api/assignments');
             setAssignments(await res.json());
             closeDrawer();
         } catch (error) {
@@ -235,7 +259,7 @@ function AssignmentDashboardInner() {
             for (const kpi of targets) {
                 const existing = existingByKPI.get(kpi.id);
                 if (existing) {
-                    await fetch('/api/assignments', {
+                    await fetchWithScorecardRole('/api/assignments', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -245,7 +269,7 @@ function AssignmentDashboardInner() {
                         }),
                     });
                 } else {
-                    await fetch('/api/assignments', {
+                    await fetchWithScorecardRole('/api/assignments', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -257,7 +281,7 @@ function AssignmentDashboardInner() {
                 }
             }
 
-            const res = await fetch('/api/assignments');
+            const res = await fetchWithScorecardRole('/api/assignments');
             setAssignments(await res.json());
             closeDrawer();
         } catch (error) {
@@ -268,7 +292,7 @@ function AssignmentDashboardInner() {
     };
 
     const deleteAssignment = async (id: string) => {
-        await fetch('/api/assignments', {
+        await fetchWithScorecardRole('/api/assignments', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id }),
@@ -294,6 +318,8 @@ function AssignmentDashboardInner() {
 
     const copyLink = async (row: AssignmentRow, user: DbUser) => {
         try {
+            const scorecardId = row.scorecard?.id || row.kpi?.scorecardId || null;
+            if (!canManageScorecard(scorecardId)) return;
             const scorecard = scorecards.find(s => s.id === row.scorecard?.id);
             if (!scorecard) {
                 await refreshScorecards();
@@ -425,6 +451,29 @@ function AssignmentDashboardInner() {
         );
     };
 
+    if (!loading && !canEdit) {
+        return (
+            <div className="min-h-screen bg-industrial-950">
+                <PageHeader
+                    label="Assignments"
+                    title="ASSIGNMENT HUB"
+                    subtitle="Edit role required"
+                    icon={<Users size={18} className="text-industrial-100" />}
+                    rightContent={
+                        <button onClick={() => router.push('/')} className="btn btn-secondary btn-sm">
+                            Back to Scorecards
+                        </button>
+                    }
+                />
+                <main className="max-w-6xl mx-auto px-6 py-12">
+                    <div className="glass-card p-8 text-center text-industrial-300">
+                        Assignments are only available to the edit role.
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-industrial-950">
             <PageHeader
@@ -435,7 +484,12 @@ function AssignmentDashboardInner() {
                 subtitle={`${assignments.length} assignments • ${users.length} collaborators`}
                 rightContent={
                     <>
-                        <button className="btn btn-secondary btn-sm flex items-center gap-2" onClick={() => openDrawer({ type: 'bulk' })}>
+                        <button
+                            className="btn btn-secondary btn-sm flex items-center gap-2"
+                            onClick={() => openDrawer({ type: 'bulk' })}
+                            disabled={!canEdit}
+                            title={!canEdit ? 'Edit role required' : undefined}
+                        >
                             <Filter size={16} />
                             Bulk assign by section
                         </button>
@@ -533,6 +587,8 @@ function AssignmentDashboardInner() {
                                 ) : (
                                     filtered.map(row => {
                                         const isVirtual = !!row._virtual;
+                                        const scorecardId = row.scorecard?.id || row.kpi?.scorecardId || null;
+                                        const canManageRow = canManageScorecard(scorecardId);
                                         return (
                                             <tr key={row.id} className="hover:bg-industrial-900/40">
                                                 <td className="px-4 py-3 text-industrial-100">{row.kpi?.name || 'Unknown kpi'}</td>
@@ -546,45 +602,49 @@ function AssignmentDashboardInner() {
                                                     {row.assignees.map(user => (
                                                         <span key={user.id} className={`${chip} flex items-center gap-1`}>
                                                             {user.name || user.email || 'Unnamed'}
-                                                            <button
-                                                                className="text-industrial-400 hover:text-industrial-100"
-                                                                onClick={() => copyLink(row, user)}
-                                                                title="Copy update link"
-                                                            >
-                                                                {copyState === (user.email || user.name) ? <Check size={12} /> : <Copy size={12} />}
-                                                            </button>
+                                                            {canManageRow && (
+                                                                <button
+                                                                    className="text-industrial-400 hover:text-industrial-100"
+                                                                    onClick={() => copyLink(row, user)}
+                                                                    title="Copy update link"
+                                                                >
+                                                                    {copyState === (user.email || user.name) ? <Check size={12} /> : <Copy size={12} />}
+                                                                </button>
+                                                            )}
                                                         </span>
                                                     ))}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex justify-end gap-2">
-                                                    {isVirtual ? (
+                                                    {!canManageRow ? (
+                                                        <span className="text-xs text-industrial-500">View only</span>
+                                                    ) : isVirtual ? (
                                                         <button
                                                             className="btn btn-xs btn-primary flex items-center gap-1"
                                                             onClick={() => row.kpi && openCreateForKPI(row.kpi)}
                                                         >
-                                                                <Plus size={12} />
-                                                                Assign
+                                                            <Plus size={12} />
+                                                            Assign
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                className="btn btn-xs btn-secondary flex items-center gap-1"
+                                                                onClick={() => openDrawer({ type: 'edit', assignment: row })}
+                                                            >
+                                                                <UserPlus size={12} />
+                                                                Edit
                                                             </button>
-                                                        ) : (
-                                                            <>
-                                                                <button
-                                                                    className="btn btn-xs btn-secondary flex items-center gap-1"
-                                                                    onClick={() => openDrawer({ type: 'edit', assignment: row })}
-                                                                >
-                                                                    <UserPlus size={12} />
-                                                                    Edit
-                                                                </button>
-                                                                <button
-                                                                    className="btn btn-xs btn-ghost flex items-center gap-1"
-                                                                    onClick={() => deleteAssignment(row.id)}
-                                                                >
-                                                                    <X size={12} />
-                                                                    Remove
-                                                                </button>
-                                                            </>
-                                                        )}
+                                                            <button
+                                                                className="btn btn-xs btn-ghost flex items-center gap-1"
+                                                                onClick={() => deleteAssignment(row.id)}
+                                                            >
+                                                                <X size={12} />
+                                                                Remove
+                                                            </button>
+                                                        </>
+                                                    )}
                                                     </div>
                                                 </td>
                                             </tr>

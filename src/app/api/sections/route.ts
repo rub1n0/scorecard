@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, getScorecardRole } from '@/lib/scorecardAuth';
 import { sections } from '../../../../db/schema';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
@@ -18,10 +19,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = crypto.randomUUID();
         const scorecardId = body?.scorecardId as string;
         if (!scorecardId) return badRequest('scorecardId is required');
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const name = body?.name ?? null;
         const displayOrder = Number.isFinite(body?.displayOrder) ? body.displayOrder : 0;
@@ -37,9 +42,15 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
+        const [existing] = await db.select().from(sections).where(eq(sections.id, id));
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const update: Partial<typeof sections.$inferInsert> = {
             name: body?.name ?? null,
@@ -58,9 +69,15 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
+        const [existing] = await db.select().from(sections).where(eq(sections.id, id));
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         await db.delete(sections).where(eq(sections.id, id));
         return NextResponse.json({ success: true });

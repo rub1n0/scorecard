@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { Database, Layers, ListChecks, RefreshCw, Table2, Users } from 'lucide-react';
-import { KPI, Scorecard } from '@/types';
+import { KPI, Scorecard, ScorecardRole } from '@/types';
 import { useRouter } from 'next/navigation';
+import { fetchWithScorecardRole, getScorecardRole } from '@/utils/scorecardClient';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DbSection = { id: string; name: string | null; scorecardId: string; displayOrder?: number | null; color?: string | null; opacity?: number | null };
@@ -27,7 +28,7 @@ type KpiRow = KPI & {
 };
 
 async function fetchJSON<T>(url: string): Promise<T> {
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetchWithScorecardRole(url, { cache: 'no-store' });
     if (!res.ok) {
         throw new Error(`Request failed: ${res.status}`);
     }
@@ -49,8 +50,19 @@ export default function DatabasePage() {
     const [sectionName, setSectionName] = useState('');
     const [sectionScorecardId, setSectionScorecardId] = useState('');
     const [busy, setBusy] = useState(false);
+    const [role, setRole] = useState<ScorecardRole>('update');
+    const canEdit = role === 'edit';
+
+    const canManageScorecard = (scorecardId?: string | null) => {
+        if (!scorecardId) return false;
+        return canEdit;
+    };
 
     const loadData = async () => {
+        if (!canEdit) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -72,11 +84,19 @@ export default function DatabasePage() {
     };
 
     useEffect(() => {
-        void loadData();
+        const stored = getScorecardRole();
+        if (stored) setRole(stored);
     }, []);
 
+    useEffect(() => {
+        void loadData();
+    }, [canEdit]);
+
     const request = async (url: string, init?: RequestInit) => {
-        const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
+        const res = await fetchWithScorecardRole(url, {
+            ...init,
+            headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+        });
         if (!res.ok) {
             const body = await res.json().catch(() => ({}));
             throw new Error(body.error || `Request failed: ${res.status}`);
@@ -245,6 +265,29 @@ export default function DatabasePage() {
         return `${list.join(' • ')} ${suffix}`.trim();
     };
 
+    if (!loading && !canEdit) {
+        return (
+            <div className="min-h-screen bg-industrial-950">
+                <PageHeader
+                    label="Database"
+                    title="DATABASE SNAPSHOT"
+                    subtitle="Edit role required"
+                    icon={<Database size={18} className="text-industrial-100" />}
+                    rightContent={
+                        <button onClick={() => router.push('/')} className="btn btn-secondary btn-sm">
+                            Back to Scorecards
+                        </button>
+                    }
+                />
+                <main className="max-w-6xl mx-auto px-6 py-12">
+                    <div className="glass-card p-8 text-center text-industrial-300">
+                        Database management is only available to the edit role.
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-industrial-950">
             <PageHeader
@@ -339,7 +382,7 @@ export default function DatabasePage() {
                             onChange={(e) => setSectionScorecardId(e.target.value)}
                         >
                             <option value="">Select Scorecard</option>
-                            {scorecards.map(sc => (
+                            {scorecards.filter(sc => canManageScorecard(sc.id)).map(sc => (
                                 <option key={sc.id} value={sc.id}>{sc.name}</option>
                             ))}
                         </select>
@@ -391,13 +434,15 @@ export default function DatabasePage() {
                                             {sc.updatedAt ? new Date(sc.updatedAt).toLocaleString() : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button
-                                                className="text-red-400 text-xs hover:underline"
-                                                onClick={() => void handleDeleteScorecard(sc.id)}
-                                                disabled={busy}
-                                            >
-                                                Delete
-                                            </button>
+                                            {canManageScorecard(sc.id) && (
+                                                <button
+                                                    className="text-red-400 text-xs hover:underline"
+                                                    onClick={() => void handleDeleteScorecard(sc.id)}
+                                                    disabled={busy}
+                                                >
+                                                    Delete
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -493,7 +538,10 @@ export default function DatabasePage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-industrial-800">
-                                {assignments.slice(0, 50).map(row => (
+                                {assignments.slice(0, 50).map(row => {
+                                    const rowScorecardId = row.scorecard?.id || row.kpi?.scorecardId || null;
+                                    const canManageRow = canManageScorecard(rowScorecardId);
+                                    return (
                                     <tr key={row.id} className="hover:bg-industrial-900/30">
                                         <td className="px-4 py-3 text-industrial-100">{row.kpi?.name || row.kpiId}</td>
                                         <td className="px-4 py-3 text-industrial-200">{row.scorecard?.name || '—'}</td>
@@ -504,16 +552,19 @@ export default function DatabasePage() {
                                                 : 'Unassigned'}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button
-                                                className="text-red-400 text-xs hover:underline"
-                                                onClick={() => void handleDeleteAssignment(row.id)}
-                                                disabled={busy}
-                                            >
-                                                Delete
-                                            </button>
+                                            {canManageRow && (
+                                                <button
+                                                    className="text-red-400 text-xs hover:underline"
+                                                    onClick={() => void handleDeleteAssignment(row.id)}
+                                                    disabled={busy}
+                                                >
+                                                    Delete
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                                 {assignments.length === 0 && (
                                     <tr>
                                         <td colSpan={5} className="px-4 py-6 text-center text-industrial-500 text-sm">
@@ -546,18 +597,21 @@ export default function DatabasePage() {
                             <tbody className="divide-y divide-industrial-800">
                                 {sections.map(section => {
                                     const parent = scorecards.find(sc => sc.id === section.scorecardId);
+                                    const canManageSection = canManageScorecard(section.scorecardId);
                                     return (
                                         <tr key={section.id} className="hover:bg-industrial-900/30">
                                             <td className="px-4 py-3 text-industrial-100">{section.name || 'Untitled'}</td>
                                             <td className="px-4 py-3 text-industrial-200">{parent?.name || section.scorecardId}</td>
                                             <td className="px-4 py-3 text-right">
-                                                <button
-                                                    className="text-red-400 text-xs hover:underline"
-                                                    onClick={() => void handleDeleteSection(section.id)}
-                                                    disabled={busy}
-                                                >
-                                                    Delete
-                                                </button>
+                                                {canManageSection && (
+                                                    <button
+                                                        className="text-red-400 text-xs hover:underline"
+                                                        onClick={() => void handleDeleteSection(section.id)}
+                                                        disabled={busy}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     );

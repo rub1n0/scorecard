@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canUpdateKpiWithToken, canUpdateScorecard, getKpiUpdateToken, getScorecardRole } from '@/lib/scorecardAuth';
 import { kpis, metrics } from '../../../../../../db/schema';
 import { normalizeDateOnly, normalizeValueForChartType } from '@/utils/metricNormalization';
 import { LabeledValue } from '@/types';
@@ -21,6 +22,8 @@ const isLabeledValue = (value: unknown): value is LabeledValue => {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(req);
+        const updateToken = getKpiUpdateToken(req);
         const body = await req.json();
         const dateInput = body?.date;
         if (!dateInput) return badRequest('date is required');
@@ -28,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         const [kpi] = await db.select().from(kpis).where(eq(kpis.id, id));
         if (!kpi) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
+        const canUpdateRole = canUpdateScorecard(role);
+        const canUpdate = canUpdateRole || (await canUpdateKpiWithToken(id, updateToken));
+        if (!canUpdate) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
         const chartType = body?.chartType ?? kpi.chartType ?? null;
         const normalizedDate = normalizeDateOnly(dateInput);

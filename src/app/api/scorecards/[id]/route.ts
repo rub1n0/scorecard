@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { and, eq, inArray, sql, asc } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, canUpdateScorecard, canViewLinks, getScorecardRole } from '@/lib/scorecardAuth';
 import {
     assignments,
     assignmentAssignees,
@@ -24,9 +25,16 @@ const computeTrendFromMetrics = (metricsForKpi: Array<{ date: string; value: num
     return latest.value - prev.value;
 };
 
-const buildScorecard = async (id: string) => {
+const buildScorecard = async (id: string, role: ReturnType<typeof getScorecardRole>) => {
     const [sc] = await db.select().from(scorecards).where(eq(scorecards.id, id));
     if (!sc) return null;
+    const permissions = {
+        role: role ?? 'update',
+        canEdit: canEditScorecard(role),
+        canUpdate: canUpdateScorecard(role),
+        canViewLinks: canViewLinks(role),
+    };
+    const allowLinkTokens = permissions.canViewLinks;
 
     const sectionRows = await db.select().from(sections).where(eq(sections.scorecardId, sc.id)).orderBy(sections.displayOrder);
     const kpiRows = await db.select().from(kpis).where(eq(kpis.scorecardId, sc.id));
@@ -79,7 +87,7 @@ const buildScorecard = async (id: string) => {
             visualizationType: resolvedVisualizationType,
             chartType: kpi.chartType || undefined,
             reverseTrend: kpi.reverseTrend,
-            updateToken: kpi.updateToken || undefined,
+            updateToken: allowLinkTokens ? (kpi.updateToken || undefined) : undefined,
             assignment: kpi.assignment || undefined,
             date: kpi.date ? new Date(kpi.date).toISOString() : new Date().toISOString(),
             updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
@@ -121,7 +129,8 @@ const buildScorecard = async (id: string) => {
             order: s.displayOrder,
             opacity: s.opacity ?? 1,
         })),
-        assignees: assigneesMap,
+        assignees: allowLinkTokens ? assigneesMap : {},
+        permissions,
         createdAt: sc.createdAt?.toISOString?.() || '',
         updatedAt: sc.updatedAt?.toISOString?.() || '',
     };
@@ -130,7 +139,8 @@ const buildScorecard = async (id: string) => {
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const sc = await buildScorecard(id);
+        const role = getScorecardRole(_req);
+        const sc = await buildScorecard(id, role);
         return sc ? NextResponse.json(sc) : NextResponse.json({ error: 'Not found' }, { status: 404 });
     } catch (error) {
         console.error('[scorecards/:id][GET]', error);
@@ -141,6 +151,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const body = await req.json();
         const now = new Date();
 
@@ -343,7 +357,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             }
         });
 
-        const sc = await buildScorecard(id);
+        const sc = await buildScorecard(id, role);
         return sc ? NextResponse.json(sc) : NextResponse.json({ error: 'Not found' }, { status: 404 });
     } catch (error) {
         console.error('[scorecards/:id][PUT]', error);
@@ -354,6 +368,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(_req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         await db.delete(scorecards).where(eq(scorecards.id, id));
         await db.delete(sections).where(eq(sections.scorecardId, id));
         const kpiIds = (await db.select({ id: kpis.id }).from(kpis).where(eq(kpis.scorecardId, id))).map(m => m.id);

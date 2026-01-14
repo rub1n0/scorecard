@@ -17,6 +17,7 @@ export default function ScorecardCard({ scorecard, onDelete, onUpdate }: Scoreca
     const [editName, setEditName] = useState(scorecard.name);
     const [editDescription, setEditDescription] = useState(scorecard.description || '');
     const visibleKPIs = scorecard.kpis.filter(kpi => kpi.visible !== false);
+    const canManage = Boolean(scorecard.permissions?.canEdit);
 
     const handleClick = () => {
         if (!isEditing) {
@@ -252,20 +253,24 @@ export default function ScorecardCard({ scorecard, onDelete, onUpdate }: Scoreca
                             </>
                         ) : (
                             <>
-                                <button
-                                    onClick={handleEdit}
-                                    className="btn btn-icon btn-secondary opacity-0 group-hover:opacity-100 transition-opacity"
-                                    aria-label="Edit scorecard"
-                                >
-                                    <Edit2 size={16} />
-                                </button>
-                                <button
-                                    onClick={handleDelete}
-                                    className="btn btn-icon btn-danger opacity-0 group-hover:opacity-100 transition-opacity"
-                                    aria-label="Delete scorecard"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {canManage && (
+                                    <>
+                                        <button
+                                            onClick={handleEdit}
+                                            className="btn btn-icon btn-secondary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Edit scorecard"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={handleDelete}
+                                            className="btn btn-icon btn-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Delete scorecard"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>

@@ -15,9 +15,19 @@ interface KPITileProps {
     onDelete: () => void;
     isDragging?: boolean;
     bannerConfig?: BannerConfig | null;
+    canEdit?: boolean;
+    canUpdate?: boolean;
 }
 
-export default function KPITile({ kpi, onEdit, onDelete, isDragging, bannerConfig }: KPITileProps) {
+export default function KPITile({
+    kpi,
+    onEdit,
+    onDelete,
+    isDragging,
+    bannerConfig,
+    canEdit = true,
+    canUpdate = true,
+}: KPITileProps) {
     const hasNotes = Boolean(kpi.notes);
     const useSubtitleStyleOnName = !kpi.subtitle && kpi.chartSettings?.useSubtitleStyleOnName;
     const resolvedBannerConfig = normalizeBannerConfig(bannerConfig);
@@ -160,24 +170,38 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging, bannerConfi
                                 </p>
                             )}
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {kpi.updateToken && (
-                                <button
-                                    onClick={handleCopyLink}
-                                    className="btn btn-icon p-1.5 text-industrial-500 hover:text-blue-400 hover:bg-blue-900/20 rounded relative"
-                                    aria-label="Copy Update Link"
-                                    title="Copy Update Link"
-                                >
-                                    {showCopied ? <Check size={14} className="text-green-500" /> : <LinkIcon size={14} />}
-                                </button>
-                            )}
-                            <button onClick={onEdit} className="btn btn-icon p-1.5 text-industrial-500 hover:text-industrial-200 hover:bg-industrial-800 rounded" aria-label="Edit KPI">
-                                <Edit2 size={14} />
-                            </button>
-                            <button onClick={onDelete} className="btn btn-icon p-1.5 text-industrial-500 hover:text-red-400 hover:bg-red-900/20 rounded" aria-label="Delete KPI">
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
+                        {(canEdit || canUpdate) && (
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {canUpdate && kpi.updateToken && (
+                                    <button
+                                        onClick={handleCopyLink}
+                                        className="btn btn-icon p-1.5 text-industrial-500 hover:text-blue-400 hover:bg-blue-900/20 rounded relative"
+                                        aria-label="Copy Update Link"
+                                        title="Copy Update Link"
+                                    >
+                                        {showCopied ? <Check size={14} className="text-green-500" /> : <LinkIcon size={14} />}
+                                    </button>
+                                )}
+                                {canUpdate && (
+                                    <button
+                                        onClick={onEdit}
+                                        className="btn btn-icon p-1.5 text-industrial-500 hover:text-industrial-200 hover:bg-industrial-800 rounded"
+                                        aria-label="Edit KPI"
+                                    >
+                                        <Edit2 size={14} />
+                                    </button>
+                                )}
+                                {canEdit && (
+                                    <button
+                                        onClick={onDelete}
+                                        className="btn btn-icon p-1.5 text-industrial-500 hover:text-red-400 hover:bg-red-900/20 rounded"
+                                        aria-label="Delete KPI"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Content */}

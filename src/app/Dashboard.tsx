@@ -7,6 +7,8 @@ import ScorecardForm from '@/components/ScorecardForm';
 import PageHeader from '@/components/PageHeader';
 import { Plus, BarChart3, LayoutDashboard, ChevronDown, UserCog, ClipboardList, PanelLeft, Database } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { applyRoleChange, getScorecardRole } from '@/utils/scorecardClient';
+import { ScorecardRole } from '@/types';
 
 export default function Dashboard() {
     const { scorecards, addScorecard, deleteScorecard, updateScorecard } = useScorecards();
@@ -14,6 +16,8 @@ export default function Dashboard() {
     const [showNavMenu, setShowNavMenu] = useState(false);
     const navMenuRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
+    const [currentRole, setCurrentRole] = useState<ScorecardRole>('update');
+    const canEdit = currentRole === 'edit';
 
     useEffect(() => {
         const handler = (event: MouseEvent) => {
@@ -24,6 +28,18 @@ export default function Dashboard() {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const stored = getScorecardRole();
+        if (stored) setCurrentRole(stored);
+    }, []);
+
+    const handleRoleChange = (nextRole: ScorecardRole) => {
+        if (nextRole === currentRole) return;
+        setCurrentRole(nextRole);
+        applyRoleChange(nextRole);
+    };
 
     const handleCreateScorecard = (name: string, description: string) => {
         addScorecard({
@@ -43,7 +59,11 @@ export default function Dashboard() {
                 icon={<LayoutDashboard size={20} className="text-industrial-100" />}
                 rightContent={
                     <div className="flex items-center gap-2" ref={navMenuRef}>
-                        <button onClick={() => setShowForm(true)} className="btn btn-primary btn-sm border-0">
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="btn btn-primary btn-sm border-0"
+                            disabled={!canEdit}
+                        >
                             <Plus size={16} />
                             New Scorecard
                         </button>
@@ -59,33 +79,50 @@ export default function Dashboard() {
                             </button>
                             {showNavMenu && (
                                 <div className="absolute right-0 mt-2 w-52 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-20">
-                                    <div className="py-1">
+                                    <div className="py-2">
+                                        <div className="px-4 pb-2">
+                                            <div className="text-[11px] uppercase tracking-wider text-industrial-500 mb-1">
+                                                Current Role
+                                            </div>
+                                            <select
+                                                className="input w-full text-xs"
+                                                value={currentRole}
+                                                onChange={(e) => handleRoleChange(e.target.value as ScorecardRole)}
+                                            >
+                                                <option value="edit">Edit</option>
+                                                <option value="update">Update</option>
+                                            </select>
+                                        </div>
+                                        <div className="border-t border-industrial-800 my-1"></div>
                                         <button
                                             onClick={() => {
+                                                if (!canEdit) return;
                                                 router.push('/assignments');
                                                 setShowNavMenu(false);
                                             }}
-                                            className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                            className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${canEdit ? 'text-industrial-200 hover:bg-industrial-800' : 'text-industrial-600 cursor-not-allowed'}`}
                                         >
                                             <ClipboardList size={14} />
                                             Assignments
                                         </button>
                                         <button
                                             onClick={() => {
+                                                if (!canEdit) return;
                                                 router.push('/users');
                                                 setShowNavMenu(false);
                                             }}
-                                            className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                            className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${canEdit ? 'text-industrial-200 hover:bg-industrial-800' : 'text-industrial-600 cursor-not-allowed'}`}
                                         >
                                             <UserCog size={14} />
                                             Users
                                         </button>
                                         <button
                                             onClick={() => {
+                                                if (!canEdit) return;
                                                 router.push('/database');
                                                 setShowNavMenu(false);
                                             }}
-                                            className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                                            className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${canEdit ? 'text-industrial-200 hover:bg-industrial-800' : 'text-industrial-600 cursor-not-allowed'}`}
                                         >
                                             <Database size={14} />
                                             Database
@@ -127,7 +164,7 @@ export default function Dashboard() {
                         <p className="text-industrial-500 mb-8 max-w-md text-sm">
                             Initialize a new scorecard to begin tracking key performance indicators.
                         </p>
-                        <button onClick={() => setShowForm(true)} className="btn btn-primary">
+                        <button onClick={() => setShowForm(true)} className="btn btn-primary" disabled={!canEdit}>
                             <Plus size={16} />
                             Initialize Scorecard
                         </button>

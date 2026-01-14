@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, getScorecardRole } from '@/lib/scorecardAuth';
 import { assignments, assignmentAssignees, kpis, scorecards, sections, users } from '../../../../../db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -8,6 +9,10 @@ const notFound = NextResponse.json({ error: 'Not found' }, { status: 404 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const role = getScorecardRole(_req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const { id } = await params;
         const [assignment] = await db.select().from(assignments).where(eq(assignments.id, id));
         if (!assignment) return notFound;
@@ -41,7 +46,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(req);
         const body = await req.json();
+        const [existing] = await db.select().from(assignments).where(eq(assignments.id, id));
+        if (!existing) return notFound;
+        const [kpiRow] = await db.select().from(kpis).where(eq(kpis.id, existing.kpiId));
+        if (!kpiRow) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         await db.update(assignments).set({ sectionId: body?.sectionId ?? null, updatedAt: new Date() }).where(eq(assignments.id, id));
 
@@ -66,9 +79,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(req);
+        const [existing] = await db.select().from(assignments).where(eq(assignments.id, id));
+        if (!existing) return notFound;
+        const [kpiRow] = await db.select().from(kpis).where(eq(kpis.id, existing.kpiId));
+        if (!kpiRow) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         await db.transaction(async (tx) => {
             await tx.delete(assignmentAssignees).where(eq(assignmentAssignees.assignmentId, id));
             await tx.delete(assignments).where(eq(assignments.id, id));

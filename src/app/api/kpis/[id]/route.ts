@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, canUpdateKpiWithToken, canUpdateScorecard, canViewLinks, getKpiUpdateToken, getScorecardRole } from '@/lib/scorecardAuth';
 import { kpiValues, kpis, metrics, scorecards, sections } from '../../../../../db/schema';
 import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, resolveVisualizationType } from '@/utils/metricNormalization';
 import { buildPersistedMetrics, IncomingMetric } from '@/utils/metricPersistence';
@@ -59,10 +60,30 @@ const buildKpiResponse = async (id: string) => {
     };
 };
 
+const sanitizeTokenUpdates = (payload: Record<string, unknown>) => {
+    const allowed = new Set([
+        'metrics',
+        'dataPoints',
+        'value',
+        'valueJson',
+        'notes',
+        'date',
+        'trendValue',
+        'reverseTrend',
+        'lastUpdatedBy',
+        'sankeySettings',
+    ]);
+    return Object.fromEntries(Object.entries(payload || {}).filter(([key]) => allowed.has(key)));
+};
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(_req);
         const payload = await buildKpiResponse(id);
+        if (payload && !canViewLinks(role)) {
+            payload.updateToken = undefined;
+        }
         if (!payload) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json(payload);
     } catch (error) {
@@ -74,11 +95,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const body = await req.json();
-        const chartSettings = extractChartSettingColumns(body?.chartSettings);
+        const rawBody = await req.json();
 
         const [existing] = await db.select().from(kpis).where(eq(kpis.id, id));
         if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        const role = getScorecardRole(req);
+        const updateToken = getKpiUpdateToken(req);
+        const canUpdateRole = canUpdateScorecard(role);
+        const canUpdate = canUpdateRole || (await canUpdateKpiWithToken(id, updateToken));
+        if (!canUpdate) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+        const body = canUpdateRole ? rawBody : sanitizeTokenUpdates(rawBody as Record<string, unknown>);
+        const chartSettings = extractChartSettingColumns((body as { chartSettings?: unknown })?.chartSettings);
 
         const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
@@ -223,6 +251,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
+        const role = getScorecardRole(_req);
+        const [existing] = await db.select().from(kpis).where(eq(kpis.id, id));
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         await db.delete(kpis).where(eq(kpis.id, id));
         await db.delete(kpiValues).where(eq(kpiValues.kpiId, id));
         await db.delete(metrics).where(eq(metrics.kpiId, id));

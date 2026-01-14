@@ -3,11 +3,16 @@ import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
 import { users } from '../../../../db/schema';
+import { canEditScorecard, getScorecardRole } from '@/lib/scorecardAuth';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const rows = await db.select().from(users);
         return NextResponse.json(rows);
     } catch (error) {
@@ -18,6 +23,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const body = await req.json();
         const id = crypto.randomUUID();
         const name = body?.name ?? null;
@@ -38,6 +47,10 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
@@ -59,6 +72,10 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');

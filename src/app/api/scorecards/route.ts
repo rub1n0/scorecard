@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { eq, inArray, sql, asc } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, canUpdateScorecard, canViewLinks, getScorecardRole } from '@/lib/scorecardAuth';
 import {
     assignments,
     assignmentAssignees,
@@ -27,7 +28,14 @@ import { buildPersistedMetrics } from '@/utils/metricPersistence';
 
 const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
 
-const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
+const buildScorecard = async (sc: typeof scorecards.$inferSelect, role: ReturnType<typeof getScorecardRole>) => {
+    const permissions = {
+        role: role ?? 'update',
+        canEdit: canEditScorecard(role),
+        canUpdate: canUpdateScorecard(role),
+        canViewLinks: canViewLinks(role),
+    };
+    const allowLinkTokens = permissions.canViewLinks;
     const sectionRows = await db.select().from(sections).where(eq(sections.scorecardId, sc.id)).orderBy(sections.displayOrder);
     const kpiRows = await db.select().from(kpis).where(eq(kpis.scorecardId, sc.id));
     const kpiIds = kpiRows.map(k => k.id);
@@ -91,7 +99,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             visualizationType: resolvedVisualizationType,
             chartType: kpi.chartType || undefined,
             reverseTrend: kpi.reverseTrend,
-            updateToken: kpi.updateToken || undefined,
+            updateToken: allowLinkTokens ? (kpi.updateToken || undefined) : undefined,
             assignment: kpi.assignment || undefined,
             date: kpi.date ? new Date(kpi.date).toISOString() : new Date().toISOString(),
             updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
@@ -134,16 +142,18 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             order: s.displayOrder,
             opacity: s.opacity ?? 1,
         })),
-        assignees: assigneesMap,
+        assignees: allowLinkTokens ? assigneesMap : {},
+        permissions,
         createdAt: sc.createdAt?.toISOString?.() || '',
         updatedAt: sc.updatedAt?.toISOString?.() || '',
     };
 };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const rows = await db.select().from(scorecards);
-        const result = await Promise.all(rows.map(buildScorecard));
+        const result = await Promise.all(rows.map(sc => buildScorecard(sc, role)));
         return NextResponse.json(result);
     } catch (error) {
         console.error('[scorecards][GET]', error);
@@ -153,6 +163,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const body = await req.json();
     const name = (body?.name || '').trim();
     const description = body?.description ?? '';
@@ -166,6 +180,7 @@ export async function POST(req: NextRequest) {
             name,
             description,
             bannerConfig,
+            creatorToken: null,
             createdAt: now,
             updatedAt: now,
         });
@@ -175,9 +190,10 @@ export async function POST(req: NextRequest) {
             name,
             description,
             bannerConfig,
+            creatorToken: null,
             createdAt: now,
             updatedAt: now,
-        });
+        }, role);
         return NextResponse.json(sc, { status: 201 });
     } catch (error) {
         console.error('[scorecards][POST]', error);
@@ -187,9 +203,13 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
     const updates: any = {};
     if (body?.name !== undefined) updates.name = body.name;
@@ -361,7 +381,7 @@ export async function PUT(req: NextRequest) {
 
         const [updated] = await db.select().from(scorecards).where(eq(scorecards.id, id));
         if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-        const sc = await buildScorecard(updated);
+        const sc = await buildScorecard(updated, role);
         return NextResponse.json(sc);
     } catch (error) {
         console.error('[scorecards][PUT]', error);
@@ -371,9 +391,13 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         await db.delete(scorecards).where(eq(scorecards.id, id));
         await db.delete(sections).where(eq(sections.scorecardId, id));

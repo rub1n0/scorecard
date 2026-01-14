@@ -43,6 +43,34 @@
       "when": 1700000005000,
       "tag": "0005_target_fields",
       "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1700000006000,
+      "tag": "0006_comment_text_size",
+      "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1700000007000,
+      "tag": "0007_kpi_banner_status",
+      "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1700000008000,
+      "tag": "0008_scorecard_banner_config",
+      "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1700000009000,
+      "tag": "0009_scorecard_creator_token",
+      "breakpoints": false
     }
   ]
 }

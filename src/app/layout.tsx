@@ -20,7 +20,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ScorecardProvider>{children}</ScorecardProvider>
+        <ScorecardProvider>
+          {children}
+        </ScorecardProvider>
       </body>
     </html>
   );

@@ -4,9 +4,10 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { v4 as uuidv4 } from 'uuid';
 import { Scorecard, KPI, Section, Metric } from '@/types';
 import { normalizeDateOnly } from '@/utils/metricNormalization';
+import { fetchWithScorecardRole, withKpiUpdateToken } from '@/utils/scorecardClient';
 import { getChartDefinition } from '@/components/visualizations/chartConfig';
 
-const clientFetch = (...args: Parameters<typeof fetch>) => globalThis.fetch(...args);
+const clientFetch = (...args: Parameters<typeof fetch>) => fetchWithScorecardRole(...args);
 const newId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : uuidv4());
 const slugify = (name: string) =>
     name
@@ -541,11 +542,14 @@ export function ScorecardProvider({ children }: { children: ReactNode }) {
                 date: updates.date ?? new Date().toISOString(),
             };
 
-            const response = await clientFetch(`/api/kpis/${kpi.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            const response = await clientFetch(
+                `/api/kpis/${kpi.id}`,
+                withKpiUpdateToken(token, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                })
+            );
 
             if (!response.ok) {
                 console.error('Failed to update KPI by token', await response.text());

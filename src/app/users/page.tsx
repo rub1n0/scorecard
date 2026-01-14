@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useRouter } from 'next/navigation';
 import { Users, Plus, Search, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { fetchWithScorecardRole, getScorecardRole } from '@/utils/scorecardClient';
+import { ScorecardRole } from '@/types';
 
 type DbUser = { id: string; name: string | null; email: string | null };
 type DrawerMode = { type: 'create' } | { type: 'edit'; user: DbUser };
@@ -17,12 +19,23 @@ export default function UserManagementPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [saving, setSaving] = useState(false);
+    const [role, setRole] = useState<ScorecardRole>('update');
+    const canEdit = role === 'edit';
+
+    useEffect(() => {
+        const stored = getScorecardRole();
+        if (stored) setRole(stored);
+    }, []);
 
     useEffect(() => {
         const load = async () => {
             try {
+                if (!canEdit) {
+                    setLoading(false);
+                    return;
+                }
                 setLoading(true);
-                const res = await fetch('/api/users');
+                const res = await fetchWithScorecardRole('/api/users');
                 setUsers(await res.json());
             } catch (error) {
                 console.error('Failed to load users', error);
@@ -31,7 +44,7 @@ export default function UserManagementPage() {
             }
         };
         load();
-    }, []);
+    }, [canEdit]);
 
     const openDrawer = (mode: DrawerMode) => {
         setDrawer(mode);
@@ -55,19 +68,19 @@ export default function UserManagementPage() {
         setSaving(true);
         try {
             if (drawer?.type === 'edit') {
-                await fetch('/api/users', {
+                await fetchWithScorecardRole('/api/users', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: drawer.user.id, name: name.trim() || null, email: email.trim() || null }),
                 });
             } else {
-                await fetch('/api/users', {
+                await fetchWithScorecardRole('/api/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: name.trim() || null, email: email.trim() || null }),
                 });
             }
-            const res = await fetch('/api/users');
+            const res = await fetchWithScorecardRole('/api/users');
             setUsers(await res.json());
             closeDrawer();
         } catch (error) {
@@ -80,7 +93,7 @@ export default function UserManagementPage() {
     const deleteUser = async (user: DbUser) => {
         if (!confirm(`Delete user ${user.name || user.email || 'Unnamed'}?`)) return;
         try {
-            await fetch('/api/users', {
+            await fetchWithScorecardRole('/api/users', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: user.id }),
@@ -149,6 +162,29 @@ export default function UserManagementPage() {
             </div>
         );
     };
+
+    if (!loading && !canEdit) {
+        return (
+            <div className="min-h-screen bg-industrial-950">
+                <PageHeader
+                    label="Users"
+                    title="USER DIRECTORY"
+                    subtitle="Edit role required"
+                    icon={<Users size={18} className="text-industrial-100" />}
+                    rightContent={
+                        <button onClick={() => router.push('/')} className="btn btn-secondary btn-sm">
+                            Back to Scorecards
+                        </button>
+                    }
+                />
+                <main className="max-w-6xl mx-auto px-6 py-12">
+                    <div className="glass-card p-8 text-center text-industrial-300">
+                        User management is only available to the edit role.
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-industrial-950">

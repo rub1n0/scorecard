@@ -11,6 +11,7 @@ export type BannerPalette =
     | 'charcoal-blue'
     | 'industrial';
 export type BannerConfig = Record<KPIBannerStatus, { label: string; palette: BannerPalette }>;
+export type ScorecardRole = 'edit' | 'update';
 
 export type ChartType =
     | 'line'
@@ -121,6 +122,12 @@ export interface Scorecard {
     kpis: KPI[];
     sections?: Section[]; // Defined sections for this scorecard
     assignees?: Record<string, string | null>; // email -> token
+    permissions?: {
+        role: ScorecardRole;
+        canEdit: boolean;
+        canUpdate: boolean;
+        canViewLinks: boolean;
+    };
     createdAt: string;
     updatedAt: string;
 }

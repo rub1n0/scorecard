@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/mysql';
+import { canEditScorecard, getScorecardRole } from '@/lib/scorecardAuth';
 import {
     assignments,
     assignmentAssignees,
@@ -59,8 +60,12 @@ async function loadAssignments(ids?: string[]) {
     });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const data = await loadAssignments();
         return NextResponse.json(data);
     } catch (error) {
@@ -71,11 +76,18 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const kpiId = body?.kpiId as string;
         if (!kpiId) return badRequest('kpiId is required');
         const sectionId = body?.sectionId ?? null;
         const assigneeIds = Array.isArray(body?.assigneeIds) ? body.assigneeIds.filter(Boolean) : [];
+
+        const [kpiRow] = await db.select().from(kpis).where(eq(kpis.id, kpiId));
+        if (!kpiRow) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const id = crypto.randomUUID();
         const now = new Date();
@@ -113,9 +125,18 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
+
+        const [existing] = await db.select().from(assignments).where(eq(assignments.id, id));
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        const [kpiRow] = await db.select().from(kpis).where(eq(kpis.id, existing.kpiId));
+        if (!kpiRow) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const update = {
             sectionId: body?.sectionId ?? null,
@@ -148,9 +169,18 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const role = getScorecardRole(req);
         const body = await req.json();
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
+
+        const [existing] = await db.select().from(assignments).where(eq(assignments.id, id));
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        const [kpiRow] = await db.select().from(kpis).where(eq(kpis.id, existing.kpiId));
+        if (!kpiRow) return NextResponse.json({ error: 'KPI not found' }, { status: 404 });
+        if (!canEditScorecard(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         await db.transaction(async (tx) => {
             await tx.delete(assignmentAssignees).where(eq(assignmentAssignees.assignmentId, id));

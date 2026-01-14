@@ -2,18 +2,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { BannerConfig, Scorecard, KPI, Section } from "@/types";
-import { ParsedKPI } from "@/utils/csvParser";
+import { BannerConfig, Scorecard, KPI, Section, ScorecardRole } from "@/types";
 import { useScorecards } from "@/context/ScorecardContext";
 import KPITile from "./KPITile";
 import KPIForm from "./KPIForm";
-import CSVImport from "./CSVImport";
 import SectionManagementModal from "./SectionManagementModal";
 import AssignmentManager from "./AssignmentManager";
 import ManageBannersModal from "./ManageBannersModal";
 import {
   Plus,
-  Upload,
   BarChart3,
   Settings,
   ChevronDown,
@@ -34,6 +31,7 @@ import PageHeader from "./PageHeader";
 import Modal from "./Modal";
 import KPIVisibilityModal from "./KPIVisibilityModal";
 import { v4 as uuidv4 } from "uuid";
+import { fetchWithScorecardRole, getScorecardRole } from "@/utils/scorecardClient";
 
 interface ScorecardViewProps {
   scorecard: Scorecard;
@@ -70,8 +68,11 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     regenerateAssigneeToken,
     deleteAssigneeToken,
   } = useScorecards();
+  const [role, setRole] = useState<ScorecardRole>("update");
+  const canEdit = role === "edit";
+  const canUpdate = role === "edit" || role === "update";
+  const canViewLinks = canUpdate;
   const [showKPIForm, setShowKPIForm] = useState(false);
-  const [showCSVImport, setShowCSVImport] = useState(false);
   const [showSectionManagement, setShowSectionManagement] = useState(false);
   const [showAssignmentManager, setShowAssignmentManager] = useState(false);
   const [showMetricVisibility, setShowMetricVisibility] = useState(false);
@@ -114,13 +115,20 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     }
   }, [showLinksModal]);
 
+  useEffect(() => {
+    const stored = getScorecardRole();
+    if (stored) setRole(stored);
+  }, []);
+
 
   const handleAddKPI = async (kpiData: Omit<KPI, "id">) => {
+    if (!canEdit) return;
     await addKPI(scorecard.id, kpiData);
     setShowKPIForm(false);
   };
 
   const handleEditKPI = async (kpi: KPI) => {
+    if (!canUpdate) return;
     try {
       const response = await fetch(`/api/kpis/${kpi.id}`, { cache: "no-store" });
       if (response.ok) {
@@ -141,6 +149,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   };
 
   const handleUpdateKPI = async (kpiData: Omit<KPI, "id">) => {
+    if (!canUpdate) return;
     if (editingKPI) {
       await updateKPI(scorecard.id, editingKPI.id, kpiData);
       setShowKPIForm(false);
@@ -149,6 +158,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   };
 
   const handleDeleteKPI = (kpiId: string) => {
+    if (!canEdit) return;
     if (confirm("Are you sure you want to delete this KPI?")) {
       deleteKPI(scorecard.id, kpiId);
     }
@@ -157,98 +167,6 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   const handleCloseForm = () => {
     setShowKPIForm(false);
     setEditingKPI(undefined);
-  };
-
-  const handleCSVImport = async (kpis: ParsedKPI[]) => {
-    try {
-      // Extract unique section names from KPIs
-      const sectionNames = new Set<string>();
-      kpis.forEach((kpi) => {
-        if (kpi.sectionName) {
-          sectionNames.add(kpi.sectionName);
-        }
-      });
-
-      // Create sections that don't exist and build a name->id map
-      const sectionNameToId = new Map<string, string>();
-
-      // Add existing sections to the map
-      const existingSections = scorecard.sections || [];
-      existingSections.forEach((section) => {
-        sectionNameToId.set(section.name, section.id);
-      });
-
-      // Define colors for new sections (cycle through available colors)
-      const availableColors = [
-        "verdigris",
-        "tuscan-sun",
-        "sandy-brown",
-        "burnt-peach",
-        "charcoal-blue",
-      ];
-      let colorIndex = existingSections.length % availableColors.length;
-
-      // Prepare new sections
-      const newSections: Section[] = [];
-      for (const sectionName of sectionNames) {
-        if (!sectionNameToId.has(sectionName)) {
-          const newSectionId = generateId();
-          const newSection: Section = {
-            id: newSectionId,
-            name: sectionName,
-            color: availableColors[colorIndex],
-            order: existingSections.length + newSections.length,
-          };
-          newSections.push(newSection);
-          sectionNameToId.set(sectionName, newSectionId);
-          colorIndex = (colorIndex + 1) % availableColors.length;
-        }
-      }
-
-      // Batch update sections if needed
-      if (newSections.length > 0) {
-        const allSections = [...existingSections, ...newSections];
-        await updateScorecard(scorecard.id, { sections: allSections });
-        await refreshScorecards();
-      }
-
-      // Map KPIs to their sections and prepare for import
-      const kpisWithSections = kpis.map((kpi) => {
-        const { sectionName, ...kpiData } = kpi;
-        const sectionId = sectionName
-          ? sectionNameToId.get(sectionName)
-          : undefined;
-
-        return {
-          ...kpiData,
-          sectionId,
-          sectionName,
-        };
-      });
-
-      const response = await fetch("/api/kpis/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scorecardId: scorecard.id,
-          kpis: kpisWithSections,
-        }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to import CSV");
-      }
-
-      await refreshScorecards();
-      setShowCSVImport(false);
-    } catch (error) {
-      alert(
-        `Failed to import CSV: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-    }
   };
 
   const visibleKPIs = useMemo(
@@ -321,7 +239,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   const loadLinks = async () => {
     setLinksLoading(true);
     try {
-      const response = await fetch(`/api/scorecards/${scorecard.id}`);
+      const response = await fetchWithScorecardRole(`/api/scorecards/${scorecard.id}`);
       if (!response.ok) {
         throw new Error("Failed to load scorecard data");
       }
@@ -381,6 +299,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     identifier: string,
     email: string
   ) => {
+    if (!canEdit) return;
     const key = buildActionKey(type, identifier);
     setActionLoading(key, true);
     try {
@@ -398,6 +317,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     identifier: string,
     email: string
   ) => {
+    if (!canEdit) return;
     const key = buildActionKey(type, identifier);
     setActionLoading(key, true);
     try {
@@ -425,6 +345,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   };
 
   const handleSaveBanners = async (nextConfig: BannerConfig) => {
+    if (!canEdit) return;
     await updateScorecard(scorecard.id, { bannerConfig: nextConfig });
   };
 
@@ -437,95 +358,95 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         title={scorecard.name}
         subtitle={`${visibleKPIs.length} Visible Metrics`}
         rightContent={
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setShowManageDropdown(!showManageDropdown)}
-              className="btn btn-secondary btn-sm"
-            >
-              <Settings size={16} />
-              Manage Scorecard
-              <ChevronDown size={16} />
-            </button>
+          canEdit || canViewLinks ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowManageDropdown(!showManageDropdown)}
+                className="btn btn-secondary btn-sm"
+              >
+                <Settings size={16} />
+                Manage Scorecard
+                <ChevronDown size={16} />
+              </button>
 
-            {showManageDropdown && (
-              <div className="absolute right-0 mt-2 w-56 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-10 animate-fade-in">
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setShowManageDropdown(false);
-                      router.push(`/assignments?scorecard=${scorecard.id}`);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <User size={14} />
-                    Assignments
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowManageDropdown(false);
-                      setShowLinksModal(true);
-                      loadLinks();
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <Link2 size={14} />
-                    Links
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSectionManagement(true);
-                      setShowManageDropdown(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <Layout size={14} />
-                    Sections
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMetricVisibility(true);
-                      setShowManageDropdown(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <Eye size={14} />
-                    Metrics
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowManageBanners(true);
-                      setShowManageDropdown(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <Flag size={14} />
-                    Banners
-                  </button>
-                  <div className="border-t border-industrial-800 my-1"></div>
-                  <button
-                    onClick={() => {
-                      setShowCSVImport(true);
-                      setShowManageDropdown(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <Upload size={14} />
-                    Import CSV
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowKPIForm(true);
-                      setShowManageDropdown(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
-                  >
-                    <Plus size={14} />
-                    Add KPI
-                  </button>
+              {showManageDropdown && (
+                <div className="absolute right-0 mt-2 w-56 bg-industrial-900 border border-industrial-700 rounded-md shadow-lg z-10 animate-fade-in">
+                  <div className="py-1">
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          setShowManageDropdown(false);
+                          router.push(`/assignments?scorecard=${scorecard.id}`);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                      >
+                        <User size={14} />
+                        Assignments
+                      </button>
+                    )}
+                    {canViewLinks && (
+                      <button
+                        onClick={() => {
+                          setShowManageDropdown(false);
+                          setShowLinksModal(true);
+                          loadLinks();
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                      >
+                        <Link2 size={14} />
+                        Links
+                      </button>
+                    )}
+                    {canEdit && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setShowSectionManagement(true);
+                            setShowManageDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                        >
+                          <Layout size={14} />
+                          Sections
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowMetricVisibility(true);
+                            setShowManageDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                        >
+                          <Eye size={14} />
+                          Metrics
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowManageBanners(true);
+                            setShowManageDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                        >
+                          <Flag size={14} />
+                          Banners
+                        </button>
+                        <div className="border-t border-industrial-800 my-1"></div>
+                        <button
+                          onClick={() => {
+                            setShowKPIForm(true);
+                            setShowManageDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-industrial-200 hover:bg-industrial-800 flex items-center gap-2"
+                        >
+                          <Plus size={14} />
+                          Add KPI
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : null
         }
       />
 
@@ -584,6 +505,8 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
                         bannerConfig={scorecard.bannerConfig}
                         onEdit={() => handleEditKPI(kpi)}
                         onDelete={() => handleDeleteKPI(kpi.id)}
+                        canEdit={canEdit}
+                        canUpdate={canUpdate}
                       />
                     ))}
                   </div>
@@ -600,30 +523,26 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
               No Metrics Visible
             </h3>
             <p className="text-industrial-500 mb-8 max-w-md text-sm">
-              Add metrics manually, import data, or toggle existing metrics on
-              from Manage Scorecard &gt; Metrics to show them here.
+              {canEdit
+                ? "Add metrics manually, or toggle existing metrics on from Manage Scorecard > Metrics to show them here."
+                : "No metrics are visible yet. Check back after updates are published."}
             </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setShowCSVImport(true)}
-                className="btn btn-secondary"
-              >
-                <Upload size={16} />
-                Import Data
-              </button>
-              <button
-                onClick={() => setShowKPIForm(true)}
-                className="btn btn-primary"
-              >
-                <Plus size={16} />
-                Add KPI
-              </button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowKPIForm(true)}
+                  className="btn btn-primary"
+                >
+                  <Plus size={16} />
+                  Add KPI
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
 
-      {showKPIForm && (
+      {canUpdate && showKPIForm && (
         <KPIForm
           kpi={editingKPI}
           sections={scorecard.sections}
@@ -632,29 +551,21 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         />
       )}
 
-      {showCSVImport && (
-        <CSVImport
-          onImport={handleCSVImport}
-          onCancel={() => setShowCSVImport(false)}
-          existingKPIs={scorecard.kpis}
-        />
-      )}
-
-      {showSectionManagement && (
+      {canEdit && showSectionManagement && (
         <SectionManagementModal
           scorecard={scorecard}
           onClose={() => setShowSectionManagement(false)}
         />
       )}
 
-      {showMetricVisibility && (
+      {canEdit && showMetricVisibility && (
         <KPIVisibilityModal
           scorecard={scorecard}
           onClose={() => setShowMetricVisibility(false)}
         />
       )}
 
-      {showManageBanners && (
+      {canEdit && showManageBanners && (
         <ManageBannersModal
           bannerConfig={scorecard.bannerConfig}
           onClose={() => setShowManageBanners(false)}
@@ -662,14 +573,14 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
         />
       )}
 
-      {showAssignmentManager && (
+      {canEdit && showAssignmentManager && (
         <AssignmentManager
           scorecard={scorecard}
           onClose={() => setShowAssignmentManager(false)}
         />
       )}
 
-      {showLinksModal && (
+      {canViewLinks && showLinksModal && (
         <LinksModal
           onClose={() => setShowLinksModal(false)}
           sectionLinks={sectionLinks}
@@ -682,6 +593,7 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
           isActionLoading={isActionLoading}
           handleRegenerateLink={handleRegenerateLink}
           handleDeleteLink={handleDeleteLink}
+          canEdit={canEdit}
         />
       )}
     </div>
@@ -700,6 +612,7 @@ function LinksModal({
   isActionLoading,
   handleRegenerateLink,
   handleDeleteLink,
+  canEdit,
 }: {
   onClose: () => void;
   sectionLinks: SectionLinkRow[];
@@ -720,6 +633,7 @@ function LinksModal({
     identifier: string,
     email: string
   ) => Promise<void>;
+  canEdit: boolean;
 }) {
   return (
     <Modal
@@ -794,38 +708,44 @@ function LinksModal({
                         )}
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-xs btn-ghost"
-                            disabled={loading || actionLoading}
-                            onClick={() =>
-                              handleRegenerateLink(
-                                "section",
-                                link.key,
-                                link.email
-                              )
-                            }
-                            title="Generate section link"
-                          >
-                            {actionLoading ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <RefreshCcw size={12} />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
-                            disabled={loading || actionLoading || !link.token}
-                            onClick={() =>
-                              handleDeleteLink("section", link.key, link.email)
-                            }
-                            title="Remove section link"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-ghost"
+                              disabled={loading || actionLoading}
+                              onClick={() =>
+                                handleRegenerateLink(
+                                  "section",
+                                  link.key,
+                                  link.email
+                                )
+                              }
+                              title="Generate section link"
+                            >
+                              {actionLoading ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <RefreshCcw size={12} />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
+                              disabled={loading || actionLoading || !link.token}
+                              onClick={() =>
+                                handleDeleteLink(
+                                  "section",
+                                  link.key,
+                                  link.email
+                                )
+                              }
+                              title="Remove section link"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -920,42 +840,47 @@ function LinksModal({
                           )}
                         </td>
                         <td className="px-4 py-2 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              className="btn btn-xs btn-ghost"
-                              disabled={loading || actionLoading}
-                              onClick={() =>
-                                handleRegenerateLink(
-                                  "assignee",
-                                  row.email,
-                                  row.email
-                                )
-                              }
-                              title="Regenerate link"
-                            >
-                              {actionLoading ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <RefreshCcw size={12} />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
-                              disabled={loading || actionLoading || !row.token}
-                              onClick={() =>
-                                handleDeleteLink(
-                                  "assignee",
-                                  row.email,
-                                  row.email
-                                )
-                              }
-                              title="Remove link"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                          {canEdit && (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-ghost"
+                                disabled={loading || actionLoading}
+                                onClick={() =>
+                                  handleRegenerateLink(
+                                    "assignee",
+                                    row.email,
+                                    row.email
+                                  )
+                                }
+                                title="Regenerate link"
+                              >
+                                {actionLoading ? (
+                                  <Loader2
+                                    size={12}
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <RefreshCcw size={12} />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-ghost text-red-400 hover:text-red-300"
+                                disabled={loading || actionLoading || !row.token}
+                                onClick={() =>
+                                  handleDeleteLink(
+                                    "assignee",
+                                    row.email,
+                                    row.email
+                                  )
+                                }
+                                title="Remove link"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
