@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
                     name: kpiName,
                     kpiName,
                     subtitle: kpi.subtitle || null,
+                    bannerStatus: kpi.bannerStatus || null,
                     assignment: kpi.assignment || null,
                     visualizationType: kpi.visualizationType || (kpi.chartType ? 'chart' : 'number'),
                     chartType: kpi.chartType || null,

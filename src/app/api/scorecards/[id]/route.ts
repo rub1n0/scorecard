@@ -75,6 +75,7 @@ const buildScorecard = async (id: string) => {
             name: kpi.kpiName || kpi.name,
             kpiName: kpi.kpiName || kpi.name,
             subtitle: kpi.subtitle || undefined,
+            bannerStatus: kpi.bannerStatus || undefined,
             visualizationType: resolvedVisualizationType,
             chartType: kpi.chartType || undefined,
             reverseTrend: kpi.reverseTrend,
@@ -111,6 +112,7 @@ const buildScorecard = async (id: string) => {
         id: sc.id,
         name: sc.name,
         description: sc.description || '',
+        bannerConfig: sc.bannerConfig ?? null,
         kpis: kpisPayload,
         sections: sectionRows.map(s => ({
             id: s.id,
@@ -147,6 +149,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             const updateFields: Partial<typeof scorecards.$inferInsert> = { updatedAt: now };
             if (body?.name !== undefined) updateFields.name = body.name;
             if (body?.description !== undefined) updateFields.description = body.description;
+            if (body?.bannerConfig !== undefined) updateFields.bannerConfig = body.bannerConfig;
             await tx.update(scorecards).set(updateFields).where(eq(scorecards.id, id));
 
             // Replace sections if provided
@@ -200,6 +203,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                         name,
                         kpiName: kpi.kpiName || name,
                         subtitle: kpi.subtitle || null,
+                        bannerStatus: kpi.bannerStatus || null,
                         assignment: kpi.assignment || null,
                         visualizationType: resolvedVisualizationType,
                         chartType: kpi.chartType || null,

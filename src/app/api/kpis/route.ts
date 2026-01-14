@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
             name: kpiName,
             kpiName,
             subtitle: body?.subtitle || null,
+            bannerStatus: body?.bannerStatus || null,
             notes: body?.notes || null,
             commentTextSize: body?.commentTextSize || null,
             chartType: body?.chartType || null,

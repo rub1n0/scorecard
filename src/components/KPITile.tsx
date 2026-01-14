@@ -2,10 +2,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { KPI } from '@/types';
+import { BannerConfig, KPI } from '@/types';
 import { Edit2, Trash2, Link as LinkIcon, Check } from 'lucide-react';
 import { ChartVisualization, NumberVisualization, SankeyVisualization, TextVisualization } from './visualizations';
 import MarkdownContent from './MarkdownContent';
+import { getBannerPalette, normalizeBannerConfig } from '@/utils/bannerConfig';
 
 
 interface KPITileProps {
@@ -13,11 +14,15 @@ interface KPITileProps {
     onEdit: () => void;
     onDelete: () => void;
     isDragging?: boolean;
+    bannerConfig?: BannerConfig | null;
 }
 
-export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITileProps) {
+export default function KPITile({ kpi, onEdit, onDelete, isDragging, bannerConfig }: KPITileProps) {
     const hasNotes = Boolean(kpi.notes);
     const useSubtitleStyleOnName = !kpi.subtitle && kpi.chartSettings?.useSubtitleStyleOnName;
+    const resolvedBannerConfig = normalizeBannerConfig(bannerConfig);
+    const banner = kpi.bannerStatus ? resolvedBannerConfig[kpi.bannerStatus] : null;
+    const bannerPalette = banner ? getBannerPalette(banner.palette) : null;
 
     const renderVisualization = () => {
         if (isDragging) {
@@ -122,7 +127,19 @@ export default function KPITile({ kpi, onEdit, onDelete, isDragging }: KPITilePr
     };
 
     return (
-        <div className={`glass-card p-6 h-full group min-h-[320px] md:min-h-[360px] ${hasNotes ? 'md:col-span-2' : ''}`}>
+        <div className={`glass-card p-6 h-full group min-h-[320px] md:min-h-[360px] ${hasNotes ? 'md:col-span-2' : ''} relative overflow-hidden`}>
+            {banner && bannerPalette && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                    <div className="absolute inset-0 bg-industrial-950/65 backdrop-blur-[1px]" />
+                    <div className="relative w-full px-6">
+                        <div
+                            className={`w-full border-y py-4 text-center text-2xl font-mono font-semibold uppercase tracking-[0.35em] ${bannerPalette.className}`}
+                        >
+                            {banner.label}
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className={`h-full flex ${hasNotes ? 'flex-col md:flex-row gap-6' : 'flex-col'}`}>
                 <div className={`${hasNotes ? 'md:w-1/2' : 'w-full'} flex flex-col flex-1`}>
                     {/* Header */}

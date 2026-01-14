@@ -84,10 +84,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
         const hasChartType = Object.prototype.hasOwnProperty.call(body || {}, 'chartType');
         const hasSubtitle = Object.prototype.hasOwnProperty.call(body || {}, 'subtitle');
+        const hasBannerStatus = Object.prototype.hasOwnProperty.call(body || {}, 'bannerStatus');
         const normalizedSubtitle =
             typeof body?.subtitle === 'string'
                 ? body.subtitle.trim() || null
                 : body?.subtitle ?? null;
+        const normalizedBannerStatus =
+            typeof body?.bannerStatus === 'string'
+                ? body.bannerStatus.trim() || null
+                : body?.bannerStatus ?? null;
         const chartTypeCandidate = hasChartType ? body?.chartType : existing.chartType ?? null;
         const rawVisualizationType = body?.visualizationType ?? existing.visualizationType ?? null;
         const isNonChartVisualization = rawVisualizationType === 'number' || rawVisualizationType === 'text';
@@ -107,6 +112,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             chartSettings: body?.chartSettings ?? existing.chartSettings ?? undefined,
             sankeySettings: body?.sankeySettings ?? existing.sankeySettings ?? undefined,
             subtitle: hasSubtitle ? normalizedSubtitle : undefined,
+            bannerStatus: hasBannerStatus ? normalizedBannerStatus : existing.bannerStatus ?? undefined,
             notes: body?.notes ?? undefined,
             commentTextSize: body?.commentTextSize ?? undefined,
             chartType: shouldClearChartType ? null : (hasChartType ? (finalChartType ?? null) : undefined),

@@ -1,5 +1,16 @@
 export type VisualizationType = 'chart' | 'number' | 'text' | 'sankey';
 export type CommentTextSize = 'extra-small' | 'small' | 'medium' | 'large' | 'extra-large';
+export type KPIBannerStatus = 'under_construction' | 'coming_soon' | 'retired';
+export type BannerPalette =
+    | 'accent'
+    | 'sky-surge'
+    | 'verdigris'
+    | 'tuscan-sun'
+    | 'sandy-brown'
+    | 'burnt-peach'
+    | 'charcoal-blue'
+    | 'industrial';
+export type BannerConfig = Record<KPIBannerStatus, { label: string; palette: BannerPalette }>;
 
 export type ChartType =
     | 'line'
@@ -62,6 +73,7 @@ export interface KPI {
     name: string;
     kpiName?: string; // normalized KPI name stored in the database
     subtitle?: string | null; // Optional subtitle displayed under the name
+    bannerStatus?: KPIBannerStatus | null; // Optional banner status overlay on the tile
     assignment?: string; // Optional assignment/owner string
     value: Record<string, number | string>; // Stores key:value pairs. Single values as {"0": value}, categories as {category: value}
     date: string;
@@ -105,6 +117,7 @@ export interface Scorecard {
     slug?: string;
     name: string;
     description?: string;
+    bannerConfig?: BannerConfig | null;
     kpis: KPI[];
     sections?: Section[]; // Defined sections for this scorecard
     assignees?: Record<string, string | null>; // email -> token

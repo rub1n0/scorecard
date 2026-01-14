@@ -87,6 +87,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
             name: kpi.kpiName || kpi.name,
             kpiName: kpi.kpiName || kpi.name,
             subtitle: kpi.subtitle || undefined,
+            bannerStatus: kpi.bannerStatus || undefined,
             visualizationType: resolvedVisualizationType,
             chartType: kpi.chartType || undefined,
             reverseTrend: kpi.reverseTrend,
@@ -124,6 +125,7 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect) => {
         id: sc.id,
         name: sc.name,
         description: sc.description || '',
+        bannerConfig: sc.bannerConfig ?? null,
         kpis: kpisPayload,
         sections: sectionRows.map(s => ({
             id: s.id,
@@ -152,8 +154,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const name = (body?.name || '').trim();
-        const description = body?.description ?? '';
+    const name = (body?.name || '').trim();
+    const description = body?.description ?? '';
+    const bannerConfig = body?.bannerConfig ?? null;
         if (!name) return badRequest('name is required');
 
         const id = crypto.randomUUID();
@@ -162,6 +165,7 @@ export async function POST(req: NextRequest) {
             id,
             name,
             description,
+            bannerConfig,
             createdAt: now,
             updatedAt: now,
         });
@@ -170,6 +174,7 @@ export async function POST(req: NextRequest) {
             id,
             name,
             description,
+            bannerConfig,
             createdAt: now,
             updatedAt: now,
         });
@@ -186,10 +191,11 @@ export async function PUT(req: NextRequest) {
         const id = body?.id as string;
         if (!id) return badRequest('id is required');
 
-        const updates: any = {};
-        if (body?.name !== undefined) updates.name = body.name;
-        if (body?.description !== undefined) updates.description = body.description;
-        updates.updatedAt = new Date();
+    const updates: any = {};
+    if (body?.name !== undefined) updates.name = body.name;
+    if (body?.description !== undefined) updates.description = body.description;
+    if (body?.bannerConfig !== undefined) updates.bannerConfig = body.bannerConfig;
+    updates.updatedAt = new Date();
 
         await db.transaction(async (tx) => {
             if (Object.keys(updates).length) {
@@ -244,6 +250,7 @@ export async function PUT(req: NextRequest) {
                         name,
                         kpiName: kpi.kpiName || name,
                         subtitle: kpi.subtitle || null,
+                        bannerStatus: kpi.bannerStatus || null,
                         assignment: kpi.assignment || null,
                         visualizationType: resolvedVisualizationType,
                         chartType: kpi.chartType || null,

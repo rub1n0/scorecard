@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useMemo, useState } from 'react';
-import { KPI, VisualizationType, ChartType, DataPoint, Section, CommentTextSize } from '@/types';
+import { KPI, VisualizationType, ChartType, DataPoint, Section, CommentTextSize, KPIBannerStatus } from '@/types';
 import Modal from './Modal';
 import ColorPicker from './ColorPicker';
 import { chartTypeConfig, getChartDefinition } from './visualizations/chartConfig';
@@ -177,6 +177,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
 
     const [kpiName, setKpiName] = useState(kpi?.kpiName ?? kpi?.name ?? '');
     const [subtitle, setSubtitle] = useState(kpi?.subtitle ?? '');
+    const [bannerStatus, setBannerStatus] = useState<KPIBannerStatus | ''>(kpi?.bannerStatus ?? '');
     const [sectionId, setSectionId] = useState<string>(kpi?.sectionId || '');
     const [visible, setVisible] = useState(kpi?.visible !== false);
     const [prefix, setPrefix] = useState(kpi?.prefix ?? '');
@@ -300,6 +301,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const buildDirtySnapshot = () => ({
         kpiName,
         subtitle,
+        bannerStatus,
         sectionId,
         visible,
         prefix,
@@ -346,6 +348,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         [
             kpiName,
             subtitle,
+            bannerStatus,
             sectionId,
             visible,
             prefix,
@@ -908,6 +911,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             name: kpiName,
             kpiName: kpiName,
             subtitle: normalizedSubtitle === '' ? null : normalizedSubtitle,
+            bannerStatus: bannerStatus || null,
             value: valueRecord,
             date: lastUpdated,
             notes: notes ?? '',
@@ -976,14 +980,25 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
             onClose={onCancel}
             title={kpi ? 'EDIT KPI' : 'NEW KPI'}
             headerActions={
-                <button
-                    type="submit"
-                    form={formId}
-                    className={`btn btn-secondary h-10 ${isDirty ? 'bg-verdigris-600 text-industrial-950 border-verdigris-500 hover:bg-verdigris-500 hover:border-verdigris-400' : ''}`}
-                    disabled={isSaving}
-                >
-                    {isSaving ? 'Saving...' : kpi ? 'Update KPI' : 'Create KPI'}
-                </button>
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-industrial-200">
+                        <input
+                            type="checkbox"
+                            checked={visible}
+                            onChange={(e) => setVisible(e.target.checked)}
+                            className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                        />
+                        <span className="text-sm text-industrial-200">Visible</span>
+                    </label>
+                    <button
+                        type="submit"
+                        form={formId}
+                        className={`btn btn-secondary h-10 ${isDirty ? 'bg-verdigris-600 text-industrial-950 border-verdigris-500 hover:bg-verdigris-500 hover:border-verdigris-400' : ''}`}
+                        disabled={isSaving}
+                    >
+                        {isSaving ? 'Saving...' : kpi ? 'Update KPI' : 'Create KPI'}
+                    </button>
+                </div>
             }
             className="kpi-form-modal"
         >
@@ -1107,15 +1122,19 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                             />
                         </div>
                     </div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={visible}
-                            onChange={(e) => setVisible(e.target.checked)}
-                            className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
-                        />
-                        <span className="text-sm text-industrial-200 whitespace-nowrap">Visible on Scorecard</span>
-                    </label>
+                    <div>
+                        <label className="form-label">Tile Banner</label>
+                        <select
+                            className="select"
+                            value={bannerStatus}
+                            onChange={(e) => setBannerStatus(e.target.value as KPIBannerStatus | '')}
+                        >
+                            <option value="">None</option>
+                            <option value="under_construction">Under Construction</option>
+                            <option value="coming_soon">Coming Soon</option>
+                            <option value="retired">Retired</option>
+                        </select>
+                    </div>
                 </div>
 
 
@@ -1127,7 +1146,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                     <div className="flex flex-wrap items-center gap-3 mb-3">
                         <label className="text-xs uppercase tracking-wide text-industrial-500">Comment text size</label>
                         <select
-                            className="select text-xs h-9 w-40"
+                            className="select w-40"
                             value={commentTextSize}
                             onChange={(e) => setCommentTextSize(e.target.value as CommentTextSize)}
                         >
