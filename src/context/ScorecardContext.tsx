@@ -17,7 +17,7 @@ const slugify = (name: string) =>
         .replace(/-{2,}/g, '-');
 const buildSlug = (name: string, id: string) => {
     const base = slugify(name || 'scorecard');
-    return `${base}-${id.slice(0, 8)}`;
+    return base || id;
 };
 
 interface ScorecardContextType {

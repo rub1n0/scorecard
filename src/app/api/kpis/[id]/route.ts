@@ -4,6 +4,7 @@ import { db } from '@/lib/mysql';
 import { canEditScorecard, canUpdateKpiWithToken, canUpdateScorecard, canViewLinks, getKpiUpdateToken, getScorecardRole } from '@/lib/scorecardAuth';
 import { kpiValues, kpis, metrics, scorecards, sections } from '../../../../../db/schema';
 import { buildChartSettings, extractChartSettingColumns, mapMetricValue, normalizeDateOnly, resolveVisualizationType } from '@/utils/metricNormalization';
+import { ChartSettings } from '@/types';
 import { buildPersistedMetrics, IncomingMetric } from '@/utils/metricPersistence';
 
 const buildKpiResponse = async (id: string) => {
@@ -82,7 +83,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         const role = getScorecardRole(_req);
         const payload = await buildKpiResponse(id);
         if (payload && !canViewLinks(role)) {
-            payload.updateToken = undefined;
+            payload.updateToken = null;
         }
         if (!payload) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json(payload);
@@ -106,7 +107,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (!canUpdate) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
         const body = canUpdateRole ? rawBody : sanitizeTokenUpdates(rawBody as Record<string, unknown>);
-        const chartSettings = extractChartSettingColumns((body as { chartSettings?: unknown })?.chartSettings);
+        const chartSettings = extractChartSettingColumns((body as { chartSettings?: ChartSettings | null })?.chartSettings);
 
         const hasTargetValue = Object.prototype.hasOwnProperty.call(body || {}, 'targetValue');
         const hasTargetColor = Object.prototype.hasOwnProperty.call(body || {}, 'targetColor');
