@@ -19,6 +19,7 @@
     "apexsankey": "^1.2.5",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
+    "html-to-image": "^1.11.11",
     "lucide-react": "^0.554.0",
     "mysql2": "^3.11.3",
     "next": "^16.0.8",

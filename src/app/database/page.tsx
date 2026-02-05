@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { Database, Layers, ListChecks, RefreshCw, Table2, Users } from 'lucide-react';
 import { KPI, Scorecard, ScorecardRole } from '@/types';
@@ -58,7 +58,7 @@ export default function DatabasePage() {
         return canEdit;
     };
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         if (!canEdit) {
             setLoading(false);
             return;
@@ -81,7 +81,7 @@ export default function DatabasePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [canEdit]);
 
     useEffect(() => {
         const stored = getScorecardRole();
@@ -90,7 +90,7 @@ export default function DatabasePage() {
 
     useEffect(() => {
         void loadData();
-    }, [canEdit]);
+    }, [loadData]);
 
     const request = async (url: string, init?: RequestInit) => {
         const res = await fetchWithScorecardRole(url, {

@@ -170,7 +170,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             if (Array.isArray(body?.sections)) {
                 await tx.delete(sections).where(eq(sections.scorecardId, id));
                 const sectionValues = body.sections.map((s: any, idx: number) => ({
-                    id: s.id,
+                    id: s.id || crypto.randomUUID(),
                     scorecardId: id,
                     name: s.name || '',
                     displayOrder: s.order ?? idx,

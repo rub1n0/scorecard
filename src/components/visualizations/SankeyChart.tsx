@@ -269,8 +269,8 @@ export default function SankeyChart({
               className="flex items-center gap-2 bg-industrial-900/60 px-2 py-1 rounded"
             >
               <span
-                className="h-3 w-3 rounded-sm"
-                style={{ backgroundColor: node.color }}
+                className="h-3 w-3 rounded-sm inline-block shrink-0"
+                style={{ backgroundColor: node.color, background: node.color }}
               />
               <span className="text-industrial-100">{node.title}</span>
             </div>

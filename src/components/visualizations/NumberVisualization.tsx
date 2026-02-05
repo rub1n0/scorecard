@@ -18,6 +18,7 @@ type NumberVisualizationProps = {
   chartSettings?: ChartSettings;
   dataPoints?: Metric[];
   style?: React.CSSProperties;
+  chartId?: string;
 };
 
 const normalizeSparklineData = (dataPoints?: Metric[]) => {
@@ -61,6 +62,7 @@ export default function NumberVisualization({
   chartSettings,
   dataPoints,
   style,
+  chartId,
 }: NumberVisualizationProps) {
   const isPositive = trendValue >= 0;
   const isGood = reverseTrend ? !isPositive : isPositive;
@@ -161,22 +163,61 @@ export default function NumberVisualization({
       </div>
 
       {sparklineData.length > 0 && (
-        <div className="-mx-2 mt-2">
+        <div className="-mx-2 mt-2" data-chart-id={chartId}>
           <ChartErrorBoundary>
             <ApexChart
               options={{
                 chart: {
+                  id: chartId,
                   type: "line",
                   sparkline: { enabled: true },
                   animations: { enabled: true, speed: 800 },
+                  toolbar: { show: false },
                 },
                 xaxis: {
                   type: "datetime",
+                  labels: { show: false },
+                  axisBorder: { show: false },
+                  axisTicks: { show: false },
+                  crosshairs: { show: false },
+                  tooltip: { enabled: false },
+                },
+                yaxis: {
+                  show: false,
+                  labels: { show: false },
+                  axisBorder: { show: false },
+                  axisTicks: { show: false },
+                  crosshairs: { show: false },
+                },
+                grid: {
+                  show: false,
+                  xaxis: { lines: { show: false } },
+                  yaxis: { lines: { show: false } },
+                  borderColor: 'transparent',
+                  strokeDashArray: 0,
+                  padding: {
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                  },
+                },
+                dataLabels: {
+                  enabled: false,
+                },
+                markers: {
+                  size: 0,
+                },
+                legend: {
+                  show: false,
                 },
                 stroke: {
                   curve: "smooth",
                   width: chartSettings?.strokeWidth ?? 2,
                   colors: [sparkColor],
+                },
+                tooltip: {
+                  enabled: false,
                 },
                 colors: [sparkColor],
                 tooltip: {

@@ -16,7 +16,10 @@ export default function Dashboard() {
     const [showNavMenu, setShowNavMenu] = useState(false);
     const navMenuRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
-    const [currentRole, setCurrentRole] = useState<ScorecardRole>('update');
+    const [currentRole, setCurrentRole] = useState<ScorecardRole>(() => {
+        if (typeof window === 'undefined') return 'update';
+        return getScorecardRole() ?? 'update';
+    });
     const canEdit = currentRole === 'edit';
 
     useEffect(() => {
@@ -27,12 +30,6 @@ export default function Dashboard() {
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const stored = getScorecardRole();
-        if (stored) setCurrentRole(stored);
     }, []);
 
     const handleRoleChange = (nextRole: ScorecardRole) => {

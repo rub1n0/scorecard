@@ -29,6 +29,17 @@ export default function KPITile({
     canUpdate = true,
 }: KPITileProps) {
     const hasNotes = Boolean(kpi.notes);
+    const isSankey = kpi.visualizationType === 'sankey' || kpi.chartType === 'sankey';
+    const isDoubleWide = isSankey && Boolean(kpi.chartSettings?.doubleWide);
+    const notesBelow = isDoubleWide;
+    const redrawKey = [
+        kpi.id,
+        kpi.updatedAt || kpi.date || '',
+        kpi.visualizationType || '',
+        kpi.chartType || '',
+        kpi.dataPoints?.length ?? 0,
+        isDoubleWide ? 'wide' : 'normal',
+    ].join(':');
     const useSubtitleStyleOnName = !kpi.subtitle && kpi.chartSettings?.useSubtitleStyleOnName;
     const resolvedBannerConfig = normalizeBannerConfig(bannerConfig);
     const banner = kpi.bannerStatus ? resolvedBannerConfig[kpi.bannerStatus] : null;
@@ -46,6 +57,7 @@ export default function KPITile({
         if (kpi.visualizationType === 'sankey' || kpi.chartType === 'sankey') {
             return (
                 <SankeyVisualization
+                    key={redrawKey}
                     value={kpi.value}
                     settings={kpi.sankeySettings}
                     height={320}
@@ -79,6 +91,7 @@ export default function KPITile({
 
             return (
                 <NumberVisualization
+                    key={redrawKey}
                     name={kpi.name}
                     value={numValue}
                     trendValue={trend}
@@ -98,6 +111,7 @@ export default function KPITile({
             const chartType = kpi.chartType || 'line';
             return (
                 <ChartVisualization
+                    key={redrawKey}
                     name={kpi.name}
                     chartType={chartType}
                     dataPoints={kpi.dataPoints}
@@ -137,7 +151,7 @@ export default function KPITile({
     };
 
     return (
-        <div className={`glass-card p-6 h-full group min-h-[320px] md:min-h-[360px] ${hasNotes ? 'md:col-span-2' : ''} relative overflow-hidden`}>
+        <div className={`glass-card p-6 h-full group min-h-[320px] md:min-h-[360px] ${isDoubleWide || (hasNotes && !notesBelow) ? 'md:col-span-2' : ''} relative overflow-hidden`}>
             {banner && bannerPalette && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
                     <div className="absolute inset-0 bg-industrial-950/65 backdrop-blur-[1px]" />
@@ -150,8 +164,8 @@ export default function KPITile({
                     </div>
                 </div>
             )}
-            <div className={`h-full flex ${hasNotes ? 'flex-col md:flex-row gap-6' : 'flex-col'}`}>
-                <div className={`${hasNotes ? 'md:w-1/2' : 'w-full'} flex flex-col flex-1`}>
+            <div className={`h-full flex ${hasNotes && !notesBelow ? 'flex-col md:flex-row gap-6' : 'flex-col gap-6'}`}>
+                <div className={`${hasNotes && !notesBelow ? 'md:w-1/2' : 'w-full'} flex flex-col flex-1`}>
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
@@ -212,7 +226,7 @@ export default function KPITile({
 
                 {/* Notes */}
                 {hasNotes && (
-                    <div className="md:w-1/2 flex flex-col flex-1 border-t md:border-t-0 md:border-l border-industrial-800 pt-4 md:pt-0 md:pl-6">
+                    <div className={notesBelow ? 'w-full border-t border-industrial-800 pt-4' : 'md:w-1/2 flex flex-col flex-1 border-t md:border-t-0 md:border-l border-industrial-800 pt-4 md:pt-0 md:pl-6'}>
                         <span className="text-xs uppercase tracking-wide text-industrial-500 mb-2">Notes</span>
                         <MarkdownContent content={kpi.notes || ''} size={kpi.commentTextSize ?? 'small'} />
                     </div>

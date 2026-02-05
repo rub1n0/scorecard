@@ -59,6 +59,7 @@ export interface ChartSettings {
     secondarySeriesType?: 'line' | 'area';
     useSubtitleStyleOnName?: boolean;
     syncAxisScales?: boolean;
+    doubleWide?: boolean;
 }
 
 export interface Section {

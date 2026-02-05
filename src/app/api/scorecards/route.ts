@@ -149,11 +149,167 @@ const buildScorecard = async (sc: typeof scorecards.$inferSelect, role: ReturnTy
     };
 };
 
+const buildScorecardsBatch = async (scorecardRows: Array<typeof scorecards.$inferSelect>, role: ReturnType<typeof getScorecardRole>) => {
+    if (!scorecardRows.length) return [];
+    const permissions = {
+        role: role ?? 'update',
+        canEdit: canEditScorecard(role),
+        canUpdate: canUpdateScorecard(role),
+        canViewLinks: canViewLinks(role),
+    };
+    const allowLinkTokens = permissions.canViewLinks;
+    const scorecardIds = scorecardRows.map(sc => sc.id);
+
+    const sectionRows = await db
+        .select()
+        .from(sections)
+        .where(inArray(sections.scorecardId, scorecardIds))
+        .orderBy(asc(sections.scorecardId), asc(sections.displayOrder));
+
+    const kpiRows = await db
+        .select()
+        .from(kpis)
+        .where(inArray(kpis.scorecardId, scorecardIds));
+    const kpiIds = kpiRows.map(k => k.id);
+
+    const metricRows = kpiIds.length
+        ? await db.select().from(metrics).where(inArray(metrics.kpiId, kpiIds)).orderBy(asc(metrics.date))
+        : [];
+
+    const assignmentRows = kpiIds.length
+        ? await db
+            .select({
+                assignment: assignments,
+                assignmentId: assignments.id,
+                kpiId: assignments.kpiId,
+                user: users,
+            })
+            .from(assignments)
+            .leftJoin(assignmentAssignees, eq(assignments.id, assignmentAssignees.assignmentId))
+            .leftJoin(users, eq(assignmentAssignees.userId, users.id))
+            .where(inArray(assignments.kpiId, kpiIds))
+        : [];
+
+    const tokenRows = await db
+        .select()
+        .from(scorecardAssigneeTokens)
+        .where(inArray(scorecardAssigneeTokens.scorecardId, scorecardIds));
+
+    const sectionsByScorecard = new Map<string, typeof sectionRows>();
+    sectionRows.forEach(section => {
+        const list = sectionsByScorecard.get(section.scorecardId) || [];
+        list.push(section);
+        sectionsByScorecard.set(section.scorecardId, list);
+    });
+
+    const kpisByScorecard = new Map<string, typeof kpiRows>();
+    kpiRows.forEach(kpi => {
+        const list = kpisByScorecard.get(kpi.scorecardId) || [];
+        list.push(kpi);
+        kpisByScorecard.set(kpi.scorecardId, list);
+    });
+
+    const metricsByKpi = new Map<string, typeof metricRows>();
+    metricRows.forEach(mt => {
+        const list = metricsByKpi.get(mt.kpiId) || [];
+        list.push(mt);
+        metricsByKpi.set(mt.kpiId, list);
+    });
+
+    const assigneesByKpi = new Map<string, string[]>();
+    assignmentRows.forEach(row => {
+        const key = row.kpiId;
+        const list = assigneesByKpi.get(key) || [];
+        if (row.user) {
+            list.push(row.user.email || row.user.name || '');
+        }
+        assigneesByKpi.set(key, list.filter(Boolean));
+    });
+
+    const tokensByScorecard = new Map<string, Record<string, string>>();
+    tokenRows.forEach(token => {
+        const entry = tokensByScorecard.get(token.scorecardId) || {};
+        entry[token.email] = token.token;
+        tokensByScorecard.set(token.scorecardId, entry);
+    });
+
+    return scorecardRows.map((sc) => {
+        const sectionList = sectionsByScorecard.get(sc.id) || [];
+        const kpiList = kpisByScorecard.get(sc.id) || [];
+        const assigneesMap = allowLinkTokens ? (tokensByScorecard.get(sc.id) || {}) : {};
+
+        const kpisPayload = kpiList.map(kpi => {
+            const chartSettings = buildChartSettings(kpi);
+            const resolvedVisualizationType = resolveVisualizationType(kpi.visualizationType, kpi.chartType);
+            const metricEntries = metricsByKpi.get(kpi.id) || [];
+            const mappedMetrics = metricEntries.map(dp => mapMetricValue(kpi.chartType, dp.date, dp.value, dp.color));
+            const computedTrend = computeTrendFromMetrics(mappedMetrics);
+
+            return {
+                id: kpi.id,
+                name: kpi.kpiName || kpi.name,
+                kpiName: kpi.kpiName || kpi.name,
+                subtitle: kpi.subtitle || undefined,
+                bannerStatus: kpi.bannerStatus || undefined,
+                visualizationType: resolvedVisualizationType,
+                chartType: kpi.chartType || undefined,
+                reverseTrend: kpi.reverseTrend,
+                updateToken: allowLinkTokens ? (kpi.updateToken || undefined) : undefined,
+                assignment: kpi.assignment || undefined,
+                date: kpi.date ? new Date(kpi.date).toISOString() : new Date().toISOString(),
+                updatedAt: kpi.updatedAt ? new Date(kpi.updatedAt).toISOString() : undefined,
+                prefix: kpi.prefix || undefined,
+                suffix: kpi.suffix || undefined,
+                trendValue: computedTrend ?? kpi.trendValue ?? undefined,
+                value: (kpi.valueJson as any) || {},
+                targetValue: (kpi as any).targetValue ?? undefined,
+                targetColor: (kpi as any).targetColor ?? undefined,
+                notes: kpi.notes || undefined,
+                commentTextSize: (kpi as any).commentTextSize || undefined,
+                chartSettings,
+                sankeySettings: (kpi as any).sankeySettings || undefined,
+                strokeWidth: kpi.strokeWidth ?? chartSettings.strokeWidth,
+                strokeColor: kpi.strokeColor ?? chartSettings.strokeColor,
+                strokeOpacity: kpi.strokeOpacity ?? chartSettings.strokeOpacity,
+                showLegend: typeof kpi.showLegend === 'number' ? Boolean(kpi.showLegend) : kpi.showLegend ?? chartSettings.showLegend,
+                showGridLines: chartSettings.showGridLines ?? true,
+                showDataLabels: typeof kpi.showDataLabels === 'number' ? Boolean(kpi.showDataLabels) : kpi.showDataLabels ?? chartSettings.showDataLabels,
+                order: kpi.order ?? undefined,
+                lastUpdatedBy: kpi.lastUpdatedBy || undefined,
+                sectionId: kpi.sectionId || undefined,
+                visible: kpi.visible ?? true,
+                assignees: assigneesByKpi.get(kpi.id) || [],
+                metrics: mappedMetrics,
+                dataPoints: mappedMetrics,
+            };
+        });
+
+        return {
+            id: sc.id,
+            name: sc.name,
+            description: sc.description || '',
+            bannerConfig: sc.bannerConfig ?? null,
+            kpis: kpisPayload,
+            sections: sectionList.map(s => ({
+                id: s.id,
+                name: s.name || '',
+                color: s.color || 'charcoal-blue',
+                order: s.displayOrder,
+                opacity: s.opacity ?? 1,
+            })),
+            assignees: assigneesMap,
+            permissions,
+            createdAt: sc.createdAt?.toISOString?.() || '',
+            updatedAt: sc.updatedAt?.toISOString?.() || '',
+        };
+    });
+};
+
 export async function GET(req: NextRequest) {
     try {
         const role = getScorecardRole(req);
         const rows = await db.select().from(scorecards);
-        const result = await Promise.all(rows.map(sc => buildScorecard(sc, role)));
+        const result = await buildScorecardsBatch(rows, role);
         return NextResponse.json(result);
     } catch (error) {
         console.error('[scorecards][GET]', error);

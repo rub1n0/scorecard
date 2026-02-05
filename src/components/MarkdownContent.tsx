@@ -93,7 +93,12 @@ export default function MarkdownContent({
                     strong: (props) => <strong className="font-semibold text-white" {...props} />,
                     em: (props) => <em className="text-industrial-100 italic" {...props} />,
                     img: (props) => (
-                        <img className="rounded-md border border-industrial-800 my-3" {...props} />
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            className="rounded-md border border-industrial-800 my-3"
+                            alt={props.alt ?? ''}
+                            {...props}
+                        />
                     ),
                 }}
             >

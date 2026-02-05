@@ -34,7 +34,7 @@ export const buildPersistedMetrics = (
   chartType: string | null | undefined,
   incomingMetrics: IncomingMetric[] | null
 ): MetricPersistResult => {
-  if (incomingMetrics === null) return { points: [] };
+  if (!incomingMetrics || incomingMetrics.length === 0) return { points: [] };
 
   const isMulti = chartType ? isMultiValueChartType(chartType) : false;
   let rows: PersistedMetricRow[] = [];

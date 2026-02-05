@@ -16,6 +16,7 @@ type ChartVisualizationProps = {
   chartType: ChartType;
   dataPoints?: Metric[];
   chartSettings?: ChartSettings;
+  chartId?: string;
 };
 
 const defaultPalette = ["#5094af", "#36c9b8", "#dea821", "#ee7411", "#e0451f"];
@@ -224,6 +225,7 @@ const buildChartOptions = (
   definition: ChartDefinition,
   chartSettings: ChartSettings | undefined,
   chartData: Exclude<NormalizedChartData, null>,
+  chartId?: string,
   labels?: { primary: string; secondary?: string }
 ) => {
   const strokeOptions: ApexOptions["stroke"] = {
@@ -272,6 +274,7 @@ const buildChartOptions = (
 
   const options: ApexOptions = {
     chart: {
+      id: chartId,
       type: apexType,
       background: "transparent",
       foreColor: "#71717a",
@@ -677,6 +680,7 @@ export default function ChartVisualization({
   chartType,
   dataPoints = [],
   chartSettings,
+  chartId,
 }: ChartVisualizationProps) {
   const definition = getChartDefinition(chartType);
   const primaryLabel =
@@ -720,6 +724,7 @@ export default function ChartVisualization({
     definition,
     chartSettings,
     chartData,
+    chartId,
     { primary: primaryLabel, secondary: secondaryLabel }
   );
 
@@ -761,7 +766,7 @@ export default function ChartVisualization({
   const height = definition.height;
 
   return (
-    <div className="kpi-chart-display -ml-2">
+    <div className="kpi-chart-display -ml-2" data-chart-id={chartId}>
       <ChartErrorBoundary>
         <ApexChart
           options={options}

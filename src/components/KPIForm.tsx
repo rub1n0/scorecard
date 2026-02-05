@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { KPI, VisualizationType, ChartType, DataPoint, Section, CommentTextSize, KPIBannerStatus } from '@/types';
 import Modal from './Modal';
 import ColorPicker from './ColorPicker';
@@ -247,6 +247,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const [syncAxisScales, setSyncAxisScales] = useState(
         kpi?.chartSettings?.syncAxisScales ?? false
     );
+    const [doubleWide, setDoubleWide] = useState(
+        kpi?.chartSettings?.doubleWide ?? false
+    );
 
     const [dataPoints, setDataPoints] = useState<DataPoint[]>(() => {
         const basePoints = hydrateDataPoints(kpi);
@@ -298,7 +301,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
     const secondaryValueLabel = isMultiAxisLine ? secondaryLabel : chartDefinition?.secondaryValueLabel ?? 'Value B';
     const isNewMetricDirty = metricValue.trim() !== '' || metricSecondValue.trim() !== '';
 
-    const buildDirtySnapshot = () => ({
+    const buildDirtySnapshot = useCallback(() => ({
         kpiName,
         subtitle,
         bannerStatus,
@@ -330,6 +333,7 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         showGridlines,
         showDataLabels,
         syncAxisScales,
+        doubleWide,
         dataPoints,
         metricDate,
         metricLabel,
@@ -341,54 +345,55 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         showSankeyLegend,
         showSankeyLabels,
         commentTextSize,
-    });
+    }), [
+        kpiName,
+        subtitle,
+        bannerStatus,
+        sectionId,
+        visible,
+        prefix,
+        suffix,
+        prefixOpacity,
+        suffixOpacity,
+        lastUpdated,
+        notes,
+        textValue,
+        visualizationSelection,
+        chartType,
+        reverseTrend,
+        targetValue,
+        targetColor,
+        strokeWidth,
+        strokeOpacity,
+        strokeColor,
+        secondaryStrokeColor,
+        primaryLabel,
+        secondaryLabel,
+        useSubtitleStyleOnName,
+        primarySeriesType,
+        secondarySeriesType,
+        fillOpacity,
+        showLegend,
+        showGridlines,
+        showDataLabels,
+        syncAxisScales,
+        doubleWide,
+        dataPoints,
+        metricDate,
+        metricLabel,
+        metricValue,
+        metricSecondValue,
+        metricColor,
+        sankeyNodes,
+        sankeyLinks,
+        showSankeyLegend,
+        showSankeyLabels,
+        commentTextSize,
+    ]);
 
     const currentSnapshot = useMemo(
         () => JSON.stringify(buildDirtySnapshot()),
-        [
-            kpiName,
-            subtitle,
-            bannerStatus,
-            sectionId,
-            visible,
-            prefix,
-            suffix,
-            prefixOpacity,
-            suffixOpacity,
-            lastUpdated,
-            notes,
-            textValue,
-            visualizationSelection,
-            chartType,
-            reverseTrend,
-            targetValue,
-            targetColor,
-            strokeWidth,
-            strokeOpacity,
-            strokeColor,
-            secondaryStrokeColor,
-            primaryLabel,
-            secondaryLabel,
-            useSubtitleStyleOnName,
-            primarySeriesType,
-            secondarySeriesType,
-            fillOpacity,
-            showLegend,
-            showGridlines,
-            showDataLabels,
-            syncAxisScales,
-            dataPoints,
-            metricDate,
-            metricLabel,
-            metricValue,
-            metricSecondValue,
-            metricColor,
-            sankeyNodes,
-            sankeyLinks,
-            showSankeyLegend,
-            showSankeyLabels,
-            commentTextSize,
-        ]
+        [buildDirtySnapshot]
     );
 
     const initialSnapshotRef = React.useRef<string | null>(null);
@@ -406,6 +411,9 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
         setChartType(nextType);
         if (nextType === 'sankey' && showDataLabels) {
             setShowDataLabels(false);
+        }
+        if (nextType !== 'sankey') {
+            setDoubleWide(false);
         }
         if (colorChartTypes.includes(nextType)) {
             setDataPoints((prev) =>
@@ -934,10 +942,12 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                         secondarySeriesType: isMultiAxisLine ? secondarySeriesType : undefined,
                         useSubtitleStyleOnName: subtitleStyleOnName,
                         syncAxisScales: isMultiAxisLine ? syncAxisScales : undefined,
+                        doubleWide: isSankeyChart ? doubleWide : undefined,
                     }
                     : {
                         ...baseChartSettings,
                         useSubtitleStyleOnName: subtitleStyleOnName,
+                        doubleWide: undefined,
                     },
             sankeySettings:
                 resolvedVisualization === 'sankey'
@@ -1307,6 +1317,20 @@ export default function KPIForm({ kpi, sections = [], onSave, onCancel }: KPIFor
                                     </p>
                                 )}
                             </div>
+                            {isSankeyChart && (
+                                <div className="form-group">
+                                    <label className="form-label mb-1">Tile Layout</label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="form-checkbox rounded bg-industrial-900 border-industrial-700 text-industrial-500 focus:ring-industrial-500"
+                                            checked={doubleWide}
+                                            onChange={(e) => setDoubleWide(e.target.checked)}
+                                        />
+                                        <span className="text-sm text-industrial-300">Double-wide tile</span>
+                                    </label>
+                                </div>
+                            )}
                             {!isSankeyChart && (
                                 <div className="form-group">
                                     <label className="form-label mb-1">Display</label>

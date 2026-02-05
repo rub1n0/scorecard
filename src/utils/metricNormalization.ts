@@ -214,6 +214,7 @@ export const buildChartSettings = (row: {
         secondarySeriesType: (jsonSettings as { secondarySeriesType?: 'line' | 'area' }).secondarySeriesType,
         useSubtitleStyleOnName: (jsonSettings as { useSubtitleStyleOnName?: boolean }).useSubtitleStyleOnName,
         syncAxisScales: (jsonSettings as { syncAxisScales?: boolean }).syncAxisScales,
+        doubleWide: (jsonSettings as { doubleWide?: boolean }).doubleWide,
     };
 };
 

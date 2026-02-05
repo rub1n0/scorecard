@@ -337,6 +337,23 @@
   .preview-item-details {
     @apply flex flex-wrap gap-x-6 gap-y-2 text-xs text-industrial-500 font-mono;
   }
+
+  .exporting .tile-hover-actions {
+    display: none !important;
+  }
+}
+
+body.exporting *,
+body.exporting *::before,
+body.exporting *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+body.exporting .apexcharts-tooltip,
+body.exporting .apexcharts-toolbar,
+body.exporting #apexsankey-tooltip-container {
+  display: none !important;
 }
 
 @layer utilities {

@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { BannerConfig, Scorecard, KPI, Section, ScorecardRole } from "@/types";
@@ -30,7 +29,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "./PageHeader";
 import Modal from "./Modal";
 import KPIVisibilityModal from "./KPIVisibilityModal";
-import { v4 as uuidv4 } from "uuid";
 import { fetchWithScorecardRole, getScorecardRole } from "@/utils/scorecardClient";
 
 interface ScorecardViewProps {
@@ -50,11 +48,6 @@ type SectionLinkRow = {
   email: string;
 };
 
-const generateId = () =>
-  typeof globalThis.crypto?.randomUUID === "function"
-    ? globalThis.crypto.randomUUID()
-    : uuidv4();
-
 export default function ScorecardView({ scorecard }: ScorecardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,7 +55,6 @@ export default function ScorecardView({ scorecard }: ScorecardViewProps) {
     addKPI,
     updateKPI,
     deleteKPI,
-    refreshScorecards,
     fetchScorecardById,
     updateScorecard,
     regenerateAssigneeToken,
