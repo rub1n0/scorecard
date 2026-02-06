@@ -1,6 +1,13 @@
 import { toBlob } from 'html-to-image';
 
-const waitForNextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+const waitForNextFrame = () =>
+    new Promise<void>((resolve) => {
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(() => resolve());
+        } else {
+            setTimeout(() => resolve(), 0);
+        }
+    });
 
 const setApexAnimations = (chartIds: string[], enabled: boolean) => {
     if (!chartIds.length) return;
@@ -8,7 +15,7 @@ const setApexAnimations = (chartIds: string[], enabled: boolean) => {
     if (!apex?.exec) return;
     chartIds.forEach((chartId) => {
         try {
-            apex.exec(
+            apex.exec?.(
                 chartId,
                 'updateOptions',
                 { chart: { animations: { enabled } } },
@@ -133,7 +140,7 @@ const buildCompositeBlob = async (
     clone: HTMLElement,
     chartImages: Map<string, { dataUrl: string; width: number; height: number }>,
     chartImageIds: string[],
-    toBlobOptions: Parameters<typeof toBlob>[1]
+    toBlobOptions: NonNullable<Parameters<typeof toBlob>[1]>
 ): Promise<Blob | null> => {
     if (!chartImageIds.length || chartImages.size === 0) return null;
     const nodeRect = node.getBoundingClientRect();
@@ -424,7 +431,7 @@ export const downloadNodeAsPng = async (
                 if (node.tagName === 'FOREIGNOBJECT') return false;
                 return true;
             },
-        } as Parameters<typeof toBlob>[1];
+        } satisfies NonNullable<Parameters<typeof toBlob>[1]>;
 
         let blob: Blob | null = null;
         try {

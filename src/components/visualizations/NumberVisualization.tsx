@@ -216,9 +216,6 @@ export default function NumberVisualization({
                   width: chartSettings?.strokeWidth ?? 2,
                   colors: [sparkColor],
                 },
-                tooltip: {
-                  enabled: false,
-                },
                 colors: [sparkColor],
                 tooltip: {
                   enabled: true,
